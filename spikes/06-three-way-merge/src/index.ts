@@ -1,0 +1,6 @@
+export { createBiomeCliFormatter, type Formatter, tryFormat } from './format.ts'
+export { type Fs, nodeFs } from './fs.ts'
+export { formatHeader, parseHeader, type TemplateHeader } from './header.ts'
+export { basePath, type LockEntry, type LockFile, LockFileSchema, lockPath, readBase, readLock, serializeLock, writeAtomic } from './lock.ts'
+export { type Conflict, type ConflictKind, hasConflictMarkers, type MergeOptions, type MergeResult, mergeThreeWay, mergeTwoWay } from './merge.ts'
+export { applyPlan, type Plan, type PlanItem, planUpgrade, recoverUpgrade, renderDryRun, type TemplateOutput, UpgradeAbortedError } from './upgrade.ts'

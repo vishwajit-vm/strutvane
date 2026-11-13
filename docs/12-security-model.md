@@ -276,3 +276,17 @@ CREATE POLICY tenant_isolation ON products
 2. **Threat-model review** with at least two external enterprise-security reviewers.
 3. **Penetration test** of the generated `examples/multi-tenant-saas` app.
 4. Findings are published (summary) and fixed before the `1.0.0` tag. The audit is repeated for every major.
+
+## 13. Continuous security testing
+
+Security is verified continuously, in every repo, by the VAPT program in [13 §14](13-testing-strategy.md#14-continuous-security-testing-vapt-program):
+- threat models before code
+- attack-style tests and fuzzing in CI
+- SAST, dependency and secret scanning
+- nightly DAST against a generated app
+- an external penetration test before 1.0
+
+Phase 0's spikes already found and fixed real vulnerabilities this way:
+- tenant leakage through session-level `SET` ([ADR-0007](adr/0007-tenancy-rls-enforcement-rules.md))
+- a null-actor privilege escalation ([ADR-0008](adr/0008-policy-predicates-two-valued-semantics.md))
+- user enumeration through password-reset timing, and rate-limit bypass through a spoofed `X-Forwarded-For` ([ADR-0013](adr/0013-better-auth-hardened-adapter.md))

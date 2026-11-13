@@ -296,3 +296,26 @@ describe('products', () => {
 | `generatedTenantIsolationSuite(model)` | The cross-tenant suite from §5, reusable for custom models |
 
 Generated tests per model: CRUD happy paths, validation errors, permission denials per role, the tenant isolation suite (if tenant-scoped), and factory smoke tests. All of these are owned files the developer can extend.
+
+## 14. Continuous security testing (VAPT program)
+
+Strutvane treats vulnerability assessment and penetration testing (VAPT) as a **continuous process in every repo**, not a one-off audit before launch. The goal: no gap an attacker could get through, and every class of attack covered by a test that runs automatically.
+
+| Layer | What runs | Where / when | Blocks a release? |
+|---|---|---|---|
+| **Threat model** | Each package's spec lists its attack surface, and how each attack is blocked (STRIDE), *before* any code is written | Spec + `security-reviewer` agent review | Yes. No implementation without one |
+| **Attack-style security tests** | Cross-tenant read/write/delete, privilege escalation, IDOR, SQL injection, path traversal, malicious uploads (spoofed MIME, decompression bombs, SVG scripts), session fixation, user enumeration (timing), CSRF/CORS, rate-limit bypass (spoofed `X-Forwarded-For`), log injection | Each repo's CI, on every push | Yes |
+| **Property-based fuzzing** | Random and malicious input against every parser and evaluator: multipart upload parser, list-query parser, `QueryFilter` validation, config files, env loading, template merge | CI (fast-check, as in spikes 02 and 06) | Yes |
+| **Mutation and tripwire tests** | Deliberately re-introduced known-bad behaviour must fail the suite: naive `<>`, sessions not revoked on reset, rate limit off | CI (as in spikes 02 and 07) | Yes |
+| **SAST** | CodeQL security queries | GitHub, every push and PR | Yes, on high severity |
+| **Dependency scanning** | Dependabot alerts, plus `npm audit` / OSV as a CI step | Every push + weekly | Yes, on high/critical with a fix available |
+| **Secret scanning** | GitHub secret scanning with **push protection** | All repos ✅ (enabled 2026-11-13) | Push is rejected |
+| **DAST** | OWASP ZAP baseline plus an authenticated full scan against a real generated app (API + UI), using each preset | Nightly `integration` repo | Yes, on high severity |
+| **Supply chain** | Actions pinned to commit SHAs, npm trusted publishing with provenance, pnpm minimum release age, lockfile review, SBOM | Every repo | Yes |
+| **External penetration test** | An independent firm tests auth, tenancy, uploads, the logs viewer and generators | Before 1.0 ([12 §12](12-security-model.md)) | Yes, for 1.0 |
+| **Disclosure and bounty** | Private vulnerability reporting (on ✅), coordinated disclosure; bug bounty after 1.0 | Always | — |
+
+**Rules:**
+- A security fix always ships with a regression test that reproduces the attack.
+- A spike or review that finds a vulnerability class adds a permanent test for the whole class, not just the instance.
+- Security tests never use mocks for the thing under attack (real DB, real HTTP, real file system).

@@ -32,7 +32,9 @@
 | Spike 1: model → migration diff ([ADR-0009](adr/0009-migration-engine-owns-rename-resolution.md)) | ✅ PG + SQLite. MySQL is still to do. |
 | Spike 4: policy predicate → SQL ([ADR-0008](adr/0008-policy-predicates-two-valued-semantics.md)) | ✅ |
 | Spike 5: Postgres RLS under PgBouncer ([ADR-0007](adr/0007-tenancy-rls-enforcement-rules.md)) | ✅ |
-| Spikes 2, 3, 6, 7, 8: registry compiler, OpenAPI client, three-way merge, Better Auth adapter, UI renderer | ⏳ Next |
+| Spikes 2, 3, 6, 7, 8: registry compiler, OpenAPI client, three-way merge, Better Auth adapter, UI renderer | ✅ Done: [ADR-0010](adr/0010-registry-static-analysis-oxc.md)–[ADR-0014](adr/0014-ui-from-manifest-with-registries.md) |
+| `@strutvane/logs`: RFC-0004, repo + npm name | ✅ Designed and reserved |
+| Spike 9: logger throughput and non-blocking guarantees (RFC-0004) | ⏳ Next |
 
 **Gate 0:**
 - All spikes answer their question (or produce an ADR changing the plan).
@@ -56,6 +58,7 @@
   - **storage & uploads, core layer** ([RFC-0002](rfcs/0002-file-storage-and-uploads.md)): disk manager (`local`, `memory`), streaming upload pipeline with limits, `UploadedFile`
   - Hono host
   - `/testing` helpers
+- **`@strutvane/logs`** ([RFC-0004](rfcs/0004-logs-package.md)): core default `Logger`, plus the logs package with file driver, retention, redaction, automatic request logging, the viewer at `/_strutvane/logs` and `sv logs:*`. Installed by default by `create-strutvane`. A spike (09) benchmarks throughput and non-blocking behaviour first.
 - Generated `api` project complete: configs, `.env` / `.env.example`, Docker (local, git-ignored), tests, README, CI.
 - Docs site skeleton + "Build your first API in 15 minutes" tutorial.
 

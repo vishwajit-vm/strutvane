@@ -115,7 +115,7 @@ Brand quality criteria applied:
 
 - [x] **npm:** done on 2026-11-13.
   - [x] Org [`strutvane`](https://www.npmjs.com/org/strutvane) created (free plan). Owner: npm user `vishwajitjitvm`, who has 2FA enabled (auth-and-writes).
-  - [x] Placeholder `0.0.0-reserved.0` (dist-tags `latest` and `reserved`) published for `strutvane`, `create-strutvane` and `@strutvane/{framework,auth,ui,core,contracts,devkit,cli}`. Each contains only a README pointing to its repo, plus LICENSE and package.json.
+  - [x] Placeholder `0.0.0-reserved.0` (dist-tags `latest` and `reserved`) published for `strutvane`, `create-strutvane` and `@strutvane/{framework,auth,ui,core,contracts,devkit,cli}` (2026-11-13), plus `@strutvane/logs` (2026-11-13, RFC-0004). Each contains only a README pointing to its repo, plus LICENSE and package.json.
     - npm's staged publishing also created an automatic `0.0.0-stage` placeholder version on each package.
     - Publishing used a short-lived granular token with bypass-2FA. **Revoke it** after use.
   - [ ] Configure **trusted publishing** (GitHub Actions OIDC) per package before the first real release (`0.1.0`).

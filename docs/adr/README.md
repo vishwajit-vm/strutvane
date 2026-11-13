@@ -11,6 +11,11 @@
 | [0007](0007-tenancy-rls-enforcement-rules.md) | Tenancy isolation via Postgres RLS under five mandatory rules | Accepted |
 | [0008](0008-policy-predicates-two-valued-semantics.md) | Policy predicates: one AST, two-valued NULL-safe semantics | Accepted |
 | [0009](0009-migration-engine-owns-rename-resolution.md) | Migration engine owns rename resolution and destructive-change gating | Accepted |
+| [0010](0010-registry-static-analysis-oxc.md) | Typed registry via static analysis (oxc), storm-safe watching | Accepted |
+| [0011](0011-openapi-pipeline-and-typed-client.md) | OpenAPI via @hono/zod-openapi; typed client via openapi-typescript + openapi-fetch; own list-query serializer | Accepted |
+| [0012](0012-normalising-three-way-merge.md) | Normalising three-way merge for ejected files, fail-closed fallbacks | Accepted |
+| [0013](0013-better-auth-hardened-adapter.md) | Better Auth behind a contract-tested IdentityEngine with mandatory hardening | Accepted (refines 0005) |
+| [0014](0014-ui-from-manifest-with-registries.md) | UI rendered from the manifest through typed widget and cell registries | Accepted |
 
 ## Adding an ADR
 

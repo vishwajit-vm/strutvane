@@ -27,6 +27,7 @@ You need one for any change to:
 | [0001](0001-contracts-v0.md) | Contracts v0 | Accepted (draft implementation) |
 | [0002](0002-file-storage-and-uploads.md) | File storage and uploads | Draft |
 | [0003](0003-errors-and-messages.md) | Errors, validation messages and form error handling | Draft |
+| [0004](0004-logs-package.md) | `@strutvane/logs`: zero-config logging with a built-in viewer | Draft |
 
 ## Template
 

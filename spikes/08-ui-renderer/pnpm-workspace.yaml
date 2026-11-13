@@ -1,0 +1,5 @@
+# pnpm's minimumReleaseAge rule blocks packages published in the last 24 h (supply-chain safety).
+# jsdom 31.0.1 was that recent when this spike was created; the exclusion pins exactly that version so
+# `install --frozen-lockfile` works. Remove the exclusion once the version is older than a day.
+minimumReleaseAgeExclude:
+  - jsdom@31.0.1

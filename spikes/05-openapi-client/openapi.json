@@ -1,0 +1,1614 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Strutvane spike 05 API",
+    "version": "0.0.0",
+    "description": "Generated from Zod model definitions. Errors are RFC 9457 problem+json with RFC-0003 issues."
+  },
+  "servers": [
+    {
+      "url": "/"
+    }
+  ],
+  "components": {
+    "schemas": {
+      "CustomerList": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Customer"
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/PageMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "Customer": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "x-strutvane-field": {
+              "label": "Name",
+              "filterOperators": [
+                "eq",
+                "contains",
+                "startsWith"
+              ],
+              "sortable": true,
+              "searchable": true
+            }
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "x-strutvane-field": {
+              "label": "Email",
+              "filterOperators": [
+                "eq"
+              ]
+            }
+          },
+          "region": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 2,
+            "maxLength": 2,
+            "x-strutvane-field": {
+              "label": "Region",
+              "filterOperators": [
+                "eq",
+                "in",
+                "isNull",
+                "isNotNull"
+              ]
+            }
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "x-strutvane-field": {
+              "label": "ID",
+              "filterOperators": [
+                "eq",
+                "in"
+              ]
+            }
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "x-strutvane-field": {
+              "label": "Created at",
+              "sortable": true
+            }
+          }
+        },
+        "required": [
+          "name",
+          "email",
+          "region",
+          "id",
+          "createdAt"
+        ],
+        "x-strutvane-resource": {
+          "name": "Customer",
+          "path": "customers",
+          "label": "Customer",
+          "pluralLabel": "Customers",
+          "titleField": "name"
+        }
+      },
+      "PageMeta": {
+        "type": "object",
+        "properties": {
+          "page": {
+            "type": "object",
+            "properties": {
+              "size": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "hasMore": {
+                "type": "boolean"
+              },
+              "nextCursor": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "size",
+              "hasMore"
+            ]
+          }
+        },
+        "required": [
+          "page"
+        ]
+      },
+      "Problem": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "status": {
+            "type": "integer"
+          },
+          "code": {
+            "type": "string"
+          },
+          "detail": {
+            "type": "string"
+          },
+          "traceId": {
+            "type": "string"
+          },
+          "issues": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ValidationIssue"
+            }
+          },
+          "fieldErrors": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "required": [
+          "type",
+          "title",
+          "status",
+          "code"
+        ]
+      },
+      "ValidationIssue": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "array",
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            }
+          },
+          "code": {
+            "type": "string"
+          },
+          "params": {
+            "type": "object",
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "boolean"
+                }
+              ]
+            }
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "code",
+          "message"
+        ]
+      },
+      "CustomerCreate": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "x-strutvane-field": {
+              "label": "Name",
+              "filterOperators": [
+                "eq",
+                "contains",
+                "startsWith"
+              ],
+              "sortable": true,
+              "searchable": true
+            }
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "x-strutvane-field": {
+              "label": "Email",
+              "filterOperators": [
+                "eq"
+              ]
+            }
+          },
+          "region": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 2,
+            "maxLength": 2,
+            "x-strutvane-field": {
+              "label": "Region",
+              "filterOperators": [
+                "eq",
+                "in",
+                "isNull",
+                "isNotNull"
+              ]
+            }
+          }
+        },
+        "required": [
+          "name",
+          "email",
+          "region"
+        ],
+        "additionalProperties": false
+      },
+      "CustomerUpdate": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "x-strutvane-field": {
+              "label": "Name",
+              "filterOperators": [
+                "eq",
+                "contains",
+                "startsWith"
+              ],
+              "sortable": true,
+              "searchable": true
+            }
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "x-strutvane-field": {
+              "label": "Email",
+              "filterOperators": [
+                "eq"
+              ]
+            }
+          },
+          "region": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 2,
+            "maxLength": 2,
+            "x-strutvane-field": {
+              "label": "Region",
+              "filterOperators": [
+                "eq",
+                "in",
+                "isNull",
+                "isNotNull"
+              ]
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "InvoiceList": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Invoice"
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/PageMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "Invoice": {
+        "type": "object",
+        "properties": {
+          "number": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 32,
+            "x-strutvane-field": {
+              "label": "Number",
+              "filterOperators": [
+                "eq",
+                "startsWith"
+              ],
+              "sortable": true,
+              "searchable": true
+            }
+          },
+          "customerId": {
+            "type": "string",
+            "format": "uuid",
+            "x-strutvane-field": {
+              "label": "Customer",
+              "filterOperators": [
+                "eq",
+                "in"
+              ],
+              "widget": "relation-picker"
+            }
+          },
+          "amount": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1000000000,
+            "x-strutvane-field": {
+              "label": "Amount",
+              "filterOperators": [
+                "eq",
+                "gt",
+                "gte",
+                "lt",
+                "lte",
+                "between"
+              ],
+              "sortable": true,
+              "widget": "money"
+            }
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "sent",
+              "paid",
+              "void"
+            ],
+            "x-strutvane-field": {
+              "label": "Status",
+              "filterOperators": [
+                "eq",
+                "ne",
+                "in",
+                "nin"
+              ],
+              "sortable": true,
+              "widget": "select"
+            }
+          },
+          "dueDate": {
+            "type": "string",
+            "format": "date",
+            "x-strutvane-field": {
+              "label": "Due date",
+              "filterOperators": [
+                "eq",
+                "gte",
+                "lte",
+                "between"
+              ],
+              "sortable": true
+            }
+          },
+          "notes": {
+            "type": "string",
+            "maxLength": 2000,
+            "x-strutvane-field": {
+              "label": "Notes",
+              "widget": "textarea",
+              "help": "Internal only"
+            }
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "x-strutvane-field": {
+              "label": "ID",
+              "filterOperators": [
+                "eq",
+                "in"
+              ]
+            }
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "x-strutvane-field": {
+              "label": "Created at",
+              "sortable": true
+            }
+          }
+        },
+        "required": [
+          "number",
+          "customerId",
+          "amount",
+          "status",
+          "dueDate",
+          "id",
+          "createdAt"
+        ],
+        "x-strutvane-resource": {
+          "name": "Invoice",
+          "path": "invoices",
+          "label": "Invoice",
+          "pluralLabel": "Invoices",
+          "titleField": "number"
+        }
+      },
+      "InvoiceCreate": {
+        "type": "object",
+        "properties": {
+          "number": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 32,
+            "x-strutvane-field": {
+              "label": "Number",
+              "filterOperators": [
+                "eq",
+                "startsWith"
+              ],
+              "sortable": true,
+              "searchable": true
+            }
+          },
+          "customerId": {
+            "type": "string",
+            "format": "uuid",
+            "x-strutvane-field": {
+              "label": "Customer",
+              "filterOperators": [
+                "eq",
+                "in"
+              ],
+              "widget": "relation-picker"
+            }
+          },
+          "amount": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1000000000,
+            "x-strutvane-field": {
+              "label": "Amount",
+              "filterOperators": [
+                "eq",
+                "gt",
+                "gte",
+                "lt",
+                "lte",
+                "between"
+              ],
+              "sortable": true,
+              "widget": "money"
+            }
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "sent",
+              "paid",
+              "void"
+            ],
+            "x-strutvane-field": {
+              "label": "Status",
+              "filterOperators": [
+                "eq",
+                "ne",
+                "in",
+                "nin"
+              ],
+              "sortable": true,
+              "widget": "select"
+            }
+          },
+          "dueDate": {
+            "type": "string",
+            "format": "date",
+            "x-strutvane-field": {
+              "label": "Due date",
+              "filterOperators": [
+                "eq",
+                "gte",
+                "lte",
+                "between"
+              ],
+              "sortable": true
+            }
+          },
+          "notes": {
+            "type": "string",
+            "maxLength": 2000,
+            "x-strutvane-field": {
+              "label": "Notes",
+              "widget": "textarea",
+              "help": "Internal only"
+            }
+          }
+        },
+        "required": [
+          "number",
+          "customerId",
+          "amount",
+          "status",
+          "dueDate"
+        ],
+        "additionalProperties": false
+      },
+      "InvoiceUpdate": {
+        "type": "object",
+        "properties": {
+          "number": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 32,
+            "x-strutvane-field": {
+              "label": "Number",
+              "filterOperators": [
+                "eq",
+                "startsWith"
+              ],
+              "sortable": true,
+              "searchable": true
+            }
+          },
+          "customerId": {
+            "type": "string",
+            "format": "uuid",
+            "x-strutvane-field": {
+              "label": "Customer",
+              "filterOperators": [
+                "eq",
+                "in"
+              ],
+              "widget": "relation-picker"
+            }
+          },
+          "amount": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1000000000,
+            "x-strutvane-field": {
+              "label": "Amount",
+              "filterOperators": [
+                "eq",
+                "gt",
+                "gte",
+                "lt",
+                "lte",
+                "between"
+              ],
+              "sortable": true,
+              "widget": "money"
+            }
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "sent",
+              "paid",
+              "void"
+            ],
+            "x-strutvane-field": {
+              "label": "Status",
+              "filterOperators": [
+                "eq",
+                "ne",
+                "in",
+                "nin"
+              ],
+              "sortable": true,
+              "widget": "select"
+            }
+          },
+          "dueDate": {
+            "type": "string",
+            "format": "date",
+            "x-strutvane-field": {
+              "label": "Due date",
+              "filterOperators": [
+                "eq",
+                "gte",
+                "lte",
+                "between"
+              ],
+              "sortable": true
+            }
+          },
+          "notes": {
+            "type": "string",
+            "maxLength": 2000,
+            "x-strutvane-field": {
+              "label": "Notes",
+              "widget": "textarea",
+              "help": "Internal only"
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "parameters": {}
+  },
+  "paths": {
+    "/customers": {
+      "get": {
+        "operationId": "listCustomers",
+        "summary": "List customers",
+        "tags": [
+          "Customers"
+        ],
+        "responses": {
+          "200": {
+            "description": "One page of results",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomerList"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid filter, sort or page parameters",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "filter",
+            "in": "query",
+            "required": false,
+            "style": "deepObject",
+            "explode": true,
+            "description": "Row filter: `filter[<field>][<operator>]=<value>`. Repeat the key for `in`, `nin` and `between`; `isNull`/`isNotNull` take `true`. Only listed fields and operators are accepted.",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "object",
+                  "properties": {
+                    "eq": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200
+                    },
+                    "contains": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200
+                    },
+                    "startsWith": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "email": {
+                  "type": "object",
+                  "properties": {
+                    "eq": {
+                      "type": "string",
+                      "format": "email",
+                      "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "region": {
+                  "type": "object",
+                  "properties": {
+                    "eq": {
+                      "type": "string",
+                      "minLength": 2,
+                      "maxLength": 2
+                    },
+                    "in": {
+                      "minItems": 1,
+                      "maxItems": 100,
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 2,
+                        "maxLength": 2
+                      }
+                    },
+                    "isNull": {
+                      "type": "boolean",
+                      "const": true
+                    },
+                    "isNotNull": {
+                      "type": "boolean",
+                      "const": true
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "id": {
+                  "type": "object",
+                  "properties": {
+                    "eq": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "in": {
+                      "minItems": 1,
+                      "maxItems": 100,
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      }
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "additionalProperties": false
+            },
+            "x-strutvane-serialization": "strutvane-list-query"
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "style": "form",
+            "explode": false,
+            "description": "Comma-separated sort fields; prefix with `-` for descending. An `id` tiebreak is always applied.",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "name",
+                  "-name",
+                  "createdAt",
+                  "-createdAt"
+                ]
+              }
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "style": "deepObject",
+            "explode": true,
+            "description": "`page[size]` (1–100, default 25) and either `page[cursor]` (opaque) or `page[number]`.",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "size": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 100
+                },
+                "cursor": {
+                  "type": "string"
+                },
+                "number": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 9007199254740991
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "style": "form",
+            "explode": true,
+            "description": "Free-text search in: name.",
+            "schema": {
+              "type": "string",
+              "maxLength": 200
+            }
+          }
+        ]
+      },
+      "post": {
+        "operationId": "createCustomer",
+        "summary": "Create a customer",
+        "tags": [
+          "Customers"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CustomerCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Customer"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed JSON body",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/customers/{id}": {
+      "get": {
+        "operationId": "getCustomer",
+        "summary": "Get one customer",
+        "tags": [
+          "Customers"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Record id (UUID)"
+            },
+            "required": true,
+            "description": "Record id (UUID)",
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Customer",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Customer"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid id",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "operationId": "updateCustomer",
+        "summary": "Update a customer",
+        "tags": [
+          "Customers"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Record id (UUID)"
+            },
+            "required": true,
+            "description": "Record id (UUID)",
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CustomerUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Customer"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed JSON body",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteCustomer",
+        "summary": "Delete a customer",
+        "tags": [
+          "Customers"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Record id (UUID)"
+            },
+            "required": true,
+            "description": "Record id (UUID)",
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted"
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid id",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/invoices": {
+      "get": {
+        "operationId": "listInvoices",
+        "summary": "List invoices",
+        "tags": [
+          "Invoices"
+        ],
+        "responses": {
+          "200": {
+            "description": "One page of results",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvoiceList"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid filter, sort or page parameters",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "filter",
+            "in": "query",
+            "required": false,
+            "style": "deepObject",
+            "explode": true,
+            "description": "Row filter: `filter[<field>][<operator>]=<value>`. Repeat the key for `in`, `nin` and `between`; `isNull`/`isNotNull` take `true`. Only listed fields and operators are accepted.",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "number": {
+                  "type": "object",
+                  "properties": {
+                    "eq": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 32
+                    },
+                    "startsWith": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "customerId": {
+                  "type": "object",
+                  "properties": {
+                    "eq": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "in": {
+                      "minItems": 1,
+                      "maxItems": 100,
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      }
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "amount": {
+                  "type": "object",
+                  "properties": {
+                    "eq": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 1000000000
+                    },
+                    "gt": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 1000000000
+                    },
+                    "gte": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 1000000000
+                    },
+                    "lt": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 1000000000
+                    },
+                    "lte": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 1000000000
+                    },
+                    "between": {
+                      "type": "array",
+                      "prefixItems": [
+                        {
+                          "type": "number",
+                          "minimum": 0,
+                          "maximum": 1000000000
+                        },
+                        {
+                          "type": "number",
+                          "minimum": 0,
+                          "maximum": 1000000000
+                        }
+                      ],
+                      "items": false,
+                      "minItems": 2,
+                      "maxItems": 2
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "status": {
+                  "type": "object",
+                  "properties": {
+                    "eq": {
+                      "type": "string",
+                      "enum": [
+                        "draft",
+                        "sent",
+                        "paid",
+                        "void"
+                      ]
+                    },
+                    "ne": {
+                      "type": "string",
+                      "enum": [
+                        "draft",
+                        "sent",
+                        "paid",
+                        "void"
+                      ]
+                    },
+                    "in": {
+                      "minItems": 1,
+                      "maxItems": 100,
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "draft",
+                          "sent",
+                          "paid",
+                          "void"
+                        ]
+                      }
+                    },
+                    "nin": {
+                      "minItems": 1,
+                      "maxItems": 100,
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "draft",
+                          "sent",
+                          "paid",
+                          "void"
+                        ]
+                      }
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "dueDate": {
+                  "type": "object",
+                  "properties": {
+                    "eq": {
+                      "type": "string",
+                      "format": "date",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                    },
+                    "gte": {
+                      "type": "string",
+                      "format": "date",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                    },
+                    "lte": {
+                      "type": "string",
+                      "format": "date",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                    },
+                    "between": {
+                      "type": "array",
+                      "prefixItems": [
+                        {
+                          "type": "string",
+                          "format": "date",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                        },
+                        {
+                          "type": "string",
+                          "format": "date",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                        }
+                      ],
+                      "items": false,
+                      "minItems": 2,
+                      "maxItems": 2
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "id": {
+                  "type": "object",
+                  "properties": {
+                    "eq": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "in": {
+                      "minItems": 1,
+                      "maxItems": 100,
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      }
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "additionalProperties": false
+            },
+            "x-strutvane-serialization": "strutvane-list-query"
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "style": "form",
+            "explode": false,
+            "description": "Comma-separated sort fields; prefix with `-` for descending. An `id` tiebreak is always applied.",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "number",
+                  "-number",
+                  "amount",
+                  "-amount",
+                  "status",
+                  "-status",
+                  "dueDate",
+                  "-dueDate",
+                  "createdAt",
+                  "-createdAt"
+                ]
+              }
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "style": "deepObject",
+            "explode": true,
+            "description": "`page[size]` (1–100, default 25) and either `page[cursor]` (opaque) or `page[number]`.",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "size": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 100
+                },
+                "cursor": {
+                  "type": "string"
+                },
+                "number": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 9007199254740991
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "style": "form",
+            "explode": true,
+            "description": "Free-text search in: number.",
+            "schema": {
+              "type": "string",
+              "maxLength": 200
+            }
+          }
+        ]
+      },
+      "post": {
+        "operationId": "createInvoice",
+        "summary": "Create a invoice",
+        "tags": [
+          "Invoices"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InvoiceCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Invoice"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed JSON body",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/invoices/{id}": {
+      "get": {
+        "operationId": "getInvoice",
+        "summary": "Get one invoice",
+        "tags": [
+          "Invoices"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Record id (UUID)"
+            },
+            "required": true,
+            "description": "Record id (UUID)",
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Invoice",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Invoice"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid id",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "operationId": "updateInvoice",
+        "summary": "Update a invoice",
+        "tags": [
+          "Invoices"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Record id (UUID)"
+            },
+            "required": true,
+            "description": "Record id (UUID)",
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InvoiceUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Invoice"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed JSON body",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteInvoice",
+        "summary": "Delete a invoice",
+        "tags": [
+          "Invoices"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Record id (UUID)"
+            },
+            "required": true,
+            "description": "Record id (UUID)",
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted"
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid id",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "webhooks": {}
+}

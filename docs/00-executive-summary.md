@@ -94,6 +94,7 @@ pnpm dev                              # API + docs + UI live: /api/v1/products, 
 | D20 | **Docs** | Diátaxis structure, versioned docs site, every feature ships with docs, an example and tests. |
 | D21 | **Files** | Three layers, as in Laravel. Contracts: `StorageDisk`, `StoredFile`. Framework core: disk manager (local/memory), a streaming upload pipeline that enforces limits while bytes arrive, and `UploadedFile`. **`@strutvane/files`**: cloud drivers, `file`/`image`/`files` fields, attachments, presigned and resumable uploads, image variants, virus scan, signed URLs, quotas. See [RFC-0002](rfcs/0002-file-storage-and-uploads.md). |
 | D22 | **Errors & messages** | One error model end to end: `Problem` with a stable `code` and structured `issues` (path, code, params, message). Message catalogs can be overridden per field, resource or app, use ICU placeholders and are per locale. The UI shares the catalogs. All 16 form failure categories have defined behaviour, including keeping drafts on 401 and idempotent retries. See [RFC-0003](rfcs/0003-errors-and-messages.md). |
+| D24 | **Logging** | **`@strutvane/logs`**, installed by default in new apps and optional. It works with zero configuration: non-blocking structured logs, daily files with size and retention limits, redaction before storage, automatic request and exception logging, and a built-in viewer at `/_strutvane/logs` (live tail, search, download), locked down by default. Core ships a minimal default `Logger`, so every package can always log. Inspired by TraceNest. See [RFC-0004](rfcs/0004-logs-package.md). |
 | D23 | **Integration** | Every connection between packages is explicit, typed and listed in the [integration map](17-integration-map.md): contracts, providers, events, installer `enhances`, manifest. If a connection isn't on the map, it isn't allowed. |
 
 ## 4. Why this can win (from [02](02-competitive-analysis.md))
@@ -113,7 +114,7 @@ pnpm dev                              # API + docs + UI live: /api/v1/products, 
 | 3 | months 5–7 | UI | `0.3` |
 | 4 | months 7–9 | Enterprise layer | `0.9` beta |
 | 5 | months 9–12 | Hardening + audit | `1.0` |
-| 6 | year 2 | notify, payments, logs, reports, analytics (files moved earlier: core uploads in Phase 1, `@strutvane/files` in Phase 3) | — |
+| 6 | year 2 | notify, payments, reports, analytics (moved earlier: `@strutvane/logs` to Phase 1; core uploads to Phase 1 and `@strutvane/files` to Phase 3) | — |
 
 ## 6. Top risks ([15](15-risks-and-tradeoffs.md))
 

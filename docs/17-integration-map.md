@@ -40,6 +40,7 @@
 | `StorageManager` (`StorageDisk`) | framework core (`local`, `memory`); files adds cloud drivers | framework uploads, files, ui-server, future reports/exports | Always present (core) |
 | `FileScanner` | files (ClamAV adapter) | files | Scanning disabled. Policy decides: refuse risky types, or accept them |
 | `MessageCatalog` | core (+ every package registers its messages) | framework error handler, ui | Always present (core) |
+| `Logger` | core (default: structured, redacting, stdout); **logs** replaces it with the full implementation (files/DB/OTel, viewer) | every package | Always present (core default). With `@strutvane/logs` absent, logs go to stdout and there is no viewer ([RFC-0004](rfcs/0004-logs-package.md)) |
 | `Queue`, `Cache`, `Mailer` | framework | auth (emails, sessions), files (variants), notify (future) | `sync` / `memory` / `log` drivers in dev |
 | `Clock`, `IdGenerator` | core | everyone (testable time, UUIDv7) | Always present (core) |
 
@@ -54,6 +55,7 @@
 | `upload.validated` (framework) | files | Scan, quota check, dedupe |
 | `manifest.build` (framework) | auth, files | Add per-actor capabilities, file widgets and limits to the manifest |
 | `errors.register` (core) | every package | Register error codes and default messages ([RFC-0003](rfcs/0003-errors-and-messages.md)) |
+| `http.onRequest` / `http.onResponse` / `errors.unhandled` (framework) | logs | Automatic request and exception logging. The viewer route is registered through the router ([RFC-0004](rfcs/0004-logs-package.md)) |
 | `cli.register` (core) | every package | Add `sv` commands (`auth:*`, `files:*`, …) |
 
 ## 5. Domain events: who emits, who reacts
@@ -64,6 +66,7 @@
 | `auth.user.registered`, `auth.login.failed`, `auth.role.assigned` | auth | notify (welcome email), logs/security |
 | `tenant.created`, `tenant.suspended` | auth | files (provision storage prefix), billing *(future)* |
 | `file.uploaded`, `file.scanned`, `file.deleted` | files | files (variants), search, audit |
+| `logs.cleared`, `logs.exported` | logs | audit (who cleared or exported logs) |
 
 Events are delivered at-least-once through the outbox. Every consumer must be idempotent, keyed by `idempotencyKey`.
 
@@ -80,6 +83,9 @@ Install order doesn't matter. Whichever package is installed second adds the con
 | files | framework | `config/filesystems.ts` cloud disks, `files` + `attachments` migrations, `file`/`image`/`files` field types, cleanup + variant jobs, `.env` + `.env.example` keys |
 | files | ui | dropzone, progress, preview and gallery widgets registered for file fields |
 | files | auth | file permissions (`file.download`, `file.delete`) and download policy integration |
+| logs | framework | request and exception logging, viewer route `/_strutvane/logs`, `config/logs.ts`, `LOG_*`/`LOGS_*` keys in `.env` + `.env.example` |
+| logs | auth | `logs.view`, `logs.export` and `logs.clear` permissions; tenant-scoped viewer |
+| logs | ui | "Logs" entry in the app menu |
 
 `sv remove <pkg>` reverses only that package's pieces and keeps every file you edited (it lists them).
 
@@ -92,6 +98,7 @@ Install order doesn't matter. Whichever package is installed second adds the con
 | framework + ui | Generated UI with no login (dev only). Production boot refuses unless public access is declared. |
 | framework + auth + ui | The full experience ([05](05-developer-experience.md)). |
 | + files | File fields work end-to-end: upload, validation, storage, widgets, secure downloads. |
+| + logs (installed by default) | Every request and error is logged with redaction. Viewer at `/_strutvane/logs`: local-only, or permission-gated with auth. Remove with `sv remove logs`. |
 | ui only (external API) | The UI is built from OpenAPI inference plus `ui.resources.ts`, with OIDC or custom auth through providers. |
 | auth only (in an Express/Nest app) | Identity, policies and tenancy via framework adapters ([07](07-package-auth.md)). |
 
