@@ -12,8 +12,16 @@ This folder is the **umbrella workspace and the hub repo** (`github.com/vishwaji
 
 ## Status
 
-- **Phase: design / pre-implementation (as of 2026-11-13).** The blueprint is complete; Phase 0 (foundations) is next.
-- **Do not write implementation code unless the user explicitly asks.** Planning, docs, ADRs and spikes come first.
+- **Phase 0 (foundations) in progress (as of 2026-11-13).** Done so far:
+  - `packages/tooling`: canonical configs, CI and release workflows, and `sync.mjs` with drift check
+  - `packages/contracts`: v0 implemented and tested
+  - `packages/docs`: friendly Starlight docs site
+  - `spikes/01-03`: answered, with ADR-0007/0008/0009
+  - Status and next spikes: `docs/14-roadmap.md` § "Phase 0 progress".
+- The user has authorised implementation (Phase 0 onward). Quality bar: everything tested, strictly typed, documented with the *why*, reusable, and with failure scenarios handled up front.
+- Branching: every repo works on `main`. Any feature branch must be merged back into `main` after its tests pass; never leave work on side branches.
+- pnpm is not installed globally. Use `corepack pnpm@12.18.0 <cmd>` (and `COREPACK_ENABLE_DOWNLOAD_PROMPT=0` in scripts). Package scripts call tools directly, never `pnpm run x`.
+- Shared configs come only from `packages/tooling/canonical`. Change them there, run `node packages/tooling/scripts/sync.mjs`, then run each affected repo's `ci` script.
 
 ## Source of truth
 
@@ -45,7 +53,8 @@ This folder is the **umbrella workspace and the hub repo** (`github.com/vishwaji
 
 ## Map
 
-- `docs/`: blueprint (00–16), `adr/`, `research/` (dated evidence)
+- `docs/`: blueprint (00–16), `adr/` (0001–0009), `rfcs/` (RFC process, RFC-0001), `research/` (dated evidence)
+- `spikes/`: Phase 0 experiments with reports (standalone; never imported by real packages)
 - `packages/<name>/`: each package repo, with its own `CLAUDE.md` and `.claude/`
 - `.claude/skills/`: `adr`, `blueprint-sync`, `research-refresh`, `new-package-repo`
 - `.claude/agents/`: `architecture-reviewer`, `security-reviewer`, `docs-editor`

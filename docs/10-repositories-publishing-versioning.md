@@ -18,8 +18,10 @@
 > | [`vishwajit-vm/strutvane-cli`](https://github.com/vishwajit-vm/strutvane-cli) | `strutvane/cli` |
 > | [`vishwajit-vm/strutvane-devkit`](https://github.com/vishwajit-vm/strutvane-devkit) | `strutvane/devkit` |
 > | [`vishwajit-vm/create-strutvane`](https://github.com/vishwajit-vm/create-strutvane) | `strutvane/create-strutvane` |
+> | [`vishwajit-vm/strutvane-tooling`](https://github.com/vishwajit-vm/strutvane-tooling) | `strutvane/tooling` |
+> | [`vishwajit-vm/strutvane-docs`](https://github.com/vishwajit-vm/strutvane-docs) | `strutvane/docs` |
 >
-> `tooling`, `docs`, `examples` and `integration` are created when Phase 0–1 needs them. A repository transfer keeps stars, issues and redirects. Update `repository` fields in each `package.json` and the npm trusted-publisher configuration after the transfer.
+> `examples` and `integration` are created when Phase 1 needs them. A repository transfer keeps stars, issues and redirects. Update `repository` fields in each `package.json` and the npm trusted-publisher configuration after the transfer.
 
 | Repo | Publishes to npm | Contents |
 |------|------------------|----------|

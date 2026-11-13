@@ -15,7 +15,7 @@ Declare models as fields and types, run one command, and get migrations, a secur
 </div>
 
 > [!NOTE]
-> **Strutvane is in the design phase.** This repository holds the complete technical blueprint: vision, competitive research, architecture, package specs, roadmap. Implementation starts with Phase 0. Nothing is published to npm yet.
+> **Strutvane is in Phase 0 (foundations).** This repository holds the technical blueprint, decision records (ADRs), RFCs and the results of the Phase 0 [spikes](spikes/). Shared tooling, the docs site and the `@strutvane/contracts` v0 draft are built and tested. Nothing is released on npm yet: the packages there are name placeholders.
 
 ## The idea
 
@@ -51,6 +51,8 @@ export default defineModel('Invoice', {
 | `strutvane` · `@strutvane/cli` | [strutvane-cli](https://github.com/vishwajit-vm/strutvane-cli) | Unified CLI (`pnpm sv …`) |
 | `@strutvane/devkit` | [strutvane-devkit](https://github.com/vishwajit-vm/strutvane-devkit) | SDK for installers, generators, plugins |
 | `create-strutvane` | [create-strutvane](https://github.com/vishwajit-vm/create-strutvane) | `npm create strutvane@latest` |
+| *(internal)* | [strutvane-tooling](https://github.com/vishwajit-vm/strutvane-tooling) | Shared configs, CI/release workflows, config sync |
+| *(docs site)* | [strutvane-docs](https://github.com/vishwajit-vm/strutvane-docs) | Friendly public documentation ([live site](https://vishwajit-vm.github.io/strutvane-docs/)) |
 
 **Planned next:** `notify`, `files`, `payments`, `billing`, `logs`, `reports`, `analytics`, `search`, `realtime`, `i18n`.
 
@@ -87,6 +89,8 @@ strutvane/                 ← this repo (blueprint, docs, ADRs; ignores package
    ├─ auth/                ← github.com/vishwajit-vm/strutvane-auth
    ├─ ui/                  ← github.com/vishwajit-vm/strutvane-ui
    ├─ core/  contracts/  cli/  devkit/  create-strutvane/
+   ├─ tooling/            ← github.com/vishwajit-vm/strutvane-tooling
+   └─ docs/               ← github.com/vishwajit-vm/strutvane-docs
 ```
 
 To recreate this layout from scratch:
@@ -95,6 +99,7 @@ To recreate this layout from scratch:
 git clone https://github.com/vishwajit-vm/strutvane.git && cd strutvane
 for r in framework auth ui core contracts cli devkit; do git clone https://github.com/vishwajit-vm/strutvane-$r.git packages/$r; done
 git clone https://github.com/vishwajit-vm/create-strutvane.git packages/create-strutvane
+for r in tooling docs; do git clone https://github.com/vishwajit-vm/strutvane-$r.git packages/$r; done
 ```
 
 ## Contributing
