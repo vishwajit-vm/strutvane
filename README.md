@@ -77,6 +77,7 @@ Start with the [executive summary](docs/00-executive-summary.md), then the [deve
 | [Security model](docs/12-security-model.md) | [Testing strategy](docs/13-testing-strategy.md) |
 | [Roadmap](docs/14-roadmap.md) | [Risks & trade-offs](docs/15-risks-and-tradeoffs.md) |
 | [Docs & ecosystem strategy](docs/16-docs-and-ecosystem-strategy.md) | [Decision records](docs/adr/README.md) |
+| [Integration map](docs/17-integration-map.md) | [RFCs](docs/rfcs/README.md) |
 
 ## Local development layout
 

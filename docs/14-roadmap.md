@@ -52,6 +52,8 @@
   - model DSL (core field types), migrations (auto-diff + manual) for **Postgres + SQLite**
   - resource engine (full CRUD, list query protocol, hooks, actions)
   - validation, OpenAPI + `/docs`
+  - **errors & messages** ([RFC-0003](rfcs/0003-errors-and-messages.md)): error classes, central error handler, `Problem.issues`, message catalogs with ICU placeholders, DB error translation, `sv lang:check`
+  - **storage & uploads, core layer** ([RFC-0002](rfcs/0002-file-storage-and-uploads.md)): disk manager (`local`, `memory`), streaming upload pipeline with limits, `UploadedFile`
   - Hono host
   - `/testing` helpers
 - Generated `api` project complete: configs, `.env` / `.env.example`, Docker (local, git-ignored), tests, README, CI.
@@ -92,6 +94,8 @@
 - shadcn-compatible registry, copy-into-project components, L1–L3 overrides, `sv eject ui`.
 - `full` preset end-to-end, with one `pnpm dev` for API + UI.
 - UI-only preset against arbitrary OpenAPI.
+- **Form error handling** (RFC-0003 §4, all 16 categories): field and form messages, focus management, keeping the draft on 401, conflict view, offline autosave and idempotent retry.
+- **`@strutvane/files`** ([RFC-0002](rfcs/0002-file-storage-and-uploads.md)): S3 and Azure Blob drivers, `file`/`image`/`files` fields, attachments, presigned uploads, image variants, signed URLs. Dropzone widgets in the UI.
 
 **Gate 3:**
 - "Build a B2B app (10 models, auth, RBAC, UI) in 2 hours" tutorial validated with 5 external developers. Median ≤ 2 h.
@@ -131,7 +135,7 @@
 **Priority order, driven by user demand:**
 
 1. **`@strutvane/notify`:** email/SMS/push/in-app/Slack/Teams notifications, templates, preferences, digests.
-2. **`@strutvane/files`:** uploads, S3/Azure Blob/GCS/local, image transforms, virus-scan hook, signed URLs, `file`/`image` field types.
+2. ~~`@strutvane/files`~~ **moved earlier** (see Phase 1 and Phase 3, [RFC-0002](rfcs/0002-file-storage-and-uploads.md)).
 3. **`@strutvane/logs`:** log/audit shipping, retention, SIEM export, log explorer UI.
 4. **`@strutvane/reports`:** saved queries, scheduled reports, PDF/XLSX export, report builder UI.
 5. **`@strutvane/payments` + `billing`:** Stripe/Razorpay/Adyen adapters, subscriptions, invoices, tenant plans and limits.
@@ -149,4 +153,4 @@
 | 0.3 alpha | M7 | + Generated UI, full-stack in one command |
 | 0.9 beta | M9 | Enterprise layer, MySQL/Azure, queues, SSO |
 | 1.0 | M12 | Audited, stable, documented |
-| 1.x | Y2 | notify, files, logs, reports, payments, analytics |
+| 1.x | Y2 | notify, logs, reports, payments, analytics |

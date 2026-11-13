@@ -35,10 +35,12 @@ This folder is the blueprint for **Strutvane**, a TypeScript framework and packa
 | 14 | [Roadmap](14-roadmap.md) | Phases 0–6 with exit gates |
 | 15 | [Risks & trade-offs](15-risks-and-tradeoffs.md) | Risk register, decided trade-offs, open questions |
 | 16 | [Docs & ecosystem strategy](16-docs-and-ecosystem-strategy.md) | Public docs structure, governance, sustainability, future packages |
+| 17 | [Integration map](17-integration-map.md) | Exactly how every package connects: contracts, providers, hooks, events, installers, scenarios |
 
 **Supporting material:**
 
 - [`adr/`](adr/): Architecture Decision Records. One decision per file; immutable once accepted.
+- [`rfcs/`](rfcs/): RFCs for public APIs and shared contracts (0001 contracts v0, 0002 file storage & uploads, 0003 errors & messages).
 - [`research/`](research/): dated raw evidence ([naming checks](research/naming-checks-2026-11-13.md), [stack snapshot](research/stack-snapshot-2026-11.md)).
 
 ## Conventions

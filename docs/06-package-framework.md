@@ -15,6 +15,8 @@
 | `/queue` | Jobs, schedules, retries, idempotency, outbox relay; `sync` / `database` / `valkey` drivers |
 | `/cache` | Cache facade, tags, tenant namespacing; `memory` / `database` / `valkey` drivers |
 | `/mail` | Mailables, templates, drivers (SMTP, SES, Resend, Postmark, log) |
+| `/storage` | Disk manager (`storage.disk(name)`), `local` + `memory` drivers, tenant key prefixing, streaming multipart upload pipeline with limits enforced while streaming, `UploadedFile` (magic-byte MIME, sha256, `store()`). Cloud drivers and file fields: `@strutvane/files` ([RFC-0002](rfcs/0002-file-storage-and-uploads.md)) |
+| `/errors` | Central error handler: every error → `Problem` with a rendered message, `traceId` and redacted logging. DB error translation (unique/FK/not-null → issues). See [RFC-0003](rfcs/0003-errors-and-messages.md) |
 | `/events` | Domain events, listeners, outbox |
 | `/testing` | `createTestApp`, `refreshDatabase`, `factory()`, `actingAs(user)`, `withTenant(t)`, typed HTTP test client, fake mail/queue/cache |
 
