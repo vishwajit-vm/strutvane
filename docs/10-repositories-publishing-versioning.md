@@ -5,19 +5,19 @@
 
 ## 1. Repository map (GitHub org `strutvane`)
 
-> **Interim home (from 2026-11-13).** Until the `strutvane` GitHub org is created, repos live under the maintainer account with a `strutvane-` prefix:
+> **Current home (from 2026-11-13).** Repos live in the GitHub org [`vishwajit-vm`](https://github.com/vishwajit-vm) with a `strutvane-` prefix. A dedicated `strutvane` org remains an option later:
 >
-> | Interim repo | Target repo |
+> | Current repo | Possible future repo |
 > |--------------|-------------|
-> | [`vishwajitvm/strutvane`](https://github.com/vishwajitvm/strutvane) | `strutvane/blueprint` (hub) |
-> | [`vishwajitvm/strutvane-framework`](https://github.com/vishwajitvm/strutvane-framework) | `strutvane/framework` |
-> | [`vishwajitvm/strutvane-auth`](https://github.com/vishwajitvm/strutvane-auth) | `strutvane/auth` |
-> | [`vishwajitvm/strutvane-ui`](https://github.com/vishwajitvm/strutvane-ui) | `strutvane/ui` |
-> | [`vishwajitvm/strutvane-core`](https://github.com/vishwajitvm/strutvane-core) | `strutvane/core` |
-> | [`vishwajitvm/strutvane-contracts`](https://github.com/vishwajitvm/strutvane-contracts) | `strutvane/contracts` |
-> | [`vishwajitvm/strutvane-cli`](https://github.com/vishwajitvm/strutvane-cli) | `strutvane/cli` |
-> | [`vishwajitvm/strutvane-devkit`](https://github.com/vishwajitvm/strutvane-devkit) | `strutvane/devkit` |
-> | [`vishwajitvm/create-strutvane`](https://github.com/vishwajitvm/create-strutvane) | `strutvane/create-strutvane` |
+> | [`vishwajit-vm/strutvane`](https://github.com/vishwajit-vm/strutvane) | `strutvane/blueprint` (hub) |
+> | [`vishwajit-vm/strutvane-framework`](https://github.com/vishwajit-vm/strutvane-framework) | `strutvane/framework` |
+> | [`vishwajit-vm/strutvane-auth`](https://github.com/vishwajit-vm/strutvane-auth) | `strutvane/auth` |
+> | [`vishwajit-vm/strutvane-ui`](https://github.com/vishwajit-vm/strutvane-ui) | `strutvane/ui` |
+> | [`vishwajit-vm/strutvane-core`](https://github.com/vishwajit-vm/strutvane-core) | `strutvane/core` |
+> | [`vishwajit-vm/strutvane-contracts`](https://github.com/vishwajit-vm/strutvane-contracts) | `strutvane/contracts` |
+> | [`vishwajit-vm/strutvane-cli`](https://github.com/vishwajit-vm/strutvane-cli) | `strutvane/cli` |
+> | [`vishwajit-vm/strutvane-devkit`](https://github.com/vishwajit-vm/strutvane-devkit) | `strutvane/devkit` |
+> | [`vishwajit-vm/create-strutvane`](https://github.com/vishwajit-vm/create-strutvane) | `strutvane/create-strutvane` |
 >
 > `tooling`, `docs`, `examples` and `integration` are created when Phase 0–1 needs them. A repository transfer keeps stars, issues and redirects. Update `repository` fields in each `package.json` and the npm trusted-publisher configuration after the transfer.
 

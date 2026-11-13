@@ -9,7 +9,7 @@ description: Create a new first-party Strutvane package repository (e.g. notify,
 - An accepted RFC/ADR for the package. Its RFC must include a "why not a plugin?" section.
 - The user's explicit go-ahead to create a public GitHub repo.
 
-1. Pick the name: `@strutvane/<capability>` (one lowercase noun). Repo: `vishwajitvm/strutvane-<capability>` (later `strutvane/<capability>`). Check that npm `@strutvane/<capability>` is unpublished.
+1. Pick the name: `@strutvane/<capability>` (one lowercase noun). Repo: `vishwajit-vm/strutvane-<capability>`. Check that npm `@strutvane/<capability>` is unpublished.
 2. Create `packages/<capability>/` with the same files as the existing package repos. Copy the structure of `packages/framework/`:
    - `README.md` (badges, design-phase note, capabilities, API preview, ecosystem table, links)
    - `CLAUDE.md` (purpose, status, boundaries, conventions, definition of done)
@@ -21,7 +21,7 @@ description: Create a new first-party Strutvane package repository (e.g. notify,
 5. `git init -b main`, commit, then create the repo:
 
    ```bash
-   gh repo create vishwajitvm/strutvane-<capability> --public --description "<tagline>" --homepage https://github.com/vishwajitvm/strutvane --source . --push
+   gh repo create vishwajit-vm/strutvane-<capability> --public --description "<tagline>" --homepage https://github.com/vishwajit-vm/strutvane --source . --push
    ```
 
    Then set topics (`gh repo edit --add-topic …`) and enable private vulnerability reporting.

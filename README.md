@@ -43,14 +43,14 @@ export default defineModel('Invoice', {
 
 | Package | Repository | Role |
 |---------|------------|------|
-| `@strutvane/framework` | [strutvane-framework](https://github.com/vishwajitvm/strutvane-framework) | Backend & database core: models, migrations, CRUD API, OpenAPI, queues, cache, mail |
-| `@strutvane/auth` | [strutvane-auth](https://github.com/vishwajitvm/strutvane-auth) | Identity, RBAC/ABAC compiled to SQL, multi-tenancy with RLS, audit, SSO/SCIM |
-| `@strutvane/ui` | [strutvane-ui](https://github.com/vishwajitvm/strutvane-ui) | Metadata-driven UI: tables, forms, detail pages, auth screens, themes, owned components |
-| `@strutvane/core` | [strutvane-core](https://github.com/vishwajitvm/strutvane-core) | Kernel: app lifecycle, container, providers, config, context, events |
-| `@strutvane/contracts` | [strutvane-contracts](https://github.com/vishwajitvm/strutvane-contracts) | Shared types & wire protocols (zero dependencies) |
-| `strutvane` · `@strutvane/cli` | [strutvane-cli](https://github.com/vishwajitvm/strutvane-cli) | Unified CLI (`pnpm sv …`) |
-| `@strutvane/devkit` | [strutvane-devkit](https://github.com/vishwajitvm/strutvane-devkit) | SDK for installers, generators, plugins |
-| `create-strutvane` | [create-strutvane](https://github.com/vishwajitvm/create-strutvane) | `npm create strutvane@latest` |
+| `@strutvane/framework` | [strutvane-framework](https://github.com/vishwajit-vm/strutvane-framework) | Backend & database core: models, migrations, CRUD API, OpenAPI, queues, cache, mail |
+| `@strutvane/auth` | [strutvane-auth](https://github.com/vishwajit-vm/strutvane-auth) | Identity, RBAC/ABAC compiled to SQL, multi-tenancy with RLS, audit, SSO/SCIM |
+| `@strutvane/ui` | [strutvane-ui](https://github.com/vishwajit-vm/strutvane-ui) | Metadata-driven UI: tables, forms, detail pages, auth screens, themes, owned components |
+| `@strutvane/core` | [strutvane-core](https://github.com/vishwajit-vm/strutvane-core) | Kernel: app lifecycle, container, providers, config, context, events |
+| `@strutvane/contracts` | [strutvane-contracts](https://github.com/vishwajit-vm/strutvane-contracts) | Shared types & wire protocols (zero dependencies) |
+| `strutvane` · `@strutvane/cli` | [strutvane-cli](https://github.com/vishwajit-vm/strutvane-cli) | Unified CLI (`pnpm sv …`) |
+| `@strutvane/devkit` | [strutvane-devkit](https://github.com/vishwajit-vm/strutvane-devkit) | SDK for installers, generators, plugins |
+| `create-strutvane` | [create-strutvane](https://github.com/vishwajit-vm/create-strutvane) | `npm create strutvane@latest` |
 
 **Planned next:** `notify`, `files`, `payments`, `billing`, `logs`, `reports`, `analytics`, `search`, `realtime`, `i18n`.
 
@@ -83,18 +83,18 @@ Each package is its own Git repository. Locally they sit side by side inside thi
 ```
 strutvane/                 ← this repo (blueprint, docs, ADRs; ignores packages/)
 └─ packages/
-   ├─ framework/           ← github.com/vishwajitvm/strutvane-framework
-   ├─ auth/                ← github.com/vishwajitvm/strutvane-auth
-   ├─ ui/                  ← github.com/vishwajitvm/strutvane-ui
+   ├─ framework/           ← github.com/vishwajit-vm/strutvane-framework
+   ├─ auth/                ← github.com/vishwajit-vm/strutvane-auth
+   ├─ ui/                  ← github.com/vishwajit-vm/strutvane-ui
    ├─ core/  contracts/  cli/  devkit/  create-strutvane/
 ```
 
 To recreate this layout from scratch:
 
 ```bash
-git clone https://github.com/vishwajitvm/strutvane.git && cd strutvane
-for r in framework auth ui core contracts cli devkit; do git clone https://github.com/vishwajitvm/strutvane-$r.git packages/$r; done
-git clone https://github.com/vishwajitvm/create-strutvane.git packages/create-strutvane
+git clone https://github.com/vishwajit-vm/strutvane.git && cd strutvane
+for r in framework auth ui core contracts cli devkit; do git clone https://github.com/vishwajit-vm/strutvane-$r.git packages/$r; done
+git clone https://github.com/vishwajit-vm/create-strutvane.git packages/create-strutvane
 ```
 
 ## Contributing
