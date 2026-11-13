@@ -2,6 +2,12 @@
 
 Project memory for Claude Code. Read this first in every session. Keep it short and current.
 
+## Ecosystem memory (shared by every Strutvane repo)
+
+The file below is synced from strutvane-tooling and is identical in every repo. It covers how the whole ecosystem fits together: repo map, decisions, connection rules, standards, workflow and current status. Read it before changing anything.
+
+@.claude/ECOSYSTEM.md
+
 ## What this is
 
 **Strutvane** is a TypeScript framework and package ecosystem for enterprise B2B apps, playing the role Laravel plays for PHP but built natively for TypeScript.
