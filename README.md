@@ -15,7 +15,7 @@ Declare models as fields and types, run one command, and get migrations, a secur
 </div>
 
 > [!NOTE]
-> **Strutvane is in Phase 0 (foundations).** This repository holds the technical blueprint, decision records (ADRs), RFCs and the results of the Phase 0 [spikes](spikes/). Shared tooling, the docs site and the `@strutvane/contracts` v0 draft are built and tested. Nothing is released on npm yet: the packages there are name placeholders.
+> **Phase 0 (foundations) is complete; Phase 1 is next.** This repository holds the technical blueprint, the decision records (ADRs 0001–0015), the RFCs and the results of the nine Phase 0 [spikes](spikes/) (419 tests). Shared tooling, the [docs site](https://vishwajit-vm.github.io/strutvane-docs/) and the `@strutvane/contracts` v0 draft are built and tested. Nothing is released on npm yet: the packages there are name placeholders. How the project is run: [GOVERNANCE.md](GOVERNANCE.md).
 
 ## The idea
 
@@ -94,13 +94,11 @@ strutvane/                 ← this repo (blueprint, docs, ADRs; ignores package
    └─ docs/               ← github.com/vishwajit-vm/strutvane-docs
 ```
 
-To recreate this layout from scratch:
+To recreate this layout from scratch (clones every missing repo, checks the existing ones, and never deletes or overwrites anything):
 
 ```bash
 git clone https://github.com/vishwajit-vm/strutvane.git && cd strutvane
-for r in framework auth ui core contracts cli devkit; do git clone https://github.com/vishwajit-vm/strutvane-$r.git packages/$r; done
-git clone https://github.com/vishwajit-vm/create-strutvane.git packages/create-strutvane
-for r in tooling docs; do git clone https://github.com/vishwajit-vm/strutvane-$r.git packages/$r; done
+node scripts/setup-workspace.mjs          # add --pull to fast-forward clean repos, --dry-run to preview
 ```
 
 ## Contributing

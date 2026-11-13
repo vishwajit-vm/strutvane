@@ -22,13 +22,15 @@
 | Item | Status |
 |---|---|
 | npm org `strutvane` + 9 placeholder packages | ✅ Done |
-| GitHub repos (hub + 8 packages) in `vishwajit-vm` | ✅ Done |
+| GitHub repos in `vishwajit-vm`: hub, 8 packages, logs, tooling, docs (12 repos; `main` protected, secret scanning + push protection, private vulnerability reporting) | ✅ Done |
 | Domains, trademark clearance, social handles | ⏳ Owner action |
-| Governance: LICENSE, CoC, CONTRIBUTING, SECURITY | ✅ Done. GOVERNANCE.md is still to do. |
+| Governance: LICENSE, CoC, CONTRIBUTING, SECURITY, [GOVERNANCE.md](../GOVERNANCE.md) | ✅ Done |
 | RFC process + [RFC-0001 Contracts v0](rfcs/0001-contracts-v0.md) | ✅ Accepted |
-| `tooling` repo: canonical configs, CI/release workflows (SHA-pinned, trusted publishing), sync + drift check | ✅ Built locally. GitHub repo not created yet. |
-| Docs site (Astro Starlight, friendly, GitHub Pages) | 🔄 In progress |
-| `@strutvane/contracts` v0: implemented, 18 tests incl. type tests, 100% coverage, publint clean | ✅ Done locally, not released |
+| `tooling` repo: canonical configs, CI/release workflows (SHA-pinned, trusted publishing, release gated by `RELEASE_ENABLED`), sync with repo profiles + drift check, shared ecosystem memory | ✅ Done. CI green on 3 OS × Node 24/26 |
+| CodeQL code scanning (extended suite) on repos with code | ✅ Enabled 2026-11-14 |
+| Local workspace setup script ([scripts/setup-workspace.mjs](../scripts/setup-workspace.mjs)) | ✅ Done (clone/check/pull, never destructive) |
+| Docs site (Astro Starlight, friendly, GitHub Pages) | ✅ Live at https://vishwajit-vm.github.io/strutvane-docs/ |
+| `@strutvane/contracts` v0: implemented, 18 tests incl. type tests, 100% coverage, publint clean | ✅ Done, CI green; not released (by design) |
 | Spike 1: model → migration diff ([ADR-0009](adr/0009-migration-engine-owns-rename-resolution.md)) | ✅ PG + SQLite. MySQL is still to do. |
 | Spike 4: policy predicate → SQL ([ADR-0008](adr/0008-policy-predicates-two-valued-semantics.md)) | ✅ |
 | Spike 5: Postgres RLS under PgBouncer ([ADR-0007](adr/0007-tenancy-rls-enforcement-rules.md)) | ✅ |
@@ -40,6 +42,15 @@
 - All spikes answer their question (or produce an ADR changing the plan).
 - Contracts RFCs accepted.
 - Names reserved.
+
+**Gate 0 result (2026-11-14): passed. Phase 0 is closed.**
+- ✅ All 9 spikes answered their questions (419 tests, re-run and verified), each recorded in an ADR (0007–0015).
+- ✅ RFC-0001 (contracts v0) accepted and implemented.
+- ✅ npm names (10 packages) and GitHub repos (12) reserved.
+- **Carried over, not blocking engineering:**
+  - Owner actions: domains, trademark clearance, social handles.
+  - Phase 1: an OpenSSF Scorecard workflow, and the MySQL path of the migration engine (ADR-0009 follow-up).
+- **Before Phase 1 builds on them,** RFC-0002 (files), RFC-0003 (errors & messages) and RFC-0004 (logs) need acceptance by the core team / project lead ([GOVERNANCE.md §3](../GOVERNANCE.md)).
 
 ## Phase 1 — Core, CLI, Framework → `0.1.0-alpha` (months 1–3)
 
