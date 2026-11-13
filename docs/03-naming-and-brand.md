@@ -113,11 +113,14 @@ Brand quality criteria applied:
 
 ## 6. Reservation checklist (do immediately: names can be taken at any time)
 
-- [ ] **npm:**
-  - Create org `strutvane`; enable 2FA for all members.
-  - Publish placeholder `0.0.0-reserved` versions (with README pointing to the repo) of `strutvane`, `create-strutvane`, `@strutvane/{framework,auth,ui,core,contracts,devkit,cli}`.
-  - Configure **trusted publishing** per package.
-- [ ] **GitHub:** create org `strutvane`, plus `strutvane-dev` as a defensive backup. Create empty repos per [10](10-repositories-publishing-versioning.md).
+- [x] **npm:** done on 2026-11-13.
+  - [x] Org [`strutvane`](https://www.npmjs.com/org/strutvane) created (free plan). Owner: npm user `vishwajitjitvm`, who has 2FA enabled (auth-and-writes).
+  - [x] Placeholder `0.0.0-reserved.0` (dist-tags `latest` and `reserved`) published for `strutvane`, `create-strutvane` and `@strutvane/{framework,auth,ui,core,contracts,devkit,cli}`. Each contains only a README pointing to its repo, plus LICENSE and package.json.
+    - npm's staged publishing also created an automatic `0.0.0-stage` placeholder version on each package.
+    - Publishing used a short-lived granular token with bypass-2FA. **Revoke it** after use.
+  - [ ] Configure **trusted publishing** (GitHub Actions OIDC) per package before the first real release (`0.1.0`).
+- [x] **GitHub:** repos created on 2026-11-13 in the org [`vishwajit-vm`](https://github.com/vishwajit-vm) (see [10](10-repositories-publishing-versioning.md)).
+  - [ ] Optional: a dedicated `strutvane` org.
 - [ ] **Domains:** register `strutvane.com`, `.dev`, `.io`, `.org`. Optionally `.sh` and `.app`.
 - [ ] **Social:** claim handles on X, Bluesky, Mastodon, Discord, YouTube, LinkedIn and dev.to.
 - [ ] **Re-check:** re-run the check script on the reservation day and save the output.
