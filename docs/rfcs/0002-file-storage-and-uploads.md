@@ -1,6 +1,6 @@
 # RFC-0002: File storage and uploads
 
-- **Status:** Draft
+- **Status:** **Accepted** on 2026-11-14 by the project lead (standing approval).
 - **Created:** 2026-11-13
 - **Affects:** `@strutvane/contracts`, `@strutvane/framework` (new `/storage` and upload pipeline), new package `@strutvane/files`, `@strutvane/ui` (upload widgets)
 

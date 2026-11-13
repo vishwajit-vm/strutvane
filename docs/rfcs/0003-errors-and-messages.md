@@ -1,6 +1,6 @@
 # RFC-0003: Errors, validation messages and form error handling
 
-- **Status:** Draft
+- **Status:** **Accepted** on 2026-11-14 by the project lead (standing approval).
 - **Created:** 2026-11-13
 - **Affects:** `@strutvane/contracts` (`Problem` gains structured `issues`), `@strutvane/core` (error classes and message catalog), `@strutvane/framework` (error handler, validation), `@strutvane/ui` (form error handling), every future package (registers its error codes and messages)
 

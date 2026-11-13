@@ -1,6 +1,6 @@
 # RFC-0004: `@strutvane/logs`: zero-config logging with a built-in viewer
 
-- **Status:** Draft, revised 2026-11-14 with spike 09 evidence ([ADR-0015](../adr/0015-logs-own-pipeline-per-process-files.md))
+- **Status:** **Accepted** on 2026-11-14 by the project lead (standing approval); revised the same day with spike 09 evidence ([ADR-0015](../adr/0015-logs-own-pipeline-per-process-files.md))
 - **Created:** 2026-11-13
 - **Affects:** `@strutvane/contracts` (`Logger`, `LogRecord`), `@strutvane/core` (default logger), `@strutvane/framework` (automatic request logging), new package **`@strutvane/logs`**, `@strutvane/auth` (viewer permissions), `@strutvane/ui` (menu link), `create-strutvane` (installed by default)
 - **Inspiration:** [TraceNest](https://pypi.org/project/tracenest/) (by this project's maintainer, for Python/FastAPI). This RFC brings its developer experience to Node/TypeScript and extends it to multi-instance, multi-tenant production use.
