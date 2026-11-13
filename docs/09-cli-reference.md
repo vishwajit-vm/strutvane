@@ -222,7 +222,7 @@ Ejections are recorded in `.strutvane/lock.json` and are merged on `sv upgrade` 
 - **Command API (devkit):**
 
 ```ts
-import { defineCommand } from '@strutvane/devkit'
+import { defineCommand } from '@strutvane/cli'   // may move to @strutvane/devkit later (same shape)
 export default defineCommand({
   name: 'reports:send', description: 'Send monthly reports',
   args: { month: { type: 'string', required: false } },

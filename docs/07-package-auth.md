@@ -229,8 +229,12 @@ Decision    = { allowed: boolean, reason: string, filter?: QueryFilter, fields?:
 ```ts
 // app/policies/invoice.policy.ts   (generated once, then owned)
 import { definePolicy } from '@strutvane/auth'
+import { invoiceSchema } from '../../.strutvane/registry.gen.ts'   // generated from the model
 
-export default definePolicy('invoice', ({ allow, deny, field }) => {
+// The schema (columns + types) is required so every predicate is type-checked and can compile to
+// SQL. Actor attributes used in rules must be declared (attrs), so typos fail at compile time.
+// In a Strutvane app the generated registry provides the schema; standalone apps use defineSchema().
+export default definePolicy('invoice', { schema: invoiceSchema }, ({ allow, deny, field }) => {
   allow(['viewAny', 'view'], { role: ['accountant', 'manager', 'admin'] })
   allow(['view', 'update'],  { when: ({ actor, row }) => row.ownerId.eq(actor.id) })   // compiles to SQL
   allow('approve', { role: 'manager', when: ({ row }) => row.amount.lte(10_000) })
