@@ -16,6 +16,7 @@
 | [0012](0012-normalising-three-way-merge.md) | Normalising three-way merge for ejected files, fail-closed fallbacks | Accepted |
 | [0013](0013-better-auth-hardened-adapter.md) | Better Auth behind a contract-tested IdentityEngine with mandatory hardening | Accepted (refines 0005) |
 | [0014](0014-ui-from-manifest-with-registries.md) | UI rendered from the manifest through typed widget and cell registries | Accepted |
+| [0015](0015-logs-own-pipeline-per-process-files.md) | `@strutvane/logs`: own non-blocking pipeline and writer, per-process files, bounded fail-safe delivery | Accepted |
 
 ## Adding an ADR
 

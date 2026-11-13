@@ -4,7 +4,7 @@ A **spike** is a small, time-boxed experiment that answers one risky question *b
 
 Every spike here ran against **real database engines**: PGlite, libSQL, PostgreSQL 18 and PgBouncer.
 
-## Phase 0 results (2026-11-13): 8 spikes, 375 tests, all re-run and verified
+## Phase 0 results (2026-11-13/14): 9 spikes, 419 tests, all re-run and verified
 
 | # | Question | Answer | Evidence | Decision |
 |---|---|---|---|---|
@@ -16,6 +16,7 @@ Every spike here ran against **real database engines**: PGlite, libSQL, PostgreS
 | [06](06-three-way-merge/) | Can `sv upgrade` merge template changes into user-edited files without ever losing edits? | **Yes.** The real hazard is line endings, not the algorithm: raw diff3 and `git merge-file` turn CRLF files into whole-file conflicts. The property test found a lost-final-newline bug. | 47 tests; 8,000 property cases; 2 planted bugs caught | [ADR-0012](../docs/adr/0012-normalising-three-way-merge.md) |
 | [07](07-better-auth-adapter/) | Can Better Auth sit behind our IdentityEngine with no type leakage, and is it secure? | **Yes, with mandatory hardening.** Found: sessions survive password reset, reset timing reveals which emails exist (419 vs 12 ms), `X-Forwarded-For` spoofing bypasses rate limits, ids aren't UUIDs. A second engine passes the same contract suite. | 49 tests on PostgreSQL 18; 3 planted bugs caught | [ADR-0013](../docs/adr/0013-better-auth-hardened-adapter.md) |
 | [08](08-ui-renderer/) | Can a complete, accessible, permission-aware CRUD UI be rendered purely from the manifest, with overrides that need no fork? | **Yes.** Five real UI defects were caught and fixed (e.g. decimal point swallowed, virtual table rendering zero rows). Server errors land on the exact field. | 48 tests; axe-core 0 violations; 500 rows virtualized | [ADR-0014](../docs/adr/0014-ui-from-manifest-with-registries.md) |
+| [09](09-logger-throughput/) | Is our own logging pipeline fast, non-blocking, crash-proof, memory-bounded, leak-proof, and correct across rotation, multiple processes and shutdown? | **Yes.** It is **1.3–4× faster than pino** writing files, and adds +2.9 ms p99 under HTTP load. sonic-boom isn't needed. Found: a shared file breaks size rotation across processes (24/28 files), so each process gets its own file; a shutdown bug lost the exit code; RFC file names sorted wrongly. | 44 tests + 1 Linux-only; 4 planted bugs caught; benchmark tables | [ADR-0015](../docs/adr/0015-logs-own-pipeline-per-process-files.md) |
 
 ## Running a spike
 

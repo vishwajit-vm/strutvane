@@ -1,6 +1,6 @@
 # RFC-0004: `@strutvane/logs`: zero-config logging with a built-in viewer
 
-- **Status:** Draft
+- **Status:** Draft, revised 2026-11-14 with spike 09 evidence ([ADR-0015](../adr/0015-logs-own-pipeline-per-process-files.md))
 - **Created:** 2026-11-13
 - **Affects:** `@strutvane/contracts` (`Logger`, `LogRecord`), `@strutvane/core` (default logger), `@strutvane/framework` (automatic request logging), new package **`@strutvane/logs`**, `@strutvane/auth` (viewer permissions), `@strutvane/ui` (menu link), `create-strutvane` (installed by default)
 - **Inspiration:** [TraceNest](https://pypi.org/project/tracenest/) (by this project's maintainer, for Python/FastAPI). This RFC brings its developer experience to Node/TypeScript and extends it to multi-instance, multi-tenant production use.
@@ -44,7 +44,7 @@ Every record automatically carries:
 - `tenantId` and `actorId` (when auth is installed)
 - `route` and `env`
 
-In a Strutvane app, **every HTTP request is logged without any code**: method, route, status, duration, size, actor and tenant. Unhandled exceptions are logged with their stack.
+In a Strutvane app, **every HTTP request is logged without any code**: method, route, status, duration, size, actor and tenant. Unhandled exceptions are logged with their stack. The request record is **compact by default** (spike 09: a ~1 KB record per request costs any logger about a third of request throughput), and larger fields are opt-in.
 
 **Standalone, in any Node app:**
 
@@ -69,16 +69,16 @@ app.use(logs())   // request logging + viewer at /_strutvane/logs (local only un
   - the API
   - the pipeline: record → enrich → redact → sample → queue → transports
   - retention, the viewer, and all integrations
-- **We reuse proven low-level pieces where they are the safe choice:**
-  - `sonic-boom`, pino's MIT fast file writer, for append-only writes (to be confirmed by spike 09)
-  - Node's built-in `node:sqlite` for the optional search index
-- **Performance target, measured in spike 09 before 1.0:** within 2× of pino for JSON-to-file throughput, and zero event-loop blocking at the 99th percentile.
+- **We also own the file writer** (O_APPEND `FileHandle`, batched on `setImmediate`). Spike 09 showed it is as fast as `sonic-boom` or faster, so **no logging-specific runtime dependency** is needed ([ADR-0015](../adr/0015-logs-own-pipeline-per-process-files.md)).
+- **We reuse Node's built-in `node:sqlite`** for the optional search index. It needs no flags on Node 24: 221k lines/s ingest, < 0.1 ms filtered queries, with FTS5 for free text later.
+- **Measured performance (spike 09):** **1.3–4× faster than pino** writing JSON to files, and **+2.9 ms p99** event-loop delay under HTTP load (target < 5 ms). A 100 MB burst stays within 2–7 MB of heap.
+- **Bounded queue policy:** when the disk can't keep up, drop `trace/debug/info` before `warn/error/fatal`, and report the drop count in a later `warn` record.
 
 ### 4. Storage
 
 | Driver | When | Notes |
 |---|---|---|
-| `file` (default) | Single instance, development, small production | `storage/logs/YYYY-MM-DD.ndjson` (git-ignored). Size cap per day (default 30 MB, then `-1`, `-2` parts). Retention default 60 days. Optional gzip of old days. |
+| `file` (default) | Single instance, development, small production | `storage/logs/YYYY-MM-DD.ndjson` (git-ignored). Size cap per day (default 30 MB, then `-1`, `-2` parts). Files are never renamed. Retention default 60 days, with optional gzip of old days. **With several processes** (cluster, workers), each writes its own file, `YYYY-MM-DD.w<id>[-N].ndjson`: a shared file with size rotation broke the cap in 24 of 28 files in spike 09. Files are ordered by `compareLogFiles` (day → process → part), never by plain string sort, and the viewer merges them by timestamp. |
 | `database` | **Multiple instances** (containers, autoscaling), where files are per-container and can't be viewed centrally | Uses the app's database, in a partitioned `log_records` table with retention by partition drop. The viewer reads from here. |
 | `stdout` | Platforms that collect stdout (Kubernetes, Azure Container Apps, Fly) | JSON lines. The viewer is disabled, or reads from a configured store. |
 | `otel` (add-on) | Existing observability stack (Grafana Loki, Datadog, Azure Monitor, …) | OTel logs export, which can run alongside any other driver |
@@ -107,7 +107,7 @@ app.use(logs())   // request logging + viewer at /_strutvane/logs (local only un
 | CSRF on "clear logs" | Same-site cookies plus a CSRF token on state-changing viewer actions. The `logs.cleared` audit event records who cleared what. |
 | Log flooding / disk exhaustion (DoS) | Bounded in-memory queue, max record size (default 32 KB, truncated with a marker), per-message rate limiting and sampling for `debug`. Disk quota and retention are enforced continuously. |
 | Logging itself crashing the app | **Logging never throws into application code.** On disk full, permission errors or a broken transport, it falls back to stderr, emits one warning and keeps a counter of dropped records. The app keeps running. |
-| Lost logs on shutdown | Flushes on `SIGTERM`/`beforeExit`, with a timeout so shutdown is never blocked forever. |
+| Lost logs on shutdown | Flushes on `SIGTERM`/`beforeExit` with a **ref'd** deadline timer. Shutdown is never blocked forever, and the signal's exit code (143) is kept; spike 09 found an unref'd timer exiting 0. On Windows, an external SIGTERM kills the process without warning, so graceful shutdown goes through the framework (`sv` and the process manager send a shutdown message). |
 
 > **Logs are not the audit trail.** Audit events ([RFC-0001](0001-contracts-v0.md), auth package) are permanent business records written in the same DB transaction. Logs are operational diagnostics with limited retention. Both exist, for different purposes.
 

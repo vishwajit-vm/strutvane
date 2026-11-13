@@ -34,7 +34,7 @@
 | Spike 5: Postgres RLS under PgBouncer ([ADR-0007](adr/0007-tenancy-rls-enforcement-rules.md)) | ✅ |
 | Spikes 2, 3, 6, 7, 8: registry compiler, OpenAPI client, three-way merge, Better Auth adapter, UI renderer | ✅ Done: [ADR-0010](adr/0010-registry-static-analysis-oxc.md)–[ADR-0014](adr/0014-ui-from-manifest-with-registries.md) |
 | `@strutvane/logs`: RFC-0004, repo + npm name | ✅ Designed and reserved |
-| Spike 9: logger throughput and non-blocking guarantees (RFC-0004) | ⏳ Next |
+| Spike 9: logger throughput and non-blocking guarantees (RFC-0004) | ✅ Done: [ADR-0015](adr/0015-logs-own-pipeline-per-process-files.md). 1.3–4× faster than pino; RFC-0004 revised |
 
 **Gate 0:**
 - All spikes answer their question (or produce an ADR changing the plan).

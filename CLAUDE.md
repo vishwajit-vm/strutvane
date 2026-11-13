@@ -22,7 +22,7 @@ This folder is the **umbrella workspace and the hub repo** (`github.com/vishwaji
   - `packages/tooling`: canonical configs, CI and release workflows, and `sync.mjs` with drift check
   - `packages/contracts`: v0 implemented and tested
   - `packages/docs`: friendly Starlight docs site
-  - `spikes/01-08`: answered (375 tests), with ADR-0007 to ADR-0014
+  - `spikes/01-09`: answered (419 tests), with ADR-0007 to ADR-0015
   - `packages/logs`: `@strutvane/logs` designed (RFC-0004), repo created, npm name reserved
   - Status and next spikes: `docs/14-roadmap.md` § "Phase 0 progress".
 - The user has authorised implementation (Phase 0 onward). Quality bar: everything tested, strictly typed, documented with the *why*, reusable, and with failure scenarios handled up front.
@@ -60,7 +60,7 @@ This folder is the **umbrella workspace and the hub repo** (`github.com/vishwaji
 
 ## Map
 
-- `docs/`: blueprint (00–17; `17-integration-map.md` lists every allowed connection between packages), `adr/` (0001–0014), `rfcs/` (0001 contracts v0, 0002 files, 0003 errors & messages), `research/` (dated evidence)
+- `docs/`: blueprint (00–17; `17-integration-map.md` lists every allowed connection between packages), `adr/` (0001–0015), `rfcs/` (0001 contracts v0, 0002 files, 0003 errors & messages), `research/` (dated evidence)
 - `spikes/`: Phase 0 experiments with reports (standalone; never imported by real packages)
 - `packages/<name>/`: each package repo, with its own `CLAUDE.md` and `.claude/`
 - `.claude/skills/`: `adr`, `blueprint-sync`, `research-refresh`, `new-package-repo`

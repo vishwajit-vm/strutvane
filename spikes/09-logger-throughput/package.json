@@ -1,0 +1,22 @@
+{
+  "name": "spike-09-logger-throughput",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Phase 0 spike 09: can Strutvane's own logging pipeline (RFC-0004) be fast, non-blocking, bounded, crash-proof and leak-proof?",
+  "type": "module",
+  "packageManager": "pnpm@12.18.0",
+  "engines": { "node": ">=24" },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit -p .",
+    "bench": "node bench/throughput.ts && node bench/event-loop.ts && node bench/sqlite-index.ts"
+  },
+  "devDependencies": {
+    "@types/node": "24.19.2",
+    "fast-check": "4.10.2",
+    "pino": "10.4.0",
+    "sonic-boom": "5.0.2",
+    "typescript": "6.0.3",
+    "vitest": "5.1.0"
+  }
+}
