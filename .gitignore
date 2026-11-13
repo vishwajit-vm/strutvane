@@ -48,3 +48,6 @@ packages/
 /pnpm-lock.yaml
 /package.json
 node_modules/
+
+# Local end-to-end integration harness (generated, never committed)
+/integration-local/
