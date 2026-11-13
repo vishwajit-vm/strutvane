@@ -8,6 +8,9 @@
 | [0004](0004-drizzle-behind-internal-data-adapter.md) | Drizzle behind an internal data adapter | Accepted |
 | [0005](0005-identity-adapter-better-auth-default.md) | Identity via adapter (Better Auth default) | Accepted |
 | [0006](0006-docker-local-only.md) | Docker local-only, never committed | Accepted |
+| [0007](0007-tenancy-rls-enforcement-rules.md) | Tenancy isolation via Postgres RLS under five mandatory rules | Accepted |
+| [0008](0008-policy-predicates-two-valued-semantics.md) | Policy predicates: one AST, two-valued NULL-safe semantics | Accepted |
+| [0009](0009-migration-engine-owns-rename-resolution.md) | Migration engine owns rename resolution and destructive-change gating | Accepted |
 
 ## Adding an ADR
 

@@ -1,0 +1,24 @@
+{
+  "name": "@strutvane-spike/model-to-migration",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Phase 0 spike 01: Strutvane model DSL -> Drizzle tables (Postgres + SQLite) -> programmatic migration diff.",
+  "engines": { "node": ">=24" },
+  "packageManager": "pnpm@12.18.0",
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "0.5.16",
+    "@libsql/client": "0.18.0",
+    "drizzle-kit": "0.31.11",
+    "drizzle-orm": "0.45.4"
+  },
+  "devDependencies": {
+    "@types/node": "24.10.1",
+    "typescript": "6.0.3",
+    "vitest": "5.1.0"
+  }
+}

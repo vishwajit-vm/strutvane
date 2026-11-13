@@ -1,0 +1,25 @@
+{
+  "name": "@strutvane-spike/policy-to-sql",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Phase 0 spike 02: one typed policy definition, evaluated in memory AND compiled to parameterized Postgres SQL, with proven equivalence.",
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=24"
+  },
+  "packageManager": "pnpm@12.18.0",
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "check": "tsc --noEmit && vitest run"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "0.5.16",
+    "@types/node": "24.19.2",
+    "fast-check": "4.10.2",
+    "kysely": "0.29.9",
+    "typescript": "6.0.3",
+    "vitest": "5.1.0"
+  }
+}

@@ -44,7 +44,7 @@ Thumbs.db
 packages/
 
 # Local-only umbrella workspace files (never committed)
-pnpm-workspace.yaml
-pnpm-lock.yaml
-package.json
+/pnpm-workspace.yaml
+/pnpm-lock.yaml
+/package.json
 node_modules/

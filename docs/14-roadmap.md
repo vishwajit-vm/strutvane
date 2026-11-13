@@ -17,6 +17,23 @@
 | Spikes (time-boxed, 2–4 days each) | (1) Model DSL → Drizzle schema + migration diff on PG/MySQL/SQLite. (2) Registry compiler with watch mode. (3) Zod → OpenAPI 3.1 → typed client. (4) Policy predicate → SQL filter. (5) Postgres RLS with `SET LOCAL` under PgBouncer. (6) Three-way merge of templates. (7) Better Auth behind the identity adapter. (8) UI renderer from manifest with TanStack Table/Form. |
 | Contracts v0 | RFCs for Actor, TenantContext, PermissionProvider, QueryFilter, ListQuery, ResourceManifest, Problem, AuditEvent, DomainEvent, Installer, FieldType |
 
+### Phase 0 progress (updated 2026-11-13)
+
+| Item | Status |
+|---|---|
+| npm org `strutvane` + 9 placeholder packages | ✅ Done |
+| GitHub repos (hub + 8 packages) in `vishwajit-vm` | ✅ Done |
+| Domains, trademark clearance, social handles | ⏳ Owner action |
+| Governance: LICENSE, CoC, CONTRIBUTING, SECURITY | ✅ Done. GOVERNANCE.md is still to do. |
+| RFC process + [RFC-0001 Contracts v0](rfcs/0001-contracts-v0.md) | ✅ Accepted |
+| `tooling` repo: canonical configs, CI/release workflows (SHA-pinned, trusted publishing), sync + drift check | ✅ Built locally. GitHub repo not created yet. |
+| Docs site (Astro Starlight, friendly, GitHub Pages) | 🔄 In progress |
+| `@strutvane/contracts` v0: implemented, 18 tests incl. type tests, 100% coverage, publint clean | ✅ Done locally, not released |
+| Spike 1: model → migration diff ([ADR-0009](adr/0009-migration-engine-owns-rename-resolution.md)) | ✅ PG + SQLite. MySQL is still to do. |
+| Spike 4: policy predicate → SQL ([ADR-0008](adr/0008-policy-predicates-two-valued-semantics.md)) | ✅ |
+| Spike 5: Postgres RLS under PgBouncer ([ADR-0007](adr/0007-tenancy-rls-enforcement-rules.md)) | ✅ |
+| Spikes 2, 3, 6, 7, 8: registry compiler, OpenAPI client, three-way merge, Better Auth adapter, UI renderer | ⏳ Next |
+
 **Gate 0:**
 - All spikes answer their question (or produce an ADR changing the plan).
 - Contracts RFCs accepted.
