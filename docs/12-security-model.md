@@ -58,12 +58,14 @@
 | Threat | Example | Controls |
 |--------|---------|----------|
 | S | Forged requests from other origins | Cookie sessions use `SameSite=Lax` + CSRF tokens (double-submit, signed with `APP_KEY`) for unsafe methods. Bearer-token APIs are CSRF-exempt. Strict CORS allow-list (`CORS_ORIGINS`). |
-| T | Mass assignment (`role=admin` in body) | Writes accept **only fields declared writable** in the model (`fillable` derived from field options; `readOnly`, `guarded`). Unknown keys rejected (`strict` schemas). |
+| T | Mass assignment (`role=admin` in body) | Writes accept **only fields declared writable** in the model (`fillable` derived from field options; `readOnly`, `guarded`). Unknown keys rejected (`strict` schemas). `hidden` fields are never client-writable: they are left out of the create/update schemas and of the OpenAPI Create/Update schemas, so sending one is a 422 `unknown_field`. |
+| T | Writes that move a record outside the caller's scope | After every create and update, the row is re-selected with the actor's `create`/`update` policy filter in the same transaction; if it no longer matches, the write is rolled back with 403. `belongsTo` values must point at records the actor may `view`. `resource.beforeQuery` hooks are ANDed with the policy filter, so they can only narrow it. |
 | T | SQL injection | All queries are parameterised via Drizzle/Kysely. Filter/sort/include fields come from an explicit allow-list. The raw SQL escape hatch is lint-flagged. |
 | R | Disputed actions | Audit events in the same transaction as the change (outbox) |
-| I | Excessive data exposure (OWASP API3) | Field-level read rules in serializers. `hidden` fields (password hashes, secrets) never serialised. Responses built from schema, not raw rows. |
+| I | Excessive data exposure (OWASP API3) | Field-level read rules in serializers. `hidden` fields (password hashes, secrets) never serialised. Responses built from schema, not raw rows. `hidden` fields cannot be filterable, sortable or searchable (a model-definition error), are never part of client queries or sort cursors, and a `PermissionProvider` that implements `filterableFields(actor)` narrows client filters, sorts and search further (422 `filter_not_allowed` / `sort_not_allowed`). The manifest omits resources the caller can do nothing with; `/openapi.json` requires an identity outside local development. |
 | I | Verbose errors / stack traces | RFC 9457 problem+json. Stack traces only when `APP_ENV=local` and `APP_DEBUG=true`. `traceId` for correlation. |
-| D | Unbounded queries, large payloads, slowloris | Max page size (default 100). Body size limit (1 MB default). Query timeouts (`statement_timeout`). Rate limiting (§7). Request timeouts. Max filter-AST depth/complexity. |
+| D | Unbounded queries, large payloads, slowloris | Max page size (default 100, also enforced on `POST /query`). Offset pages capped at 10,000 rows deep (cursors beyond). Totals only when the resource sets `allowTotal`. Includes deduplicated and capped. Body size limit (1 MB default). Postgres `statement_timeout` 5 s by default. Uploads have idle and total deadlines (120 s default). The runtime adapter stops work when the client disconnects and honours backpressure. Rate limiting (§7). Request timeouts. Max filter-AST depth/complexity. |
+| S | Spoofed client address, scheme or request id behind a proxy | The request URL is built from the bind address. `X-Forwarded-*` and client `X-Request-Id` are believed only with `trustProxy`; `publicUrl` sets the public origin, which also decides HSTS. Every response carries `Permissions-Policy`. |
 | E | BOLA/IDOR (OWASP API1) | Every generated route calls `authorize(action, record)`. List endpoints apply the policy-compiled SQL filter. Cross-tenant test suite (§5). |
 | E | BFLA (OWASP API5) | Permissions generated per action (`viewAny`, `view`, `create`, `update`, `delete`, `restore`, `forceDelete`, `export`). Admin routes guarded by role. |
 
@@ -177,7 +179,7 @@ CREATE POLICY tenant_isolation ON products
 | Validation & business logic | Standard Schema validation on every input, idempotency, rate limits | ✅ |
 | Web frontend security | CSP, headers, cookie flags | ✅ |
 | API & web service | problem+json, CORS, content-type enforcement, versioning | ✅ |
-| File handling | Future `files` package (upload limits, MIME sniffing, AV hook) | Phase 6 |
+| File handling | Framework uploads: content-sniffed MIME types, active content (SVG/HTML) never matched by wildcards, lowercase validated keys, `tenantDisk()` / `storage.forTenant(id)`, signed links (HKDF subkey) served by `serveSignedFile` with `nosniff` and a sandbox CSP. `@strutvane/files` adds cloud disks, image safety, AV scanning and quotas (RFC-0002) | Phase 1 (framework), files package built locally |
 | Authentication | Identity adapter, argon2id, MFA, passkeys | ✅ |
 | Session management | Rotation, timeouts, revoke | ✅ |
 | Authorization | Policy engine, RBAC/ABAC, field-level, tenancy | ✅ |
