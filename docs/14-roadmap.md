@@ -50,7 +50,7 @@
 - **Carried over, not blocking engineering:**
   - Owner actions: domains, trademark clearance, social handles.
   - Phase 1: an OpenSSF Scorecard workflow, and the MySQL path of the migration engine (ADR-0009 follow-up).
-- **Before Phase 1 builds on them,** RFC-0002 (files), RFC-0003 (errors & messages) and RFC-0004 (logs) need acceptance by the core team / project lead ([GOVERNANCE.md §3](../GOVERNANCE.md)).
+- ✅ RFC-0002 (files), RFC-0003 (errors & messages) and RFC-0004 (logs) accepted by the project lead on 2026-11-14 ([GOVERNANCE.md §3](../GOVERNANCE.md)), before Phase 1 builds on them.
 
 ## Phase 1 — Core, CLI, Framework → `0.1.0-alpha` (months 1–3)
 
@@ -76,6 +76,14 @@
 **Gate 1:**
 - An external developer builds a 5-model API from the tutorial in under 30 minutes, unaided.
 - The generated project passes typecheck, lint and test on Windows, macOS and Linux.
+
+### Phase 1 progress (updated 2026-11-14)
+
+- ✅ **Implemented locally** (`0.1.0-next.0`, unpublished): `contracts`, `core`, `devkit`, `cli` + `strutvane` launcher, `create-strutvane`, `framework`, `auth` (ahead of Phase 2: policies, tenancy, identity, audit and the app provider), `ui` (ahead of Phase 3: the manifest-driven renderer) and `@strutvane/logs`.
+- ✅ **`@strutvane/files`** built locally ([RFC-0002](rfcs/0002-file-storage-and-uploads.md) layer 3), ahead of its Phase 3 slot.
+- ✅ **Security review** of every implemented package, with fixes and regression tests landed. The resulting normative rules are in the specs: CLI project detection and production guard ([09 §1.1, §4](09-cli-reference.md)), tenant resolution, rate limits and policy binding ([07](07-package-auth.md), [ADR-0017](adr/0017-allow-rules-bind-fail-closed-on-null-actor-values.md)), the HTTP hook protocol ([17 §4](17-integration-map.md#4-hooks-where-packages-plug-into-each-others-pipelines)) and the log viewer and redaction rules ([RFC-0004](rfcs/0004-logs-package.md)).
+- ✅ **End-to-end local journey** (`node scripts/e2e-local.mjs` in the hub): create a project from the local packages, install, generate, migrate and serve. Green.
+- **Pending:** publishing the `next` pre-releases to npm ([ADR-0016](adr/0016-release-flow-version-on-main.md)); framework hardening still in progress; Gate 1 (tutorial and cross-OS check).
 
 ## Phase 2 — Auth → `0.2.0-alpha` (months 3–5)
 

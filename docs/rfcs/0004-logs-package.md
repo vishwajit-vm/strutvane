@@ -1,6 +1,6 @@
 # RFC-0004: `@strutvane/logs`: zero-config logging with a built-in viewer
 
-- **Status:** **Accepted** on 2026-11-14 by the project lead (standing approval); revised the same day with spike 09 evidence ([ADR-0015](../adr/0015-logs-own-pipeline-per-process-files.md))
+- **Status:** **Accepted** on 2026-11-14 by the project lead (standing approval); revised the same day with spike 09 evidence ([ADR-0015](../adr/0015-logs-own-pipeline-per-process-files.md)) and with the viewer access, request-path and redaction rules of the Phase 1 implementation (§1, §5, §6)
 - **Created:** 2026-11-13
 - **Affects:** `@strutvane/contracts` (`Logger`, `LogRecord`), `@strutvane/core` (default logger), `@strutvane/framework` (automatic request logging), new package **`@strutvane/logs`**, `@strutvane/auth` (viewer permissions), `@strutvane/ui` (menu link), `create-strutvane` (installed by default)
 - **Inspiration:** [TraceNest](https://pypi.org/project/tracenest/) (by this project's maintainer, for Python/FastAPI). This RFC brings its developer experience to Node/TypeScript and extends it to multi-instance, multi-tenant production use.
@@ -44,7 +44,7 @@ Every record automatically carries:
 - `tenantId` and `actorId` (when auth is installed)
 - `route` and `env`
 
-In a Strutvane app, **every HTTP request is logged without any code**: method, route, status, duration, size, actor and tenant. Unhandled exceptions are logged with their stack. The request record is **compact by default** (spike 09: a ~1 KB record per request costs any logger about a third of request throughput), and larger fields are opt-in.
+In a Strutvane app, **every HTTP request is logged without any code**: method, route, status, duration, size, actor and tenant. The `route` field is the matched route template (`/api/v1/invoices/:id`, from `HttpResponseHookPayload.route`) when the router knows it. Otherwise it is the path with secrets redacted, token-like segments masked and the length capped. Query strings and bodies are never part of the request record. Unhandled exceptions are logged with their stack. The request record is **compact by default** (spike 09: a ~1 KB record per request costs any logger about a third of request throughput), and larger fields are opt-in.
 
 **Standalone, in any Node app:**
 
@@ -93,14 +93,16 @@ app.use(logs())   // request logging + viewer at /_strutvane/logs (local only un
 - **Display:** light, dark and high-contrast themes. Reverse-chronological order, relative times with the exact time on hover, and level badges.
 - **Implementation:** a small self-contained UI (no React required) served by the package and fully accessible. A Strutvane app with `@strutvane/ui` gets a "Logs" menu entry.
 - **Path** is configurable (`LOGS_VIEWER_PATH`). The default namespace `/_strutvane/` avoids clashing with app routes.
+- **Methods.** The streaming routes (live tail, download) accept `GET` only; `HEAD` gets `405`. Other read routes accept `GET` and `HEAD`; "clear" accepts `POST` only.
+- **Bounded live tails.** A tail stream ends after `maxDurationMs` (default 1 hour; `EventSource` reconnects by itself), and releases its slot and buffers on every way a stream can end, including a client that stops reading. The number of concurrent tails is capped (`maxTails`).
 
 ### 6. Security: the viewer is a high-value target, so it is locked down by default
 
 | Threat | Default protection |
 |---|---|
-| Viewer reachable on the internet | **Off in production unless access is configured.** With `@strutvane/auth`, it requires the permissions `logs.view`, `logs.export` and `logs.clear`. Without auth, it is allowed only when `APP_ENV=local`, or with `LOGS_VIEWER_TOKEN` (random, compared in constant time) plus an optional IP allow-list. It never falls back to public access. |
-| One tenant reading another's logs | Tenant admins only see records with their `tenantId`. Only platform operators (`actor.type === 'system'` or explicit permission) see everything. |
-| Secrets in logs | **Redaction before storage**, so it applies to the viewer, downloads and transports alike: <br>• Keys: `authorization`, `cookie`, `set-cookie`, `password`, `token`, `secret`, `apiKey`, … <br>• Patterns: JWTs, bearer tokens, DB/Redis URLs with credentials, private keys, card numbers (Luhn) <br>• Model fields marked `sensitive()` <br>• Custom rules |
+| Viewer reachable on the internet | **Off in production unless access is configured.** With `@strutvane/auth`, it requires the permissions `logs.view`, `logs.export` and `logs.clear`. Without auth, it is allowed only when `APP_ENV=local`, or with `LOGS_VIEWER_TOKEN` (random, compared in constant time) plus an optional IP allow-list. It never falls back to public access, and every refusal is a `404`, so the viewer's existence is not revealed. <br>• **Decision order:** IP allow-list (if set), then `authorize(request)` (if set, it is the only rule), then local mode, then the viewer token. <br>• **Local mode is loopback-only:** it answers only when both the `Host` header and the URL host are `localhost`, `127.0.0.1` or `[::1]` (any port); any other host gets a `404`. <br>• **IP allow-list** (`ipAllowList`) checks the socket peer address (`HttpRequestHookPayload.clientAddress`), never a forwarded header; when the peer is unknown, access is denied. <br>• The app provider passes `viewer.authorize`, `viewer.ipAllowList`, `viewer.scopeRecords` and `viewer.onAudit` through from `config/logging.ts` or its options. |
+| One tenant reading another's logs | Tenant admins only see records with their `tenantId`. Only platform operators (`actor.type === 'system'` or explicit permission) see everything. A scoped viewer (`scopeRecords`) sees only day names in the file list, never file names or sizes. |
+| Secrets in logs | **Redaction before storage**, so it applies to the viewer, downloads and transports alike: <br>• **Keys:** one matcher shared by core's fallback logger and `@strutvane/logs`, so both hide exactly the same keys. `DEFAULT_SENSITIVE_KEYS` are fragments matched anywhere in the normalised key (`password`, `token`, `secret`, `apikey`, `cookie`, `session`, `signature`, `totp`, `cvv`, …). `DEFAULT_SENSITIVE_WORDS` match only as whole words of a key (`pin`, `ssn`, `sid`, `sig`, `otp`, `pan`), so `userPin` matches and `shipping` does not. <br>• **Runtime registration:** `registerSensitiveKeys([...])` (core) adds keys for every logger in the process, for application fields such as model fields marked `sensitive` or `hidden`. <br>• **Patterns:** JWTs, bearer/basic credentials, credentials in URLs, secret query-string parameters (`?token=`, `&sig=`, `#access_token=`), well-known API key prefixes, PEM private keys, card numbers (Luhn) in text, and 13–19 digit numbers that pass the Luhn check. <br>• Custom rules |
 | Request/response bodies leaking PII | **Bodies are not logged by default.** It is opt-in per route, with a size cap and redaction applied. |
 | Log injection (forged lines, terminal escape codes) | CR/LF, ANSI and control characters are escaped in messages, and every record is stored as structured JSON. |
 | Stored XSS through log content | The viewer renders log content as text only (never HTML), behind a strict Content-Security-Policy. |

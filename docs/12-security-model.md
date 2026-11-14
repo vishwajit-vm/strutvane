@@ -46,8 +46,10 @@
 |--------|---------|----------|
 | **S**poofing | Typo-squat package (`strutvain`) or a malicious template URL | Reserved names ([10](10-repositories-publishing-versioning.md) §8.2). Templates bundled in `create-strutvane`, not fetched. Remote templates require `--template <url> --trust` and show the source. |
 | **T**ampering | Codegen writes files outside the project; a template injects a backdoor | Path sandbox: writes are confined to the project root, `..` and symlinks are refused. Generated output is golden-tested. Diff preview (`--dry-run`) for every generator. |
+| **T**ampering | A folder that is not the user's project is treated as one (code loaded from its `node_modules`, its `.env` read) | A folder is a project only if its `package.json` lists `@strutvane/cli` or it has `strutvane.config.ts`; never a drive or file-system root, the OS temp directory or a folder above the user's home; on POSIX, owned by the current user. `--version`, `help`, `new` and `create` are never delegated to a local CLI ([09 §1.1](09-cli-reference.md#11-global-launcher-delegates-to-the-local-version)). On Windows, child processes never resolve executables from the current directory. |
+| **T**ampering | A destructive command runs against the wrong environment | Destructive commands need their exact name (no prefix matching) and run unconfirmed only when `APP_ENV` (resolved like the runtime) is `local`, `test`, `testing` or `development`; otherwise, including unset, they need `--force --i-understand`. Replacing a non-empty `APP_KEY` is guarded the same way ([09 §4](09-cli-reference.md#4-database)). |
 | **R**epudiation | Unclear what a generator changed | `.strutvane/lock.json` records generator versions and file hashes. Summary printed after every run. |
-| **I**nformation disclosure | CLI telemetry leaks paths/secrets; `.env` committed | **No telemetry by default** (opt-in, anonymous, documented schema). `.env` git-ignored on generation, with a pre-commit hint. `sv doctor` warns if `.env` is tracked. |
+| **I**nformation disclosure | CLI telemetry leaks paths/secrets; `.env` committed; secrets printed on screen | **No telemetry by default** (opt-in, anonymous, documented schema). `.env` git-ignored on generation, with a pre-commit hint. `sv doctor` warns if `.env` is tracked. `sv env:check` and `sv doctor` report malformed `.env` lines by `file:line` only. Dry-run previews and diffs redact `.env`/`.env.*` values by default. |
 | **D**enial of service | — | n/a (local tool) |
 | **E**levation | Postinstall scripts run arbitrary code | **No `postinstall` scripts** in any Strutvane package. Installers run only via explicit `sv add` / `sv new`. |
 
@@ -69,7 +71,10 @@
 
 | Threat | Controls |
 |--------|----------|
-| Credential stuffing / brute force | Rate limits per IP + account (sliding window). Progressive delays and lockout. Optional HIBP k-anonymity breached-password check. Bot-signal hooks. |
+| Credential stuffing / brute force | Rate limits per IP + account (sliding window), shared by every identity engine. Progressive delays and lockout. Optional HIBP k-anonymity breached-password check. Bot-signal hooks. Per-IP limits key on the socket peer address (`clientAddress` in the HTTP hook payload); `X-Forwarded-For` is read only behind configured `trustedProxies`. An unknown peer counts against one shared fallback bucket (opt-out: `allowMissingPeer`). IPv6 is limited per `/64` ([07 §3.2](07-package-auth.md#32-request-rules-for-the-auth-endpoints-normative)). |
+| Cross-site requests to auth endpoints | State-changing auth endpoints accept `application/json` bodies only (size-capped, read as a stream) and refuse cross-site browser requests (`Sec-Fetch-Site: cross-site`, or an `Origin` outside the app URL, the request's own origin and `auth.trustedOrigins`). |
+| Policy widening through unknown actor data or role names | Allow rules bind fail-closed when a referenced actor value is null ([ADR-0017](adr/0017-allow-rules-bind-fail-closed-on-null-actor-values.md)); deny rules keep "null never matches" (ADR-0008). `role: []` is a definition error. Rules can be limited to platform (`scope: 'global'`) or tenant (`scope: 'tenant'`) grants, so a tenant role never matches a platform rule with the same name. Mistyped record values fail closed. |
+| Inferring hidden field values through filters or sorts | Untrusted filters and sorts may reference only `filterableFields(actor)` (exactly the readable fields); other fields are rejected as `INVALID_FILTER`. Read masking is an allow-list of readable schema fields; non-schema keys are never writable. |
 | Weak password storage | argon2id (`@node-rs/argon2`) with OWASP parameters (m=19 MiB, t=2, p=1 minimum; tunable). Automatic rehash on login when params change. |
 | Session hijacking / fixation | httpOnly + Secure + SameSite cookies. Session ID rotation on login/privilege change. Idle + absolute timeouts. Device list + revoke. |
 | Token theft (SPA/mobile) | Short-lived access JWT (≤15 min). **Rotating refresh tokens with reuse detection** (reuse revokes the family). JWKS key rotation (`sv auth:keys:rotate`). `aud`/`iss`/`exp`/`nbf` validated. `alg` allow-list (EdDSA/ES256). `none` rejected. |
@@ -85,8 +90,10 @@
 | Threat | Controls |
 |--------|----------|
 | Cross-tenant read/write (the class of bug behind Payload's multi-tenant CVE) | (1) Tenant scope injected into every query by the data adapter. (2) **Postgres RLS** with `FORCE ROW LEVEL SECURITY`. (3) Tenant id on create comes from context only, never from the request body. (4) Generated isolation tests per model. |
-| Tenant spoofing via header | `X-Tenant-Id` honoured only for trusted service principals. User requests resolve the tenant from session membership / domain. Membership verified on every request. |
-| Connection-pool leakage of tenant context | `SET LOCAL` inside the transaction (scoped to it; safe with PgBouncer transaction mode). Requests without a transaction get one wrapped automatically when tenancy is on. |
+| Tenant spoofing via header | `X-Tenant-Id` honoured only for tenant-less service actors; for user and anonymous requests it is ignored. User requests resolve the tenant from session membership / domain. Membership verified on every request. |
+| Anonymous requests scoped to a tenant | Anonymous requests get no tenant by default. `tenancy.allowAnonymousTenant: true` admits only tenants resolved by the `subdomain` or `path` resolvers. A disallowed tenant is ignored, never an error ([07 §5](07-package-auth.md#5-multi-tenancy)). |
+| Connection-pool leakage of tenant context | `set_config('app.tenant_id', $1, true)` inside the transaction (the parameterised form of `SET LOCAL`; scoped to it; safe with PgBouncer transaction mode). `findSessionSet` lints SQL for session-level forms and persistent defaults; `tenancyAudit` flags a role- or database-level default (`TENANT_SETTING_DEFAULT`). Requests without a transaction get one wrapped automatically when tenancy is on. |
+| SQL and in-memory policy results disagreeing on text | Compiled predicates compare text columns under `COLLATE "C"` (opt-out `textCollation: 'database'` for deterministic collations only). |
 | Platform operator abuse | `actor.type = 'system'` explicit, MFA required, all access audited, optional customer-visible access log |
 
 **RLS implementation details (Postgres):**
@@ -119,6 +126,7 @@ CREATE POLICY tenant_isolation ON products
 |--------|----------|
 | Malicious or compromised plugin | Plugins are **listed explicitly** in `strutvane.config.ts` (no auto-loading). `sv add` shows the publisher, provenance status, weekly downloads and requested capabilities before installing. |
 | Over-privileged plugin | Plugins declare **capabilities** in `package.json` (`"strutvane": { "capabilities": ["db:migrations", "http:routes", "auth:providers"] }`). The host enforces registration APIs by capability: a plugin without `auth:providers` cannot register an identity provider. *Note: this is an integrity guard, not a sandbox. Plugins run in-process with full Node privileges, and the docs say so plainly.* |
+| Plugin loaded without a declared compatibility range | A third-party plugin (outside `@strutvane/`) must declare `strutvane.compat`; without it, it is refused (exit code 7) and its code is never loaded ([09 §11](09-cli-reference.md#11-extensibility-commands-from-packages-and-plugins)). |
 | Hook tampering with security decisions | Security hooks (`beforeAuthorize`) can only **restrict**, never widen, a decision, unless the plugin holds the `auth:policy-override` capability, which `sv doctor` warns about |
 | Ecosystem trust | "Verified" badge for plugins in the official index: provenance-attested, 2FA org, security contact, passing the compat test kit |
 
@@ -132,6 +140,15 @@ CREATE POLICY tenant_isolation ON products
 | Malicious PR / CI poisoning | `pull_request_target` banned. Least-privilege `GITHUB_TOKEN` (`permissions:` block in every workflow). Pinned action SHAs. CODEOWNERS on `.github/**`. |
 | Unknown composition | **CycloneDX SBOM** generated per release and attached to the GitHub release |
 | Low project hygiene | **OpenSSF Scorecard** ≥ 8 target, CodeQL, branch protection, signed commits/tags |
+
+### 3.8 Logs and the log viewer (`@strutvane/logs`)
+
+| Threat | Controls |
+|--------|----------|
+| Viewer reachable by the wrong people | Closed by default; every refusal is a `404`. Decision order: IP allow-list (checks the peer `clientAddress`; denies when it is unknown), then `authorize(request)`, then local mode, then `LOGS_VIEWER_TOKEN`. **Local mode answers only when both the `Host` header and the URL host are loopback** (`localhost`, `127.0.0.1`, `[::1]`, any port). Scoped viewers (`scopeRecords`) see only day names in the file list ([RFC-0004 §6](rfcs/0004-logs-package.md#6-security-the-viewer-is-a-high-value-target-so-it-is-locked-down-by-default)). |
+| Resource exhaustion through the viewer | Live tails are capped in number, end after `maxDurationMs` (default 1 hour) and release their resources when a client stops reading. Streaming routes (tail, download) are `GET`-only (`HEAD` gets `405`). |
+| Secrets in log records | Redaction before storage, with one sensitive-key matcher shared by core and logs: key fragments (`DEFAULT_SENSITIVE_KEYS`), whole-word keys (`DEFAULT_SENSITIVE_WORDS`: `pin`, `ssn`, `sid`, `otp`, …), runtime `registerSensitiveKeys`, and patterns for JWTs, credentials, secret query-string parameters, well-known API key prefixes, private keys and Luhn-valid card numbers. |
+| Secrets or ids in request paths | Request logs record the matched route template (`HttpResponseHookPayload.route`) when known, otherwise a redacted, length-capped path. Query strings and bodies are never logged by default. |
 
 ## 4. Control mapping
 
@@ -170,7 +187,7 @@ CREATE POLICY tenant_isolation ON products
 | Secure communication | TLS required for DB in production (`DB_SSL=require` default for non-local hosts) | ✅ |
 | Configuration | Env validation, secure defaults, no secrets in repo | ✅ |
 | Data protection | Field encryption (`field.string().encrypted()`), redaction in logs/audit, crypto-shredding on tenant delete | ✅ (encryption at field level) |
-| Security logging & error handling | Audit log, pino redaction, OTel | ✅ |
+| Security logging & error handling | Audit log, redaction before storage in `@strutvane/logs` ([ADR-0015](adr/0015-logs-own-pipeline-per-process-files.md)), OTel | ✅ |
 
 ## 5. Secrets & `.env` handling
 
@@ -185,7 +202,7 @@ CREATE POLICY tenant_isolation ON products
   - `APP_DEBUG=true`, or
   - `AUTH_SECRET` is shorter than 32 bytes.
 - **Production secret sources:** env injected by the platform, plus optional `SecretsProvider` adapters (Azure Key Vault via `@azure/identity`, AWS Secrets Manager, HashiCorp Vault) resolved at boot.
-- **Never logged:** pino redaction paths for `password`, `token`, `authorization`, `cookie`, `secret`, `apiKey` and any field marked `sensitive`/`hidden`.
+- **Never logged:** one sensitive-key matcher, shared by core's fallback logger and `@strutvane/logs`, redacts keys such as `password`, `token`, `authorization`, `cookie`, `secret` and `apiKey`, short whole-word keys (`pin`, `ssn`, `otp`, …) and keys registered at runtime with `registerSensitiveKeys` (for fields marked `sensitive`/`hidden`), plus secret-shaped values by pattern ([RFC-0004 §6](rfcs/0004-logs-package.md#6-security-the-viewer-is-a-high-value-target-so-it-is-locked-down-by-default)).
 - **Detection:** `sv doctor` warns if `.env` is tracked by git. Generated `.gitignore` covers `.env*` except `.env.example`. Docs recommend gitleaks pre-commit.
 
 ## 6. Cryptographic choices
@@ -234,7 +251,7 @@ CREATE POLICY tenant_isolation ON products
   - Optional per-tenant hash chain, checked with `sv audit:verify`.
   - The DB role for the app has `INSERT` but not `UPDATE`/`DELETE` on `audit_events` (Postgres).
 - **Privacy:**
-  - `sensitive` fields are hashed or omitted in diffs.
+  - `sensitive` fields are hashed or omitted in diffs. Passing the resource's policy as `maskFor` also redacts every field that has a read rule.
   - Retention per tenant, plus GDPR erasure that preserves chain integrity (tombstones).
 
 ## 10. Secure defaults checklist (shipped in generated apps)

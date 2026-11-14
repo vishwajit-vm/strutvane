@@ -13,16 +13,23 @@ The CLI is the "artisan" of Strutvane: one entry point for creating projects, ad
 
 ### 1.1 Global launcher delegates to the local version
 
-1. `strutvane` (global, or via npx) looks for `node_modules/@strutvane/cli` starting at the cwd and walking up to the project root (`strutvane.config.ts`).
-2. **If found, it delegates every command to the project-local CLI.** Generators and runtime always match the versions pinned in `package.json`.
-3. If not found, only project-less commands run: `new`, `create`, `doctor --global`, `--version`, `help`.
-4. A version mismatch between global and local is reported once as info, never as an error.
+1. `strutvane` (global, or via npx) looks for a **project** starting at the cwd and walking up. A folder counts as a project only when:
+   - its `package.json` lists `@strutvane/cli` in `dependencies` or `devDependencies`, or it contains `strutvane.config.ts`;
+   - it is not a file-system or drive root, not the OS temp directory itself, and not a folder above the user's home directory;
+   - on POSIX, it is owned by the current user.
+
+   The search stops at the first folder that breaks these rules, and at the first project folder found (if that folder is owned by someone else, there is no project). A bare `package.json` never makes a folder a project. The launcher and `@strutvane/cli` apply the same rules.
+2. **If the project has `node_modules/@strutvane/cli`, the launcher delegates project commands to it.** Generators and runtime always match the versions pinned in `package.json`.
+3. **Never delegated:** `--version`, `help` (and a bare `strutvane` with no command), `new` and `create`. The launcher always answers these itself.
+4. Without a local CLI, only project-less commands run: `new`, `create`, `doctor --global`, `--version`, `help`.
+5. A version mismatch between global and local is reported once as info, never as an error.
 
 ### 1.2 Syntax
 
 - Colon syntax is canonical, with a space alias: `sv make:model Invoice` ≡ `sv make model Invoice`.
 - Positional arguments come first, then flags. Boolean flags accept `--no-<flag>`.
-- **Unique prefixes are accepted** for long commands (`sv mi:st` → `migrate:status`) when unambiguous.
+- **Unique prefixes are accepted** for long commands (`sv mi:st` → `migrate:status`) when unambiguous. An exact name always beats a prefix.
+- **Destructive commands need their exact name** (or an exact alias). A prefix that would select one (`sv migrate:fr`) is reported as unknown, with the full name suggested.
 - `sv help <command>` and `sv <command> --help` show usage, examples and a docs link.
 
 ### 1.3 Universal flags
@@ -36,7 +43,7 @@ The CLI is the "artisan" of Strutvane: one entry point for creating projects, ad
 | `--force` | Overwrite non-owned generated files (owned / edited files are never overwritten; use `eject`/`upgrade` merges) |
 | `--json` | Machine-readable output (stable schema per command) for CI and tooling |
 | `--cwd <path>` | Run as if in another directory |
-| `--env <name>` | Load `.env.<name>` over `.env` (e.g. `--env test`) |
+| `--env <name>` | Load `.env.<name>` over `.env` (e.g. `--env test`). The name must be a plain name. Variables already set to a non-empty value in the process environment win. |
 | `--verbose`, `-v` / `--quiet`, `-q` | Log level |
 | `--no-color` | Plain output (auto when `NO_COLOR` or not a TTY) |
 
@@ -68,8 +75,8 @@ The CLI is the "artisan" of Strutvane: one entry point for creating projects, ad
 | `sv doctor` | Diagnose Node/pm versions, env completeness, DB connectivity, pending migrations, plugin compatibility, RLS status, unsafe flags, permission orphans | `--fix`, `--global`, `--json` |
 | `sv about` | Versions of every Strutvane package, drivers, config summary | `--json` |
 | `sv upgrade` | Bump Strutvane packages; run codemods; three-way merge ejected files | `--to <version>`, `--channel next\|canary`, `--dry-run` |
-| `sv key:generate` | Generate `APP_KEY` into `.env` | `--show`, `--force` |
-| `sv env:check` | Compare `.env` with `.env.example`: missing, unknown, invalid keys | `--env`, `--strict` |
+| `sv key:generate` | Generate `APP_KEY` into `.env`. Replacing a non-empty key needs `--force` and is guarded like a destructive command (§4); every `APP_KEY` line is replaced. | `--show`, `--force` |
+| `sv env:check` | Compare `.env` with `.env.example`: missing, unknown, invalid keys. Malformed lines are reported by `file:line` only; values are never printed. | `--env`, `--strict` |
 | `sv env:sync` | Add missing keys from `.env.example` to `.env` with defaults | `--dry-run` |
 | `sv env:encrypt` / `sv env:decrypt` | Encrypt/decrypt an env file for team sharing (key from `STRUTVANE_ENV_KEY`) | `--env production` |
 | `sv config:show [key]` | Print the resolved config (secrets masked) | `--json` |
@@ -128,17 +135,25 @@ Types and modifiers mirror the `field.*` builder catalogue in [05 §4.3](05-deve
 | `sv migrate` | Diff models ↔ DB → write a timestamped SQL migration → apply → sync permissions | `--dry-run` (print SQL), `--name <name>`, `--generate-only`, `--no-sync`, `--tenants` (all tenant DBs/schemas), `--connection`, `--check` (exit 6 if drift/pending; CI) |
 | `sv migrate:status` | Applied / pending / drift report | `--json` |
 | `sv migrate:rollback` | Roll back the last batch (or `--step n`) | `--step`, `--to <migration>` |
-| `sv migrate:reset` | Roll back everything | `--force` (required outside local) |
-| `sv migrate:fresh` | Drop all tables, migrate from scratch | `--seed`, `--force` (blocked in production) |
+| `sv migrate:reset` | Roll back everything | `--force --i-understand` outside local/test/development (production guard below) |
+| `sv migrate:fresh` | Drop all tables, migrate from scratch | `--seed`; production guard below |
 | `sv migrate:squash` | Squash applied migrations into a baseline | `--before <date>` |
 | `sv db:seed` | Run `database.seeder.ts` or a named seeder | `--class <Seeder>`, `--count` |
 | `sv db:pull` | **Introspect an existing DB** into `app/models/*.model.ts` (brownfield) | `--tables`, `--schema`, `--overwrite` |
-| `sv db:wipe` | Drop all tables, views and types | `--force` |
+| `sv db:wipe` | Drop all tables, views and types | production guard below |
 | `sv db:shell` | Open `psql` / `mysql` / `sqlite3` with current credentials | — |
 | `sv db:studio` | Local browser DB explorer (read-mostly, local env only) | `--port` |
 | `sv db:backup` / `sv db:restore` | Local dumps for dev data (not a production backup tool) | `--file` |
 
-**Production guard:** destructive commands (`fresh`, `reset`, `wipe`, `rollback`) refuse when `APP_ENV=production` unless `--force --i-understand` is passed. Even then they are audited.
+**Production guard:** destructive commands (`migrate:fresh`, `migrate:reset`, `migrate:rollback`, `db:wipe`, `db:restore`, and a contributed command that replaces one of them) run without confirmation **only** when `APP_ENV` is `local`, `test`, `testing` or `development`. In every other case, including an unset `APP_ENV` (the runtime then defaults to production), they need both `--force` and `--i-understand`. Even then they are audited.
+
+`APP_ENV` is resolved the way the runtime resolves it, and the resolved value is handed to the command, so the guard and the command always agree:
+
+1. the process environment (set but empty, `APP_ENV=`, counts as unset);
+2. `.env.<name>` when `--env <name>` is given;
+3. `.env`.
+
+The first non-empty value wins. Values are trimmed and compared case-insensitively. `sv key:generate --force` replacing a non-empty `APP_KEY` is guarded the same way, because a new key makes existing sessions and encrypted data unreadable.
 
 ## 5. API
 
@@ -218,7 +233,7 @@ Ejections are recorded in `.strutvane/lock.json` and are merged on `sv upgrade` 
   - `sv make:plugin <name>` (alias `plugin:create`) scaffolds a plugin package with a provider, installer, generator and tests.
   - `sv generator:create <name>` adds a custom generator (`sv make:<name>`) using `@strutvane/devkit`.
   - `sv preset:create <name>` packages config + plugins + template overrides as an organisation preset (`npm create strutvane -- --template @acme/strutvane-preset`).
-- **Compatibility:** each plugin declares `strutvane.compat` (semver range). Incompatible plugins are refused with exit code 7 and a clear message (`sv doctor` lists them).
+- **Compatibility:** each plugin declares `strutvane.compat` (semver range). Incompatible plugins are refused with exit code 7 and a clear message (`sv doctor` lists them). A third-party plugin (any package outside `@strutvane/`) that declares no `strutvane.compat` is refused the same way and its code is never loaded. First-party `@strutvane/*` packages ship with the CLI and may omit the range.
 - **Command API (devkit):**
 
 ```ts
@@ -240,5 +255,7 @@ export default defineCommand({
   - No bash-only scripts in generated projects.
   - The CI matrix covers Windows, macOS and Linux.
   - Long-path-safe file writes.
+  - Child processes never resolve executables from the current directory: programs come from `PATH` only (`NoDefaultCurrentDirectoryInExePath=1`), and `npx` is started as `node npx-cli.js` without a shell where available. The fallback through the `npx.cmd` shim accepts only plain names and flags.
+- **Secrets on screen:** `sv env:check` and `sv doctor` report malformed `.env` lines by `file:line` only, never by their text. Dry-run previews and diffs of `.env`/`.env.*` files redact values by default (devkit).
 - **Telemetry is off by default.** `sv telemetry enable` opts in to anonymous usage counts (command name, duration, versions, OS). It never collects code, paths, env values or identifiers. `STRUTVANE_TELEMETRY=0` always disables it. The policy is documented publicly.
 - **Updates:** a non-blocking "new version available" notice at most once a day. Disable with `STRUTVANE_NO_UPDATE_NOTIFIER=1`.

@@ -142,6 +142,7 @@ If `auth` is *not* installed, the framework uses a `PermissionProvider` from con
 | `Problem` | RFC 9457 + `code`, `traceId`, `fieldErrors` |
 | `AuditEvent` | Actor, tenant, action, resource, before/after/diff (redacted), request metadata |
 | `DomainEvent` | `{ type, version, payload, tenant, actor, occurredAt, idempotencyKey }` |
+| HTTP hook protocol | `HTTP_HOOKS` (`http.onRequest`, `http.onResponse`) and their payloads: `HttpRequestHookPayload` (`request`, `actor`, `tenant`, `clientAddress?` = socket peer, never a header, `headers?`, `response?`) and `HttpResponseHookPayload` (`request`, `status`, `requestId`, `route?` = matched route template). See [RFC-0001](rfcs/0001-contracts-v0.md) and [17 §4](17-integration-map.md#4-hooks-where-packages-plug-into-each-others-pipelines). |
 | `Installer` | The protocol every package installer implements (§7) |
 | `FieldType` | The interface custom field types implement: DB column, Zod schema, OpenAPI schema, filter operators, UI widget hint |
 

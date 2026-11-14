@@ -48,15 +48,21 @@
 
 | Hook (owner) | Who uses it | For what |
 |---|---|---|
-| `http.onRequest` (framework) | auth | Resolve `Actor` + `TenantContext` into the request context; answer the auth endpoints (`/auth/sign-in`, …) by returning `response`, and add `headers` (refreshed session cookie) to the eventual response |
+| `http.onRequest` (framework) | auth | Resolve `Actor` + `TenantContext` into the request context; answer the auth endpoints (`/auth/sign-in`, …) by returning `response`, and add `headers` (refreshed session cookie) to the eventual response. Per-IP rate limits key on the payload's `clientAddress` |
 | `resource.beforeQuery` (framework) | auth | Add the policy's `filterFor()` to every list query |
 | `resource.serialize` (framework) | auth | Strip fields the actor may not read (field-level rules) |
 | `resource.after*` (framework) | auth (audit), files (commit or cleanup attached files) | Audit records, file lifecycle |
 | `upload.validated` (framework) | files | Scan, quota check, dedupe |
 | `manifest.build` (framework) | auth, files | Add per-actor capabilities, file widgets and limits to the manifest |
 | `errors.register` (core) | every package | Register error codes and default messages ([RFC-0003](rfcs/0003-errors-and-messages.md)) |
-| `http.onRequest` / `http.onResponse` / `errors.unhandled` (framework) | logs | Automatic request and exception logging. The viewer at `/_strutvane/logs` answers through `http.onRequest` by returning `response` ([RFC-0004](rfcs/0004-logs-package.md)) |
+| `http.onRequest` / `http.onResponse` / `errors.unhandled` (framework) | logs | Automatic request and exception logging (the `route` template from `http.onResponse` when known). The viewer at `/_strutvane/logs` answers through `http.onRequest` by returning `response`; its IP allow-list checks `clientAddress` ([RFC-0004](rfcs/0004-logs-package.md)) |
 | `cli.register` (core) | every package | Add `sv` commands (`auth:*`, `files:*`, …) |
+
+**HTTP hook protocol (contracts).** The payloads of `http.onRequest` and `http.onResponse` are defined in `@strutvane/contracts` (`HTTP_HOOKS`, `HttpRequestHookPayload`, `HttpResponseHookPayload`; [RFC-0001](rfcs/0001-contracts-v0.md)), so the framework and every hooking package compile against one definition:
+
+- `HttpRequestHookPayload`: `request`, `actor`, `tenant`, and optionally `clientAddress`, `headers`, `response`. A handler may set `actor`/`tenant`, add response `headers`, or answer by setting `response` (it then caps request bodies itself, because routing and the framework body limit are skipped).
+- `clientAddress` is the directly connected peer address, never read from headers such as `X-Forwarded-For`. Controls keyed by client address (per-IP rate limits, IP allow-lists) use it, and fail closed when it is unknown.
+- `HttpResponseHookPayload`: `request`, `status`, `requestId`, and optionally `route`, the matched route template (`/api/v1/invoices/:id`). It is observe-only.
 
 ## 5. Domain events: who emits, who reacts
 

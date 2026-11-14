@@ -134,7 +134,7 @@ AUTH_SECRET=                  # generated; rotate with: pnpm sv auth:secret:rota
 AUTH_SESSION_DRIVER=database  # database | valkey | jwt
 AUTH_SESSION_LIFETIME=120     # minutes idle
 AUTH_JWT_TTL=900              # seconds (API tokens)
-AUTH_ALLOW_REGISTRATION=true
+AUTH_ALLOW_REGISTRATION=false # public sign-up is off by default
 AUTH_MFA=optional             # off | optional | required
 AUTH_GOOGLE_CLIENT_ID=
 AUTH_GOOGLE_CLIENT_SECRET=
@@ -142,7 +142,7 @@ AUTH_MICROSOFT_TENANT_ID=
 AUTH_MICROSOFT_CLIENT_ID=
 AUTH_MICROSOFT_CLIENT_SECRET=
 SEED_ADMIN_EMAIL=admin@acme.test
-SEED_ADMIN_PASSWORD=          # generated at create time, printed once
+SEED_ADMIN_PASSWORD=          # generated at create time; printed once in interactive runs only
 
 # ─── Tenancy ────────────────────────────────────────────────────
 TENANCY_ENABLED=true

@@ -17,6 +17,8 @@
 | [0013](0013-better-auth-hardened-adapter.md) | Better Auth behind a contract-tested IdentityEngine with mandatory hardening | Accepted (refines 0005) |
 | [0014](0014-ui-from-manifest-with-registries.md) | UI rendered from the manifest through typed widget and cell registries | Accepted |
 | [0015](0015-logs-own-pipeline-per-process-files.md) | `@strutvane/logs`: own non-blocking pipeline and writer, per-process files, bounded fail-safe delivery | Accepted |
+| [0016](0016-release-flow-version-on-main.md) | Releases: version on main, CI publishes what's new; cross-repo dependencies use published `next` pre-releases | Accepted |
+| [0017](0017-allow-rules-bind-fail-closed-on-null-actor-values.md) | Allow rules bind fail-closed when a referenced actor value is null | Accepted (refines 0008) |
 
 ## Adding an ADR
 

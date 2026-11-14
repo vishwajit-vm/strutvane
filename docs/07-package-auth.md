@@ -104,7 +104,7 @@ AUTH_SESSION_LIFETIME=120     # idle minutes
 AUTH_SESSION_ABSOLUTE=1440    # absolute minutes
 AUTH_JWT_TTL=900              # access-token seconds (jwt driver / API tokens)
 AUTH_REFRESH_TTL=2592000      # refresh-token seconds
-AUTH_ALLOW_REGISTRATION=true
+AUTH_ALLOW_REGISTRATION=false # public sign-up is off by default
 AUTH_MFA=optional             # off | optional | admins | required
 AUTH_PASSWORD_MIN=12
 AUTH_PASSWORD_BREACH_CHECK=false   # HIBP k-anonymity
@@ -170,6 +170,7 @@ TENANCY_RESOLVE=subdomain,header,session
   - `owner`: tenant owner, including billing, tenant settings and role management. Present only when tenancy is enabled.
 - **Admin user:** created from `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD` and forced to change the password on first login in non-local environments.
 - **Permission catalogue:** built from all registered models and actions (§4.4).
+- **Generated defaults** (`create-strutvane`, `sv add auth`): `config/auth.ts` gets the role map of §4.4, with `member` updates and deletes scoped to the actor's own records (`own: true`), an explicit `defaultRoles` list (empty unless configured), and a `wildcardExclude` list so identity, authorization, tenancy and audit records are granted only by exact permission name, never by a wildcard. Public sign-up is off (`AUTH_ALLOW_REGISTRATION=false`) until the app turns it on.
 
 ## 3. Authentication features (via adapters)
 
@@ -192,7 +193,7 @@ TENANCY_RESOLVE=subdomain,header,session
   - SCIM 2.0 user and group provisioning mapped to memberships and roles.
 - **Impersonation:** permission-gated, time-boxed, fully audited, with banner metadata in `/auth/me`.
 - **Abuse protection:**
-  - Lockout and sliding-window rate limits (per IP and per account).
+  - Lockout and sliding-window rate limits (per IP and per account), shared by every identity engine (§3.2).
   - Hooks for bot/credential-stuffing signals (`onLoginAttempt`).
 
 ### 3.1 API tokens for machine clients
@@ -208,6 +209,14 @@ TENANCY_RESOLVE=subdomain,header,session
 - Revocable from the UI or with `sv auth:token:revoke`.
 - Every use is attributable in the audit log (`actor.type = 'service'`).
 
+### 3.2 Request rules for the auth endpoints (normative)
+
+- **Client address.** Per-IP limits key on the socket peer address, which the HTTP host passes in `HttpRequestHookPayload.clientAddress` ([integration map §4](17-integration-map.md#4-hooks-where-packages-plug-into-each-others-pipelines)). `X-Forwarded-For` is read only when the peer is one of the configured `trustedProxies` (addresses or CIDR ranges), walking right to left past further trusted proxies.
+- **Unknown peer.** When no peer address is available, the per-IP limit is not skipped: every such request counts against one shared fallback bucket per operation, and a warning is logged once. A host that knowingly has no peer address can set `allowMissingPeer` to skip the per-IP limit instead. The per-account limit applies either way.
+- **IPv6** addresses are limited per `/64` prefix; IPv4 addresses individually.
+- **Content type and size.** State-changing endpoints accept JSON bodies sent as `application/json` only, read as a stream with a small size limit (16 KiB in the app provider).
+- **Same-site only.** State-changing endpoints refuse cross-site browser requests: `Sec-Fetch-Site: cross-site`, or an `Origin` other than the app URL, the request's own origin or one listed in `auth.trustedOrigins`. Requests without `Origin` and `Sec-Fetch-Site` (non-browser clients) carry no ambient cookies and pass.
+
 ## 4. Authorization model
 
 ### 4.1 Concepts
@@ -219,6 +228,7 @@ Assignment  = (subject: user | team | service) × role × scope (global | tenant
 Policy      = code-level rules refining permissions with conditions (ABAC)
 Condition   = typed predicate over actor, record, context → compiles to the QueryFilter AST → SQL
 FieldRule   = read/write visibility per field per role/condition
+Scope       = where a role grant counts for a rule or field rule: 'any' (default) | 'global' | 'tenant'
 Decision    = { allowed: boolean, reason: string, filter?: QueryFilter, fields?: FieldMask }
 ```
 
@@ -247,11 +257,20 @@ export default definePolicy('invoice', { schema: invoiceSchema }, ({ allow, deny
 **Properties:**
 
 - **Deny-by-default.** An explicit `deny` overrides any `allow`.
+- **Role scope.** Rules and field rules take `scope: 'any' | 'global' | 'tenant'` (default `'any'`). `'global'` rules apply only to actors outside any tenant (`actor.tenantId` unset), `'tenant'` rules only inside one. Platform-administrator rules use `scope: 'global'`, so a tenant role with the same name never matches them. An explicit empty role list (`role: []`) is a definition error, never "everyone"; `anonymous: true` cannot be combined with `role` or `scope`.
+- **Null actor values fail closed in allow rules** ([ADR-0017](adr/0017-allow-rules-bind-fail-closed-on-null-actor-values.md)). A condition part that depends on a null actor value never widens an allow rule, whatever its polarity (`ne`, `nin`, `not`). Deny rules keep "a null actor value never matches" ([ADR-0008](adr/0008-policy-predicates-two-valued-semantics.md)).
+- **Mistyped record values fail closed.** In-memory evaluation refuses a loaded value that does not fit its column type (for example a `bigint` read as a string) instead of comparing it loosely.
+- **Limits are checked at definition time.** The combined filter of each action (allows OR-ed, denies subtracted) must fit the filter limits when the policy is defined, so a policy that works for single records never fails only on lists.
+- **Role maps and policies combine.** The role maps in `config/auth.ts` (§4.4) are compiled into rules and evaluated together with the policies in `app/policies/`; an explicit `deny` in either still wins.
 - **Typed predicate builder, not arbitrary JS.** The same rule:
   - evaluates in memory for one record (`can('invoice.approve', invoice)`), and
   - **compiles to SQL `WHERE` clauses** for list endpoints, so lists are never filtered after the fact and pagination counts stay correct.
 - **Escape hatch.** `check: (ctx) => boolean` is allowed but marks the rule *not list-filterable*. `sv doctor` warns if it is used on `viewAny`.
 - **Field-level rules** are applied in API serialisers, input validation (unwritable fields are rejected), OpenAPI output, the resource manifest and UI forms/columns.
+  - Read masking is an allow-list: a record is copied with **only** the schema fields the actor may read, so relations, computed values and internal columns never pass through by accident.
+  - Keys that are not schema columns are never writable.
+  - `filterableFields(actor)` returns exactly the actor's readable fields. Untrusted filters and sorts are validated against it (`validateFilter(…, { allowedFields })`); any other field is rejected with `INVALID_FILTER`, exactly like an unknown field. Relation paths must be listed explicitly.
+  - `restrictedFields` lists the fields that have a read rule (used for audit masking, §7).
 - **Explainable.** `Decision.reason` names the matched rule. It is shown by `sv auth:explain` and recorded in audit on denials of sensitive actions.
 - **Compliance export.** `sv auth:matrix --format md|csv|json` prints the role × permission matrix.
 
@@ -297,11 +316,19 @@ For sharing graphs ("viewers of folder X can view its files"), the `Authorizatio
 
 - **Resolution chain** (configurable and ordered):
   - subdomain → custom domain → path prefix → `X-Tenant-Id` header (trusted services only) → token claim → session's active tenant.
+- **Who may be scoped to a tenant** (normative):
+  - **Anonymous requests get no tenant by default.** `tenancy.allowAnonymousTenant` opts in: `true` keeps only tenants resolved by the `subdomain` or `path` resolvers (for example a public sign-up page on `acme.example.com`); a list of resolver names keeps only those. A tenant that is not allowed is ignored, never an error, so anonymous probing reveals nothing. `requireAuth` is checked before tenant resolution.
+  - **`X-Tenant-Id` is honoured only for tenant-less service actors** (`actor.type === 'service'` without a `tenantId`). For user and anonymous requests the header is ignored.
 - **RLS integration:**
-  - Each transaction runs `SET LOCAL app.tenant_id = $1` and `SET LOCAL app.actor_id = $2`.
+  - Each transaction sets the tenant transaction-locally with `set_config('app.tenant_id', $1, true)` ([ADR-0007](adr/0007-tenancy-rls-enforcement-rules.md) rule 3).
   - Generated migrations add `ENABLE` + `FORCE ROW LEVEL SECURITY` and policies for every `tenant: true` model.
   - The app connects as a non-owner role without `BYPASSRLS`.
-  - Compatible with PgBouncer transaction pooling because `SET LOCAL` is transaction-scoped.
+  - Compatible with PgBouncer transaction pooling because the setting is transaction-scoped.
+  - **Text comparisons are bytewise.** Compiled policy and filter SQL compares text columns under `COLLATE "C"`, so SQL and in-memory evaluation agree whatever the column collation (ADR-0008). Indexes used by these predicates should be built `COLLATE "C"`. `textCollation: 'database'` opts out, only for databases where every text column uses a deterministic collation.
+- **Checks you can run** (`@strutvane/auth/postgres`):
+  - `tenancyAudit(db)` inspects a live database as the runtime role. Finding codes: `RLS_DISABLED`, `RLS_NOT_FORCED`, `NO_RESTRICTIVE_POLICY`, `RUNTIME_ROLE_BYPASSES_RLS`, `RUNTIME_ROLE_OWNS_TABLE`, `DEFINER_VIEW`, `SECURITY_DEFINER_FUNCTION`, `TENANT_SETTING_DEFAULT` (a role- or database-level default for the tenant setting).
+  - `findSessionSet(sql)` lints migrations and raw SQL for ADR-0007 rule 3. Finding codes: `SESSION_SET`, `SESSION_SET_CONFIG`, `PERSISTENT_SET` (errors), `SET_LOCAL`, `SESSION_RESET` (warnings).
+  - `relationKeyAudit(db, schemas)` checks that every to-one relation in a policy schema points at a unique key.
 - **Safety net:** every generated model test includes cross-tenant read, update and delete attempts that must return 404. This is the class of bug behind Payload's multi-tenant CVE fixed in 3.90.0.
 - **Platform operators:** `actor.type === 'system'` access is explicit, audited and never implicit. Server-side code runs **with** access control by default; bypass needs `withSystemActor('reason', fn)`.
 - **Lifecycle:** provision, suspend, export (portability), delete (GDPR erasure, with a crypto-shredding option). Each stage has hooks (`onTenantCreated`, …).
@@ -335,7 +362,7 @@ Engine-owned columns (`email`, `emailVerified`, password hash, etc.) are protect
   - Reads of sensitive resources, opt-in per model with `audit: { reads: true }`.
 - **Record:** the `AuditEvent` contract:
   - actor, tenant, action, resource type and id
-  - a `before`/`after` JSON diff with **redaction** of `sensitive()` fields (hashed or omitted)
+  - a `before`/`after` JSON diff with **redaction** of `sensitive()` fields (hashed or omitted). Passing the resource's policy as `maskFor` also redacts every field that has a read rule (`policy.restrictedFields`), so the audit log never shows values the policy hides from most readers.
   - request id, trace id, IP, user agent and decision reason
 - **Write path:** same DB transaction as the change (outbox), so there are no lost or phantom records.
 - **Tamper evidence (opt-in):** a per-tenant hash chain (`hash = H(prev ‖ event)`). `sv audit:verify` checks it; periodic external anchoring is optional.
