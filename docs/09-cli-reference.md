@@ -141,7 +141,7 @@ Types and modifiers mirror the `field.*` builder catalogue in [05 §4.3](05-deve
 
 | Command | Description | Key flags |
 |---------|-------------|-----------|
-| `sv migrate` | Diff models ↔ DB → write a timestamped SQL migration → apply → sync permissions | `--dry-run` (print SQL), `--name <name>`, `--generate-only`, `--no-sync`, `--tenants` (all tenant DBs/schemas), `--connection`, `--check` (exit 6 if drift/pending; CI) |
+| `sv migrate` | Diff models ↔ DB → write a timestamped SQL migration → apply → sync permissions | `--pretend` (write the migration and list package migrations, apply nothing), `--dry-run` (print SQL), `--name <name>`, `--generate-only`, `--no-sync`, `--tenants` (all tenant DBs/schemas), `--connection`, `--check` (exit 6 if drift/pending; CI) |
 | `sv migrate:status` | Applied / pending / drift report | `--json` |
 | `sv migrate:rollback` | Roll back the last batch (or `--step n`) | `--step`, `--to <migration>` |
 | `sv migrate:reset` | Roll back everything | `--force --i-understand` outside local/test/development (production guard below) |
@@ -153,6 +153,8 @@ Types and modifiers mirror the `field.*` builder catalogue in [05 §4.3](05-deve
 | `sv db:shell` | Open `psql` / `mysql` / `sqlite3` with current credentials | — |
 | `sv db:studio` | Local browser DB explorer (read-mostly, local env only) | `--port` |
 | `sv db:backup` / `sv db:restore` | Local dumps for dev data (not a production backup tool) | `--file` |
+
+**Package migrations.** `sv migrate` and `sv migrate:status` also cover the migrations shipped by the app's enabled packages (for example `@strutvane/auth`'s identity tables), in one name-ordered list with the app's own. `--pretend` lists them with their package and `migrate:status` shows a `Source` column. Which packages count is in §11; ordering and drift are in [06 §3.4](06-package-framework.md#34-package-migrations).
 
 **Production guard:** destructive commands (`migrate:fresh`, `migrate:reset`, `migrate:rollback`, `db:wipe`, `db:restore`, and a contributed command that replaces one of them) run without confirmation **only** when `APP_ENV` is `local`, `test`, `testing` or `development`. In every other case, including an unset `APP_ENV` (the runtime then defaults to production), they need both `--force` and `--i-understand`. Even then they are audited.
 
@@ -179,7 +181,8 @@ The first non-empty value wins. Values are trimmed and compared case-insensitive
 
 | Command | Description |
 |---------|-------------|
-| `sv auth:user:create` | Create a user (`--email --role --tenant --password-prompt`) |
+| `sv auth:user:create` | Create an account: `--email <email> --name <name> --password-env <VAR>`. The password is read from the named environment variable, never from a flag. Needs persistent identity ([07 §11](07-package-auth.md#11-cli-commands-contributed-by-this-package)) |
+| `sv auth:migration` | Optional. Writes the identity-table SQL into `database/migrations/` (only what is missing). `sv migrate` already creates these tables from auth's package migration; use this without the framework's migrator or for a schema upgrade |
 | `sv auth:role:create <name>` | Create a role (`--inherits`, `--tenant`) |
 | `sv auth:permissions` | List the permission catalogue (`--orphans`) |
 | `sv auth:permissions:sync` | Reconcile code ↔ DB (`--dry-run`, `--prune`) |
@@ -188,7 +191,9 @@ The first non-empty value wins. Values are trimmed and compared case-insensitive
 | `sv auth:keys:rotate` / `sv auth:secret:rotate` | Rotate JWKS signing keys / auth secret |
 | `sv auth:token:create` / `auth:token:revoke` | Service and personal API tokens |
 | `sv auth:sso:add` | Add a SAML/OIDC connection for a tenant |
-| `sv tenant:create` / `tenant:list` / `tenant:suspend` / `tenant:export` / `tenant:delete` / `tenant:migrate` | Tenant lifecycle |
+| `sv tenant:create` | Create a tenant owned by an existing account: `--name <name> --slug <slug> --owner <email>` |
+| `sv tenant:member:add` | Give an account a role in a tenant, replacing its previous role there: `--tenant <slug\|id> --email <email> --role <role>` (a role from `config/auth.ts`) |
+| `sv tenant:list` / `tenant:suspend` / `tenant:export` / `tenant:delete` / `tenant:migrate` | Tenant lifecycle *(planned)* |
 | `sv audit:verify` / `audit:prune` / `audit:export` | Verify hash chain, apply retention, export |
 
 ## 7. UI (from `@strutvane/ui`)
@@ -237,7 +242,14 @@ Ejections are recorded in `.strutvane/lock.json` and are merged on `sv upgrade` 
 
 ## 11. Extensibility: commands from packages and plugins
 
-- **Contribution:** packages and plugins contribute commands through their **service provider** (`provider.commands([...])`) or installer manifest. Contributed commands appear in `sv help` under the package's group (e.g. `auth:*`, `notify:*`).
+- **Contribution:** packages and plugins declare what they contribute in the `strutvane` field of their package.json: `commands`, `installer`, `templates` (modules) and `migrations` (a folder of SQL files). Contributed commands appear in `sv help` under the package's group (e.g. `auth:*`, `notify:*`).
+
+```json
+{ "strutvane": { "commands": "./dist/commands.mjs", "migrations": "./migrations", "compat": "^0.1.0" } }
+```
+
+- **Who may contribute:** commands and templates come only from dependencies listed in the app's own package.json (never transitive ones) with a contributor name: `@strutvane/*`, `strutvane-plugin-*` or `@scope/strutvane-plugin-*`; an installer only from the package named in `sv add`. A module must resolve, symlinks followed, inside the package's own folder in `node_modules`; anything else is refused with `UNSAFE_CONTRIBUTION` and never executed. A plugin can never replace a built-in command.
+- **Package migrations** (`<folder>/<dialect>/*.sql`) run as the database owner role, so they pass a stricter gate. The CLI hands a folder to `sv migrate` / `migrate:status` (`ctx.packageMigrations()`) only when the package is a direct dependency with a contributor name, the app **enabled** it (`strutvane.config.ts` has a value import from it, which `sv add` writes; being installed or an `import type` does not count), a third-party package declares a satisfied `strutvane.compat`, and the folder is relative and resolves inside the package. A package that is not a direct contributor dependency or not enabled is ignored (`sv doctor` warns); an enabled one that fails the compatibility or containment check stops the command (exit 7 or `UNSAFE_CONTRIBUTION`; `sv doctor` reports a failure). The framework never scans `node_modules` itself ([17 §6.1](17-integration-map.md#61-contributions-declared-in-packagejson-loaded-by-the-cli)).
 - **Plugin scaffolding:**
   - `sv make:plugin <name>` (alias `plugin:create`) scaffolds a plugin package with a provider, installer, generator and tests.
   - `sv generator:create <name>` adds a custom generator (`sv make:<name>`) using `@strutvane/devkit`.

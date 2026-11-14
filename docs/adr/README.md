@@ -20,6 +20,7 @@
 | [0016](0016-release-flow-version-on-main.md) | Releases: version on main, CI publishes what's new; cross-repo dependencies use published `next` pre-releases | Accepted |
 | [0017](0017-allow-rules-bind-fail-closed-on-null-actor-values.md) | Allow rules bind fail-closed when a referenced actor value is null | Accepted (refines 0008) |
 | [0018](0018-staged-npm-publishing.md) | CI stages npm releases; a maintainer approves each version with 2FA before it goes live | Accepted (refines 0016) |
+| [0019](0019-script-free-api-docs-page.md) | The framework serves its own script-free API docs page at `/docs` | Accepted under standing approval (refines 0011; supersedes the Scalar row of 11) |
 
 ## Adding an ADR
 

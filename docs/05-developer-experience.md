@@ -19,13 +19,12 @@ This is the most important document in the blueprint. Every package decision exi
 ```bash
 pnpm install
 pnpm services:up          # local database and services (Docker)
-pnpm sv auth:migration    # PostgreSQL with auth only: writes the migration for the sign-in tables
-pnpm sv migrate
+pnpm sv migrate           # the app's migrations plus the identity tables @strutvane/auth ships
 pnpm sv db:seed
 pnpm dev
 ```
 
-`sv auth:migration` appears only when auth keeps identity in the app's own PostgreSQL database (`session.driver: 'database'`, the generated default; [07 §2.4](07-package-auth.md#24-environment-keys)). Folding the identity tables into `sv migrate`, so this step disappears, is planned. The single `pnpm sv up` of the table above is the target.
+`sv migrate` also creates the sign-in tables when auth keeps identity in the app's own PostgreSQL database (`session.driver: 'database'`, the generated default; [07 §2.4](07-package-auth.md#24-environment-keys)): `@strutvane/auth` ships them as a package migration ([06 §3.4](06-package-framework.md#34-package-migrations)), so there is no separate auth step. The single `pnpm sv up` of the table above is the target.
 
 ## 2. `npm create strutvane@next`
 

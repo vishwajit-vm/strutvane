@@ -15,15 +15,16 @@ Declare models as fields and types, run one command, and get migrations, a secur
 </div>
 
 > [!NOTE]
-> **Phase 0 (foundations) is complete; Phase 1 is next.** This repository holds the technical blueprint, the decision records (ADRs 0001–0015), the RFCs and the results of the nine Phase 0 [spikes](spikes/) (419 tests). Shared tooling, the [docs site](https://vishwajit-vm.github.io/strutvane-docs/) and the `@strutvane/contracts` v0 draft are built and tested. Nothing is released on npm yet: the packages there are name placeholders. How the project is run: [GOVERNANCE.md](GOVERNANCE.md).
+> **Phase 0 (foundations) is complete; Phase 1 is next.** This repository holds the technical blueprint, the decision records (ADRs 0001–0019), the RFCs and the results of the nine Phase 0 [spikes](spikes/) (419 tests). Shared tooling, the [docs site](https://vishwajit-vm.github.io/strutvane-docs/) and the `@strutvane/contracts` v0 draft are built and tested. Nothing is released on npm yet: the packages there are name placeholders. How the project is run: [GOVERNANCE.md](GOVERNANCE.md).
 
 ## The idea
 
 ```bash
 npm create strutvane@next acme         # Full-stack | API only | UI only
-cd acme
+cd acme && pnpm install                # dependencies (the starter can also install them for you)
+pnpm services:up                       # local PostgreSQL and services (Docker, git-ignored)
 pnpm sv make:model Invoice number:string:unique customer:belongsTo(Customer) amount:decimal(12,2) "status:enum(draft,sent,paid)"
-pnpm sv migrate                        # migration generated from the model and applied
+pnpm sv migrate                        # migration generated from the model and applied, plus auth's identity tables
 pnpm dev                               # API /api/v1/invoices · docs /docs · UI /invoices, with login, roles and permissions
 ```
 

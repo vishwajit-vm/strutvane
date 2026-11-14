@@ -100,6 +100,21 @@ export default defineMigration({
 
 `sv db:pull` introspects an existing database and writes `app/models/*.model.ts`, including relations inferred from FKs. Ambiguities are listed for review. This makes Strutvane usable on legacy enterprise DBs, the main reason teams choose Directus today.
 
+### 3.4 Package migrations
+
+A package can ship SQL migrations that `sv migrate` applies together with the app's own, so installing it needs no separate migration step. The package declares `"strutvane": { "migrations": "./migrations" }` in its package.json and ships `<folder>/<dialect>/*.sql` (`postgres` or `sqlite`; statements separated by `--> statement-breakpoint`, as in the app's own `.sql` files). A package without a folder for the app's dialect contributes nothing.
+
+**Which packages count.** Package migrations run as the database owner role, so the framework applies only the folders the CLI vetted and hands to the command (`ctx.packageMigrations()`): a direct dependency of the app, with a contributor name, enabled by a value import in `strutvane.config.ts`, with a satisfied `strutvane.compat` when third-party, and a folder that resolves inside the package. The full rule, and what `sv doctor` reports, is in [17 §6.1](17-integration-map.md#61-contributions-declared-in-packagejson-loaded-by-the-cli). The framework never scans `node_modules`, applies no package migrations when given none, and re-checks with `realpath` that every dialect folder and `.sql` file stays inside the package.
+
+**Order and tracking.**
+
+- The app's migrations (`database/migrations/*.sql` and `*.ts`) and the package migrations form **one list sorted by name**. Names start with a timestamp, so the order is chronological across the app and its packages. Two migrations with the same name stop the run.
+- Pending migrations, the app's and the packages', are applied in that order in one transaction (under the migration advisory lock on PostgreSQL) and recorded in the same migrations table with their checksum. A package migration is pending until applied, whatever its timestamp, so a package added later still gets its migrations applied.
+- Drift rules are the same as for the app's files: a package migration whose content changed after it was applied (for example after a package upgrade) is drift, and so is an applied package migration that is no longer provided (the package was removed or is no longer enabled). `sv migrate` refuses to run while there is drift.
+- `sv migrate --pretend` lists the package migrations with their package (they run if not applied yet); `Applied …` lines name the package; `sv migrate:status` has a `Source` column (`app` or the package name).
+
+**Auth's identity tables.** `@strutvane/auth` ships its identity and rate-limit tables as a package migration (`migrations/postgres/<timestamp>_strutvane_auth_identity.sql`, written with `IF NOT EXISTS`, so it is idempotent). On PostgreSQL, `sv migrate` therefore creates them; the separate `sv auth:migration` step is no longer needed. That command is kept as an optional tool: it writes the identity SQL into `database/migrations/` for apps that do not use the framework's migrator, or for a schema upgrade ([07 §2.3](07-package-auth.md#23-migrations-default-tables-prefix-configurable-eg-auth_)).
+
 ## 4. Seeders & factories
 
 ```ts

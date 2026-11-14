@@ -60,7 +60,7 @@ This folder is the **umbrella workspace and the hub repo** (`github.com/vishwaji
 
 ## Map
 
-- `docs/`: blueprint (00–17; `17-integration-map.md` lists every allowed connection between packages), `adr/` (0001–0018), `rfcs/` (0001 contracts v0, 0002 files, 0003 errors & messages, 0004 logs), `research/` (dated evidence)
+- `docs/`: blueprint (00–17; `17-integration-map.md` lists every allowed connection between packages), `adr/` (0001–0019), `rfcs/` (0001 contracts v0, 0002 files, 0003 errors & messages, 0004 logs), `research/` (dated evidence)
 - `spikes/`: Phase 0 experiments with reports (standalone; never imported by real packages)
 - `packages/<name>/`: each package repo, with its own `CLAUDE.md` and `.claude/`
 - `.claude/skills/`: `adr`, `blueprint-sync`, `research-refresh`, `new-package-repo`

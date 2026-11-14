@@ -69,18 +69,16 @@ pnpm sv add auth --methods email,google --mfa optional --registration open --ten
 ```
 config/auth.ts                         ← methods, sessions, password policy, role→permission defaults
 config/tenancy.ts                      ← only when tenancy is enabled
-app/models/tenant.model.ts             ← tenancy only (extendable)
 app/policies/user.policy.ts  role.policy.ts  tenant.policy.ts
 app/providers/auth.provider.ts         ← registers the identity engine, resolvers, hooks
 app/mail/auth/                         ← verify-email, reset-password, magic-link, invite, new-device templates
-database/migrations/<ts>_create_auth_tables.sql
 database/migrations/<ts>_enable_rls_policies.sql           (tenancy: shared)
 database/seeders/auth.seeder.ts       ← system roles, permission catalogue, admin user
 tests/feature/auth/*.test.ts          ← login, MFA, lockout, reset, roles, tenant isolation
 web/pages/auth/…                       ← only when @strutvane/ui is installed (§2.6)
 ```
 
-No `app/models/user.model.ts` is generated: accounts live in the auth identity store, and app data about a user is keyed by the actor id (§6).
+No `app/models/user.model.ts` or `app/models/tenant.model.ts` is generated: accounts, tenants and memberships live in the auth identity store (§5, §6), and app data about a user or a tenant is keyed by the actor id or the tenant id. The identity tables are not written into `database/migrations/` either: they ship with the package as a package migration (§2.3).
 
 ### 2.3 Migrations (default tables; prefix configurable, e.g. `auth_`)
 
@@ -93,7 +91,9 @@ No `app/models/user.model.ts` is generated: accounts live in the auth identity s
 | Enterprise | `sso_connections`, `scim_tokens`, `impersonation_sessions` |
 | Audit | `audit_events` (Postgres: monthly partitions) |
 
-**Implemented today (persistent identity).** With `session.driver: 'database'` on PostgreSQL (§2.4), the identity tables are Better Auth's schema (users, accounts, sessions, verifications, organizations, members, invitations) plus `strutvane_rate_limits` for the auth rate-limit counters. `sv auth:migration` writes them to `database/migrations/<timestamp>_auth_identity.sql` (only what is missing in the database), and `sv migrate` applies that file like any other migration. Folding the identity tables into the `sv migrate` diff, so the extra command disappears, is planned.
+**Implemented today (persistent identity).** With `session.driver: 'database'` on PostgreSQL (§2.4), the identity tables are Better Auth's schema (`user`, `account`, `session`, `verification`, `organization`, `member`, `invitation`) plus `strutvane_rate_limits` for the auth rate-limit counters. The package ships them as a **package migration**, `migrations/postgres/<timestamp>_strutvane_auth_identity.sql` (declared as `"strutvane": { "migrations": "./migrations" }`, written with `IF NOT EXISTS`, so it is idempotent). `sv migrate` applies it with the app's own migrations once the app enables auth in `strutvane.config.ts` ([06 §3.4](06-package-framework.md#34-package-migrations), [17 §6.1](17-integration-map.md#61-contributions-declared-in-packagejson-loaded-by-the-cli)), so no separate auth step is needed.
+
+`sv auth:migration` is kept as an optional tool. It compares the database with the tables persistent sign-in needs and writes only what is missing to `database/migrations/<timestamp>_auth_identity.sql`, also with `IF NOT EXISTS`, so it and the package migration can run in either order. Use it for apps without the framework's migrator, or to pick up a schema change.
 
 ### 2.4 Environment keys
 
@@ -137,7 +137,7 @@ TENANCY_RESOLVE=subdomain,header,session
 
 Cookie sessions in Valkey and JWT + refresh sessions (the other options in §2.1) are planned. Until they exist, any other value falls back to the native in-memory engine with a warning.
 
-The persistent engine fails the boot, with the fix in the message, when `better-auth` or `pg` is not installed, when `AUTH_SECRET` is shorter than 32 characters, or when the auth tables are missing (run `sv auth:migration`, then `sv migrate`; §2.3). `create-strutvane` handles this for PostgreSQL apps with auth: it adds the pinned `better-auth` dependency and puts `sv auth:migration` before `sv migrate` in the printed next steps, the project README and the migrations README.
+The persistent engine fails the boot, with the fix in the message, when `better-auth` or `pg` is not installed, when `AUTH_SECRET` is shorter than 32 characters, or when the auth tables are missing (run `sv migrate`, which applies auth's package migration; §2.3). `create-strutvane` handles this for PostgreSQL apps with auth: it adds the pinned `better-auth` dependency, and its printed next steps and project README run `sv migrate`, which creates the tables.
 
 ### 2.5 API routes (auto-registered under `API_PREFIX/API_VERSION`)
 
@@ -410,6 +410,7 @@ For sharing graphs ("viewers of folder X can view its files"), the `Authorizatio
 - **Safety net:** every generated model test includes cross-tenant read, update and delete attempts that must return 404. This is the class of bug behind Payload's multi-tenant CVE fixed in 3.90.0.
 - **Platform operators:** `actor.type === 'system'` access is explicit, audited and never implicit. Server-side code runs **with** access control by default; bypass needs `withSystemActor('reason', fn)`.
 - **Lifecycle:** provision, suspend, export (portability), delete (GDPR erasure, with a crypto-shredding option). Each stage has hooks (`onTenantCreated`, …).
+- **Where tenants live (implemented today):** tenants and memberships belong to the identity store, like accounts. Apps get no tenant model. With persistent identity they are the `organization` and `member` tables of auth's package migration (§2.3); with the in-memory engine they live in the process. They are managed through the auth endpoints (`/auth/tenants`, `/auth/switch-tenant`, `/auth/tenants/:id/members`), the `tenant:create` and `tenant:member:add` commands (§11), and `openIdentityAdmin()` from `@strutvane/auth/admin` in seeders. App data that belongs to a tenant carries its `tenantId`.
 
 ## 6. User profile data
 
@@ -518,7 +519,7 @@ UI hiding is **convenience, never enforcement**. The API re-checks every request
 | `requirePermission`, `requireRole`, `requireRecentAuth` | Middleware/guards |
 | `currentActor`, `currentTenant`, `withTenant`, `withSystemActor` | Context (AsyncLocalStorage) |
 | `audit.record`, `audit.query` | Audit |
-| `TenantModel` | Extendable tenant model *(planned)*. There is no `UserModel`: profile data is an app model keyed by `actor.id` (§6) |
+| `@strutvane/auth/admin` | `openIdentityAdmin()`: manage accounts, tenants and memberships from seeders and scripts (`ensureUser`, `ensureTenant`, `setMember`; idempotent). There is no `UserModel` or `TenantModel`: accounts and tenants live in the identity store, and profile data is an app model keyed by `actor.id` (§5, §6) |
 | `@strutvane/auth/identity/*` | Identity adapters (better-auth, oidc, saml, native) |
 | `@strutvane/auth/testing` | `actingAs(user, { tenant, roles })`, `withPermissions([...])`, cross-tenant assertion helpers |
 
@@ -526,7 +527,10 @@ UI hiding is **convenience, never enforcement**. The API re-checks every request
 
 ```
 sv add auth | sv remove auth
-sv auth:user:create --email --role --tenant [--password-prompt]
+sv auth:user:create --email <email> --name <name> --password-env <VAR>
+sv tenant:create --name <name> --slug <slug> --owner <email>
+sv tenant:member:add --tenant <slug|id> --email <email> --role <role>
+sv auth:migration                     # optional: writes the identity-table SQL to database/migrations (§2.3)
 sv auth:role:create <name> [--inherits member] [--tenant]
 sv auth:permissions:sync [--dry-run] [--prune]
 sv auth:matrix [--format md|csv|json]
@@ -534,11 +538,17 @@ sv auth:explain --actor <id> --action invoice.approve --resource invoice:123
 sv auth:keys:rotate · sv auth:secret:rotate
 sv auth:token:create --service <name> --roles … · sv auth:token:revoke <id>
 sv auth:sso:add --tenant acme --type saml|oidc --metadata-url …
-sv auth:migration                     # writes the identity-table migration (persistent identity, §2.3)
 sv auth:migrate                       # standalone mode only
-sv tenant:create | tenant:list | tenant:suspend | tenant:export | tenant:delete | tenant:migrate
+sv tenant:list | tenant:suspend | tenant:export | tenant:delete | tenant:migrate
 sv audit:verify [--tenant] · sv audit:prune --before 2025-01-01
 ```
+
+**Implemented today:** `auth:user:create`, `tenant:create`, `tenant:member:add` and `auth:migration` (package.json `strutvane.commands`); the other commands are planned.
+
+- `auth:user:create` reads the password from the environment variable named by `--password-env`, so it never appears in shell history or process listings.
+- `tenant:create` needs an existing account for `--owner`, which becomes the tenant's `owner`. `tenant:member:add` accepts only a role defined in `config/auth.ts` and replaces the account's previous role in that tenant.
+- The account and tenant commands need persistent identity (`session.driver: 'database'` on PostgreSQL, §2.4). With the in-memory engine they refuse, because the change would be lost when the command exits.
+- Exit codes: 0 success, 2 usage, 3 validation, 4 conflict (email already taken), 5 database unreachable.
 
 ## 12. Open questions
 

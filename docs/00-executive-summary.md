@@ -18,8 +18,10 @@ A realistic B2B app (10–20 models, auth, RBAC, UI) should be **running in 1–
 
 ```bash
 npm create strutvane@next acme        # choose: Full-stack | API only | UI only
-cd acme && pnpm sv make:model Product # add fields: name:string price:decimal status:enum(draft,active)
-pnpm sv migrate                       # migration auto-generated from the model and applied
+cd acme && pnpm install               # dependencies (the starter can also install them for you)
+pnpm services:up                      # local PostgreSQL and services (Docker, git-ignored)
+pnpm sv make:model Product            # add fields: name:string price:decimal status:enum(draft,active)
+pnpm sv migrate                       # migration generated from the model and applied, plus auth's identity tables
 pnpm dev                              # API + docs + UI live: /api/v1/products, /docs, /products
 ```
 
