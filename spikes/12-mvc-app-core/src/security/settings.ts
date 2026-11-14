@@ -11,9 +11,15 @@
 import { token } from '../foundation/container.ts'
 import { StrutvaneError } from '../support/errors.ts'
 import { SecuritySettingError } from './setting-error.ts'
+import type { BodyLimits } from '../http/request-state.ts'
+import { resolveCors, type CorsOptions, type ResolvedCors } from './cors.ts'
 import { resolveCsrf, type CsrfOptions, type ResolvedCsrf } from './csrf-settings.ts'
+import { resolveLimits, type BodyLimitOptions } from './safe-json.ts'
+import { resolveHeaders, type HeaderOptions, type ResolvedHeaders } from './secure-headers.ts'
+import { resolveTrustedHosts, type ResolvedHosts, type TrustHostsOptions } from './trusted-hosts.ts'
+import { resolveTrustedProxies, type ResolvedProxies, type TrustProxiesOptions } from './trusted-proxies.ts'
 
-export type { CsrfOptions }
+export type { BodyLimitOptions, CorsOptions, CsrfOptions, HeaderOptions, TrustHostsOptions, TrustProxiesOptions }
 
 /**
  * Where the app runs, which some defaults depend on (HSTS only in production, loopback hosts
@@ -36,6 +42,11 @@ export interface SecurityEnvironment {
  */
 export interface ResolvedSecurity {
   readonly csrf: ResolvedCsrf
+  readonly proxies: ResolvedProxies
+  readonly hosts: ResolvedHosts
+  readonly cors: ResolvedCors
+  readonly headers: ResolvedHeaders
+  readonly limits: BodyLimits
 }
 
 /**
@@ -47,6 +58,11 @@ export interface ResolvedSecurity {
  */
 export class SecuritySettings {
   #csrf: CsrfOptions = {}
+  #proxies: TrustProxiesOptions = { at: [] }
+  #hosts: TrustHostsOptions | undefined
+  #cors: CorsOptions | undefined
+  #headers: HeaderOptions = {}
+  #limits: BodyLimitOptions = {}
 
   /**
    * Add CSRF exceptions (path patterns) and trusted origins.
@@ -56,6 +72,61 @@ export class SecuritySettings {
    */
   csrf(options: CsrfOptions): this {
     this.#csrf = { except: [...(this.#csrf.except ?? []), ...(options.except ?? [])], origins: [...(this.#csrf.origins ?? []), ...(options.origins ?? [])] }
+    return this
+  }
+
+  /**
+   * Trust `X-Forwarded-*` headers only from these proxy addresses (CIDR or single IPs).
+   *
+   * @example
+   * settings.trustProxies({ at: ['10.0.0.0/8'] })
+   */
+  trustProxies(options: TrustProxiesOptions): this {
+    this.#proxies = { ...options, at: [...this.#proxies.at, ...options.at] }
+    return this
+  }
+
+  /**
+   * Replace the Host allowlist (default: APP_URL's host, plus loopback in local and testing).
+   *
+   * @example
+   * settings.trustHosts({ at: ['blog.example.com'], subdomains: true })
+   */
+  trustHosts(options: TrustHostsOptions): this {
+    this.#hosts = options
+    return this
+  }
+
+  /**
+   * Turn CORS on for an allowlist of origins. Off by default.
+   *
+   * @example
+   * settings.cors({ origins: ['https://app.example.com'], credentials: true })
+   */
+  cors(options: CorsOptions): this {
+    this.#cors = options
+    return this
+  }
+
+  /**
+   * Adjust the security headers (extra CSP sources, HSTS, Permissions-Policy…).
+   *
+   * @example
+   * settings.headers({ csp: { 'img-src': ['https://images.example.com'] } })
+   */
+  headers(options: HeaderOptions): this {
+    this.#headers = { ...this.#headers, ...options }
+    return this
+  }
+
+  /**
+   * Adjust the request body limits (bytes, JSON depth, JSON keys).
+   *
+   * @example
+   * settings.limits({ maxBytes: 5 * 1024 * 1024 })
+   */
+  limits(options: BodyLimitOptions): this {
+    this.#limits = { ...this.#limits, ...options }
     return this
   }
 
@@ -79,6 +150,11 @@ export class SecuritySettings {
     }
     const resolved: ResolvedSecurity = {
       csrf: collect(() => resolveCsrf(this.#csrf, where), { except: [], origins: [] }),
+      proxies: collect(() => resolveTrustedProxies(this.#proxies), { ranges: [], headers: [] }),
+      hosts: collect(() => resolveTrustedHosts(this.#hosts, where), { patterns: [], configured: false }),
+      cors: collect(() => resolveCors(this.#cors), { enabled: false, paths: [], origins: [], methods: [], headers: [], exposedHeaders: [], credentials: false, maxAge: 0 }),
+      headers: collect(() => resolveHeaders(this.#headers, where), { csp: undefined, cspReportOnly: false, hsts: undefined, fixed: [] }),
+      limits: collect(() => resolveLimits(this.#limits), { maxBytes: 1, maxDepth: 1, maxKeys: 1 }),
     }
     if (problems.length > 0) {
       throw new StrutvaneError(

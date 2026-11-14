@@ -26,9 +26,12 @@ import { HttpContext } from '../http/context.ts'
 import { Authorize } from '../http/authorize.ts'
 import { VerifyCsrfToken } from '../http/csrf.ts'
 import { buildMiddleware, MiddlewareConfig, MiddlewareConfigToken, type MiddlewareReference } from '../http/middleware.ts'
-import { plainRequestState, type RequestState } from '../http/request-state.ts'
+import { cspReportRoutes } from '../http/csp-report.ts'
+import { corsPreflightStage, decorateResponse, runStages, trustedHostStage, type KernelStage } from '../http/kernel.ts'
+import { newNonce, type RequestState } from '../http/request-state.ts'
+import { forwardedClient } from '../security/trusted-proxies.ts'
 import { resolveRouteMiddleware, type ResolvedRouteMiddleware } from '../http/route-middleware.ts'
-import { SecurityToken } from '../security/settings.ts'
+import { SecurityToken, type ResolvedSecurity } from '../security/settings.ts'
 import { closestMatch } from '../support/str.ts'
 import { NotFoundError, HttpError } from '../http/problem.ts'
 import { ResourceController } from '../http/resource-controller.ts'
@@ -199,6 +202,9 @@ interface BootedState {
   readonly hono: Hono<{ Bindings: RequestState }>
   readonly handler: ExceptionHandler
   readonly middleware: ReadonlyMap<CompiledRoute, ResolvedRouteMiddleware>
+  readonly security: ResolvedSecurity
+  /** Global stages run before routing for every request. */
+  readonly stages: readonly KernelStage[]
 }
 
 /** What `handle()` may know about the connection. */
@@ -229,6 +235,8 @@ export class Application implements ApplicationScope {
   readonly #providers: ServiceProvider[] = []
   readonly #extraRoutes: { routes: RouteList<unknown>; prefix: string; group: string | undefined }[] = []
   readonly #commands = new Map<string, AnyCommand>()
+  /** Global stages added by the framework (maintenance mode) between the host check and CORS. */
+  readonly #extraStages: KernelStage[] = []
   #state: BootedState | undefined
   #booting: Promise<void> | undefined
 
@@ -354,17 +362,27 @@ export class Application implements ApplicationScope {
    */
   async handle(request: Request, info: RequestInfo = {}): Promise<Response> {
     await this.boot()
-    const state = this.#booted('app.handle()')
-    const requestState = this.#requestState(request, info)
-    return runInApplication(this, () => state.hono.fetch(request, requestState))
+    const booted = this.#booted('app.handle()')
+    const state = this.#requestState(request, info, booted.security)
+    const ctx = new HttpContext({ request, state })
+    return runInApplication(this, async () => {
+      let response: Response
+      try {
+        response = await runStages(booted.stages, ctx, async () => booted.hono.fetch(request, state))
+      } catch (error) {
+        response = await booted.handler.render(error, ctx)
+      }
+      // Outside the try: error responses get the security headers too.
+      return decorateResponse(response, ctx, booted.security, this.environment)
+    })
   }
 
-  #requestState(request: Request, info: RequestInfo): RequestState {
+  #requestState(request: Request, info: RequestInfo, security: ResolvedSecurity): RequestState {
     const skipCsrf = info.testing?.withoutCsrf === true
     if (skipCsrf && this.environment !== 'testing') {
       throw new StrutvaneError('TESTING_ONLY', `withoutCsrf() was used with APP_ENV=${this.environment}.`, 'It is a test helper: it only works when APP_ENV=testing, so it can never switch CSRF off in a real deployment.')
     }
-    return { ...plainRequestState(request, info.ip), skipCsrf }
+    return { ...forwardedClient(info.ip, request, security.proxies), nonce: newNonce(), limits: security.limits, skipCsrf }
   }
 
   /**
@@ -387,14 +405,16 @@ export class Application implements ApplicationScope {
     // Two phases, like Laravel: every register() before any boot().
     for (const provider of providers) await provider.register(this)
     const environment = String(config.get('app.env'))
-    this.container.instance(SecurityToken, this.#middleware.security.resolve({ appUrl: String(config.get('app.url')), environment }))
+    const security = this.#middleware.security.resolve({ appUrl: String(config.get('app.url')), environment })
+    this.container.instance(SecurityToken, security)
     const routes = this.#compileRoutes()
     const url = new UrlGenerator(routes, String(config.get('app.url')))
     const logger = this.container.make(LoggerToken)
     const showDetails = config.get('app.debug') === true && (environment === 'local' || environment === 'testing')
     const handler = new ExceptionHandler(this.#exceptions, { showDetails, basePath: this.basePath, environment, logger })
     const middleware = new Map(routes.map((route) => [route, resolveRouteMiddleware(route, this.#middleware)] as const))
-    this.#state = { config, routes, url, hono: this.#buildHono(routes, middleware), handler, middleware }
+    const stages = [trustedHostStage(security), ...this.#extraStages, corsPreflightStage(security)]
+    this.#state = { config, routes, url, hono: this.#buildHono(routes, middleware), handler, middleware, security, stages }
     if (config.get('app.debug') === true && !showDetails) logger.warn('APP_DEBUG=true is ignored outside local and testing environments; production errors stay plain.')
     await runInApplication(this, async () => {
       for (const provider of providers) await provider.boot(this)
@@ -428,7 +448,7 @@ export class Application implements ApplicationScope {
 
   #compileRoutes(): CompiledRoute[] {
     const { web, api, apiPrefix, health } = this.#blueprint.routing
-    const extra = [...this.#extraRoutes]
+    const extra = [...this.#extraRoutes, { routes: cspReportRoutes(), prefix: '', group: undefined }]
     if (health !== undefined) extra.push({ routes: defineRoutes([Route.get(health, (ctx) => ctx.json({ status: 'ok' }))]), prefix: '', group: undefined })
     return compileRoutes({ ...(web === undefined ? {} : { web }), ...(api === undefined ? {} : { api }), ...(apiPrefix === undefined ? {} : { apiPrefix }), extra })
   }

@@ -7,6 +7,7 @@
 import type { CompiledRoute } from '../routing/router.ts'
 import { matchesPathPattern } from '../security/csrf-settings.ts'
 import type { ResolvedSecurity } from '../security/settings.ts'
+import { CSP_REPORT_ROUTE } from './csp-report.ts'
 import type { OptOutSource, ResolvedRouteMiddleware } from './route-middleware.ts'
 
 /** The aliases `route:list --security` reports; other middleware isn't a security control. */
@@ -57,7 +58,8 @@ export function securityProfile(route: CompiledRoute, resolved: ResolvedRouteMid
   const warnings: string[] = []
   const unsafe = route.methods.some((method) => UNSAFE_METHODS.has(method))
   if (unsafe && !hasCsrf && !optOuts.some((optOut) => optOut.alias === 'csrf')) warnings.push('unsafe method with no CSRF check')
-  if (route.uri.startsWith('/_') && !protections.some((protection) => protection === 'auth' || protection.startsWith('can:') || protection === 'signed')) {
+  // The CSP report endpoint is public by design: browsers post to it without credentials.
+  if (route.uri.startsWith('/_') && route.name !== CSP_REPORT_ROUTE && !protections.some((protection) => protection === 'auth' || protection.startsWith('can:') || protection === 'signed')) {
     warnings.push('developer tool route without auth')
   }
   return { protections, optOuts, warnings }

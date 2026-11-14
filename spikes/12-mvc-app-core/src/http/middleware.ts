@@ -7,7 +7,7 @@
  */
 import { token, type Container, type Injectable } from '../foundation/container.ts'
 import type { AuthUser } from '../registry.ts'
-import { SecuritySettings, type CsrfOptions } from '../security/settings.ts'
+import { SecuritySettings, type BodyLimitOptions, type CorsOptions, type CsrfOptions, type HeaderOptions, type TrustHostsOptions, type TrustProxiesOptions } from '../security/settings.ts'
 import { StrutvaneError } from '../support/errors.ts'
 import { closestMatch } from '../support/str.ts'
 import type { HttpContext } from './context.ts'
@@ -135,6 +135,61 @@ export class MiddlewareConfig {
    */
   validateCsrfTokens(options: CsrfOptions): this {
     this.security.csrf(options)
+    return this
+  }
+
+  /**
+   * Believe `X-Forwarded-For/-Proto/-Host` only from these proxies, Laravel's `trustProxies()`.
+   *
+   * @example
+   * middleware.trustProxies({ at: ['10.0.0.0/8'] })
+   */
+  trustProxies(options: TrustProxiesOptions): this {
+    this.security.trustProxies(options)
+    return this
+  }
+
+  /**
+   * Replace the Host allowlist, Laravel's `trustHosts()`.
+   *
+   * @example
+   * middleware.trustHosts({ at: ['blog.example.com'], subdomains: true })
+   */
+  trustHosts(options: TrustHostsOptions): this {
+    this.security.trustHosts(options)
+    return this
+  }
+
+  /**
+   * Turn CORS on for exact origins (off by default; `*` with credentials is refused at boot).
+   *
+   * @example
+   * middleware.cors({ origins: ['https://app.example.com'], credentials: true })
+   */
+  cors(options: CorsOptions): this {
+    this.security.cors(options)
+    return this
+  }
+
+  /**
+   * Adjust the security headers (CSP sources, HSTS, Permissions-Policy, Referrer-Policy).
+   *
+   * @example
+   * middleware.securityHeaders({ csp: { 'img-src': ['https://images.example.com'] } })
+   */
+  securityHeaders(options: HeaderOptions): this {
+    this.security.headers(options)
+    return this
+  }
+
+  /**
+   * Adjust request body limits (bytes, JSON depth, total JSON keys).
+   *
+   * @example
+   * middleware.limits({ maxBytes: 5 * 1024 * 1024 })
+   */
+  limits(options: BodyLimitOptions): this {
+    this.security.limits(options)
     return this
   }
 

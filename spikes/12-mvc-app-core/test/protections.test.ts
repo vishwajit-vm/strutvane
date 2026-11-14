@@ -254,10 +254,12 @@ describe('route:list --security', () => {
     expect(row('/api/webhooks/stripe')?.optOuts).toEqual([{ alias: 'csrf', source: 'app', detail: 'api/webhooks/*' }])
     expect(row('/api/receive')?.optOuts).toEqual([{ alias: 'csrf', source: 'controller' }])
     expect(row('/api/me')?.protections).toEqual(['csrf', 'auth', 'throttle:api'])
+    // The framework's CSP report endpoint is listed too, with its deliberate CSRF opt-out.
+    expect(row('/_strutvane/csp-report')).toMatchObject({ protections: ['throttle:60,1'], optOuts: [{ alias: 'csrf', source: 'route' }], warnings: [] })
     const table = buffer()
     await runConsole(app, ['route:list', '--security'], { output: table })
     expect(table.out.join('\n')).toContain('! csrf (route)')
-    expect(table.out.join('\n')).toMatch(/\d+ routes, 4 opt-outs, 0 warnings\./)
+    expect(table.out.join('\n')).toMatch(/\d+ routes, 5 opt-outs, 0 warnings\./)
   })
 
   it('warns about unsafe routes without CSRF and developer routes without auth', async () => {
