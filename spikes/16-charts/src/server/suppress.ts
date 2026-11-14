@@ -24,6 +24,7 @@
  * const cell: Cell = { rows: 3, value: 182000 }
  */
 export interface Cell {
+  /** The rows the value is computed from: COUNT(*) for count, COUNT(field) for sum and avg. */
   readonly rows: number
   value: number | null
   suppressed: boolean

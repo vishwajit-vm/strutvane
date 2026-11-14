@@ -9,7 +9,8 @@ import type { AggregateResult, Problem } from '../../src/shared/aggregate-contra
 import type { AggregateExecutor } from '../../src/server/execute.ts'
 import type { AggregatePlan } from '../../src/server/plan.ts'
 import { assertTenantScoped, renderAggregate, TenantScopeMissingError } from '../../src/server/sql.ts'
-import { charts, createPglite, createSqlite, handlerFor, NOW, TENANT_A, TENANT_B } from './fixture.ts'
+import { resolveCharts } from '../../src/shared/resolve.ts'
+import { charts, createPglite, createSqlite, handlerFor, metadata, NOW, TENANT_A, TENANT_B } from './fixture.ts'
 
 const engines = [
   { name: 'sqlite', start: async (): Promise<{ executor: AggregateExecutor; close: () => unknown }> => createSqlite() },
@@ -220,6 +221,42 @@ describe.each(engines)('small-group suppression (employees, k = 5) on $name', (e
       expect(status, query).toBe(422)
     }
     expect((await get('metric=count&filter[department][in]=sales,engineering')).status).toBe(200)
+  })
+})
+
+describe.each([
+  { name: 'sqlite', start: async () => { const { executor, database, close } = createSqlite(); return { executor, close, exec: async (sql: string) => { database.exec(sql) } } } },
+  { name: 'postgres', start: async () => { const { executor, database, close } = await createPglite(); return { executor, close, exec: async (sql: string) => { await database.exec(sql) } } } },
+])('suppression counts the rows that carry a value, for sum and avg ($name)', (engine) => {
+  let api: ReturnType<typeof handlerFor>
+  let close: () => unknown = () => undefined
+  beforeAll(async () => {
+    const started = await engine.start()
+    // Six "void" invoices, only one of them with a tax amount: 6 rows, but 1 value behind any sum or average.
+    const bool = engine.name === 'postgres' ? 'false' : '0'
+    const rows = Array.from({ length: 5 }, (_, index) => `INSERT INTO invoices VALUES (${301 + index}, '${TENANT_A}', 'INV-${301 + index}', 1, 'void', 1.00, ${index === 0 ? '77.77' : 'NULL'}, ${bool}, NULL, '2026-11-02T00:00:00.000Z', NULL, NULL);`)
+    await started.exec(rows.join('\n'))
+    const privateInvoices = resolveCharts(metadata, [{ resource: 'invoices', config: { privacy: { minGroupSize: 5 } } }])
+    api = handlerFor(started.executor, { charts: privateInvoices })
+    close = started.close
+  })
+  afterAll(async () => {
+    await close()
+  })
+  const bucket = async (query: string, key: string) => {
+    const { status, body } = await api.get(`/api/v1/invoices/aggregate?${query}`, { tenant: TENANT_A })
+    expect(status, query).toBe(200)
+    return (body as AggregateResult).data.find((candidate) => candidate.key === key)
+  }
+
+  it('hides an average or sum backed by fewer than k values, even when the group has k rows', async () => {
+    // Before the fix the "void" group (6 rows) showed avg = sum = 77.77: one invoice's exact tax.
+    for (const metric of ['avg', 'sum']) {
+      const voided = await bucket(`metric=${metric}&field=tax&groupBy=status`, 'void')
+      expect([metric, voided?.values['value'], voided?.suppressed]).toEqual([metric, null, ['value']])
+    }
+    // Counting rows is unaffected: 6 rows is a group of 6.
+    expect((await bucket('metric=count&groupBy=status', 'void'))?.values['value']).toBe(6)
   })
 })
 

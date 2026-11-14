@@ -175,7 +175,10 @@ function toCell(plan: AggregatePlan, totals: Totals | undefined): Cell {
   if (plan.metric === 'count') value = rows
   else if (plan.metric === 'sum') value = round(totals?.sum ?? 0, scale)
   else value = totals === undefined || totals.counted === 0 ? null : round(totals.sum / totals.counted, scale + 2)
-  return { rows, value, suppressed: false }
+  // Suppression must count the rows a number is computed *from*. For sum and avg that is the rows
+  // with a value (COUNT(field)), not COUNT(*): six rows of which five have a NULL amount make an
+  // average that is one person's exact amount.
+  return { rows: plan.metric === 'count' ? rows : (totals?.counted ?? 0), value, suppressed: false }
 }
 
 /** Round half away from zero to `places` decimals (SQLite sums decimals as floats: 0.1 + 0.2). */
