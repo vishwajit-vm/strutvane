@@ -23,8 +23,13 @@ import { ConnectionToken, openConnection, type ConnectionSettings } from '../dat
 import { isInternalResource, loadMetadata, MetadataToken } from '../database/metadata.ts'
 import { ExceptionHandler, ExceptionsConfig } from '../exceptions/handler.ts'
 import { HttpContext } from '../http/context.ts'
+import { Authorize } from '../http/authorize.ts'
 import { VerifyCsrfToken } from '../http/csrf.ts'
-import { MiddlewareConfig, MiddlewareConfigToken, type Middleware, type MiddlewareReference } from '../http/middleware.ts'
+import { buildMiddleware, MiddlewareConfig, MiddlewareConfigToken, type MiddlewareReference } from '../http/middleware.ts'
+import { plainRequestState, type RequestState } from '../http/request-state.ts'
+import { resolveRouteMiddleware, type ResolvedRouteMiddleware } from '../http/route-middleware.ts'
+import { SecurityToken } from '../security/settings.ts'
+import { closestMatch } from '../support/str.ts'
 import { NotFoundError, HttpError } from '../http/problem.ts'
 import { ResourceController } from '../http/resource-controller.ts'
 import { MemoryRateLimitStore, RateLimitStoreToken, ThrottleRequests } from '../http/throttle.ts'
@@ -191,14 +196,20 @@ interface BootedState {
   readonly config: ConfigRepository
   readonly routes: readonly CompiledRoute[]
   readonly url: UrlGenerator
-  readonly hono: Hono<{ Bindings: RequestInfo }>
+  readonly hono: Hono<{ Bindings: RequestState }>
   readonly handler: ExceptionHandler
+  readonly middleware: ReadonlyMap<CompiledRoute, ResolvedRouteMiddleware>
 }
 
 /** What `handle()` may know about the connection. */
 export interface RequestInfo {
   /** The peer address from the socket (never from headers). */
   readonly ip?: string
+  /**
+   * Test-only switches set by `#strutvane/testing` (never by a request): the app refuses them
+   * unless APP_ENV=testing, so they can't weaken a real deployment.
+   */
+  readonly testing?: { readonly withoutCsrf?: boolean }
 }
 
 /**
@@ -250,6 +261,19 @@ export class Application implements ApplicationScope {
   /** The compiled route table, in match order. Throws before boot. */
   get routes(): readonly CompiledRoute[] {
     return this.#booted('app.routes').routes
+  }
+
+  /**
+   * The middleware a route runs after every style (groups, route, controller, wrapper, opt-outs)
+   * was applied, plus the opt-outs that shaped it. `route:list --security` prints this.
+   *
+   * @example
+   * app.routeMiddleware(app.routes[0]).optOuts // [{ alias: 'csrf', source: 'route' }]
+   */
+  routeMiddleware(route: CompiledRoute): ResolvedRouteMiddleware {
+    const resolved = this.#booted('app.routeMiddleware()').middleware.get(route)
+    if (resolved !== undefined) return resolved
+    throw new StrutvaneError('UNKNOWN_ROUTE', `${route.uri} is not one of this app's routes.`, 'Pass a route from app.routes.')
   }
 
   /** `APP_ENV`: `local`, `testing` or `production`. */
@@ -331,7 +355,16 @@ export class Application implements ApplicationScope {
   async handle(request: Request, info: RequestInfo = {}): Promise<Response> {
     await this.boot()
     const state = this.#booted('app.handle()')
-    return runInApplication(this, () => state.hono.fetch(request, info))
+    const requestState = this.#requestState(request, info)
+    return runInApplication(this, () => state.hono.fetch(request, requestState))
+  }
+
+  #requestState(request: Request, info: RequestInfo): RequestState {
+    const skipCsrf = info.testing?.withoutCsrf === true
+    if (skipCsrf && this.environment !== 'testing') {
+      throw new StrutvaneError('TESTING_ONLY', `withoutCsrf() was used with APP_ENV=${this.environment}.`, 'It is a test helper: it only works when APP_ENV=testing, so it can never switch CSRF off in a real deployment.')
+    }
+    return { ...plainRequestState(request, info.ip), skipCsrf }
   }
 
   /**
@@ -353,13 +386,15 @@ export class Application implements ApplicationScope {
     this.#providers.push(...providers)
     // Two phases, like Laravel: every register() before any boot().
     for (const provider of providers) await provider.register(this)
+    const environment = String(config.get('app.env'))
+    this.container.instance(SecurityToken, this.#middleware.security.resolve({ appUrl: String(config.get('app.url')), environment }))
     const routes = this.#compileRoutes()
     const url = new UrlGenerator(routes, String(config.get('app.url')))
     const logger = this.container.make(LoggerToken)
-    const environment = String(config.get('app.env'))
     const showDetails = config.get('app.debug') === true && (environment === 'local' || environment === 'testing')
     const handler = new ExceptionHandler(this.#exceptions, { showDetails, basePath: this.basePath, environment, logger })
-    this.#state = { config, routes, url, hono: this.#buildHono(routes), handler }
+    const middleware = new Map(routes.map((route) => [route, resolveRouteMiddleware(route, this.#middleware)] as const))
+    this.#state = { config, routes, url, hono: this.#buildHono(routes, middleware), handler, middleware }
     if (config.get('app.debug') === true && !showDetails) logger.warn('APP_DEBUG=true is ignored outside local and testing environments; production errors stay plain.')
     await runInApplication(this, async () => {
       for (const provider of providers) await provider.boot(this)
@@ -385,7 +420,7 @@ export class Application implements ApplicationScope {
         return openConnection(name, config.get(`database.connections.${name}`) as ConnectionSettings, this.basePath)
       })
     }
-    this.#middleware.alias({ auth: Authenticate, throttle: ThrottleRequests, csrf: VerifyCsrfToken })
+    this.#middleware.alias({ auth: Authenticate, throttle: ThrottleRequests, csrf: VerifyCsrfToken, can: Authorize })
     this.#middleware.prependToGroup('web', 'csrf')
     this.#middleware.prependToGroup('api', 'csrf', 'throttle:api')
     this.#middleware.rateLimiter('api', { maxAttempts: 60, decaySeconds: 60 })
@@ -405,14 +440,30 @@ export class Application implements ApplicationScope {
    */
   async #checkRoutes(routes: readonly CompiledRoute[]): Promise<void> {
     const bindings = this.#blueprint.routing.bindings ?? {}
+    const { middleware } = this.#booted('checkRoutes')
     for (const route of routes) {
-      this.#middleware.expand(route.middleware, `${route.methods.join('|')} ${route.uri}`)
+      this.#checkAbilities(route, middleware.get(route)?.references ?? [])
       for (const parameter of route.parameters) {
         if (parameter.field !== undefined && bindings[parameter.name] === undefined) {
           throw new StrutvaneError('MISSING_BINDING', `${route.uri} binds {${parameter.name}:${parameter.field}}, but no model is bound to "${parameter.name}".`, `Add it in bootstrap/app.ts: withRouting({ bindings: { ${parameter.name}: YourModel } }).`)
         }
       }
       if (route.action.kind === 'controller') this.#checkController(route, route.action.controller)
+    }
+  }
+
+  /** Every `can:<ability>` must name a defined ability (a typo would otherwise deny forever, or worse). */
+  #checkAbilities(route: CompiledRoute, references: readonly MiddlewareReference[]): void {
+    for (const reference of references) {
+      if (reference.alias !== 'can') continue
+      const ability = reference.params[0]
+      if (ability !== undefined && this.#middleware.ability(ability) !== undefined) continue
+      const suggestion = ability === undefined ? undefined : closestMatch(ability, this.#middleware.abilityNames)
+      throw new StrutvaneError(
+        'UNKNOWN_ABILITY',
+        `${route.methods.join('|')} ${route.uri} uses can:${ability ?? ''}, but no such ability is defined.`,
+        suggestion === undefined ? `Define it in bootstrap/app.ts: withMiddleware((m) => m.defineAbility('${ability ?? 'name'}', (user) => …)).` : `Did you mean "${suggestion}"?`,
+      )
     }
   }
 
@@ -440,15 +491,15 @@ export class Application implements ApplicationScope {
     }
   }
 
-  #buildHono(routes: readonly CompiledRoute[]): Hono<{ Bindings: RequestInfo }> {
-    const hono = new Hono<{ Bindings: RequestInfo }>()
+  #buildHono(routes: readonly CompiledRoute[], resolved: ReadonlyMap<CompiledRoute, ResolvedRouteMiddleware>): Hono<{ Bindings: RequestState }> {
+    const hono = new Hono<{ Bindings: RequestState }>()
     for (const route of routes) {
-      const middleware = this.#middleware.expand(route.middleware, `${route.methods.join('|')} ${route.uri}`)
+      const middleware = resolved.get(route)?.references ?? []
       hono.on([...route.methods], toHonoPath(route.uri), (c) =>
-        this.#dispatch(route, middleware, new HttpContext({ request: c.req.raw, params: c.req.param(), route: { name: route.name, method: c.req.method, uri: route.uri, action: actionLabel(route.action) }, ...(c.env.ip === undefined ? {} : { ip: c.env.ip }) })),
+        this.#dispatch(route, middleware, new HttpContext({ request: c.req.raw, params: c.req.param(), route: { name: route.name, method: c.req.method, uri: route.uri, action: actionLabel(route.action) }, state: c.env })),
       )
     }
-    hono.notFound((c) => this.#notFound(routes, new HttpContext({ request: c.req.raw, ...(c.env.ip === undefined ? {} : { ip: c.env.ip }) })))
+    hono.notFound((c) => this.#notFound(routes, new HttpContext({ request: c.req.raw, state: c.env })))
     return hono
   }
 
@@ -473,7 +524,9 @@ export class Application implements ApplicationScope {
       if (reference === undefined) return destination()
       const middlewareClass = this.#middleware.resolveAlias(reference.alias)
       if (middlewareClass === undefined) throw new Error(`Middleware "${reference.alias}" vanished after boot.`)
-      const instance = this.container.build(middlewareClass) as Middleware
+      const instance = buildMiddleware(this.container, middlewareClass)
+      // Recorded so a withCsrf()-style wrapper on the action knows the router already ran it.
+      ctx.markApplied(reference.alias)
       return instance.handle(ctx, () => run(index + 1), ...reference.params)
     }
     return run(0)

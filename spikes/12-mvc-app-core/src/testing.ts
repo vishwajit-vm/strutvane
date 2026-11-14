@@ -36,7 +36,12 @@ export async function refreshDatabase(app: Application): Promise<void> {
  * await client(app).getJson('/api/posts')
  */
 export function client(app: Application): TestClient {
-  return new TestClient(app, {})
+  return new TestClient(app, {}, { withoutCsrf: false })
+}
+
+/** Switches that change how the test client talks to the app (not headers a browser could send). */
+interface ClientOptions {
+  readonly withoutCsrf: boolean
 }
 
 /**
@@ -48,10 +53,24 @@ export function client(app: Application): TestClient {
 export class TestClient {
   readonly #app: Application
   readonly #headers: Readonly<Record<string, string>>
+  readonly #options: ClientOptions
 
-  constructor(app: Application, headers: Readonly<Record<string, string>>) {
+  constructor(app: Application, headers: Readonly<Record<string, string>>, options: ClientOptions) {
     this.#app = app
     this.#headers = headers
+    this.#options = options
+  }
+
+  /**
+   * Skip the CSRF check for this client's requests, Laravel's `withoutMiddleware(VerifyCsrfToken)`.
+   * It only works when APP_ENV=testing: the app refuses the request otherwise. It is not a header,
+   * so nothing a real client sends can switch CSRF off.
+   *
+   * @example
+   * await client(app).withHeaders({ cookie: 'strutvane_session=abc' }).withoutCsrf().postJson('/api/posts', body)
+   */
+  withoutCsrf(): TestClient {
+    return new TestClient(this.#app, this.#headers, { ...this.#options, withoutCsrf: true })
   }
 
   /**
@@ -71,7 +90,7 @@ export class TestClient {
    * client(app).withHeaders({ origin: 'https://evil.example' })
    */
   withHeaders(headers: Readonly<Record<string, string>>): TestClient {
-    return new TestClient(this.#app, { ...this.#headers, ...headers })
+    return new TestClient(this.#app, { ...this.#headers, ...headers }, this.#options)
   }
 
   /** `GET` with `Accept: application/json`. */
@@ -118,7 +137,7 @@ export class TestClient {
   }
 
   async #dispatch(request: Request): Promise<TestResponse> {
-    const response = await this.#app.handle(request, { ip: '203.0.113.10' })
+    const response = await this.#app.handle(request, { ip: '203.0.113.10', ...(this.#options.withoutCsrf ? { testing: { withoutCsrf: true } } : {}) })
     return new TestResponse(response.status, response.headers, await response.text())
   }
 }

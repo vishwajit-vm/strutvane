@@ -159,3 +159,21 @@ export function abort(status: 401 | 403 | 404, detail?: string): never {
 export function problemResponse(problem: Problem, headers: Readonly<Record<string, string>> = {}): Response {
   return new Response(JSON.stringify(problem), { status: problem.status, headers: { ...headers, 'content-type': 'application/problem+json' } })
 }
+
+/**
+ * Carries a ready response out of deep code, for imperative checks such as `csrf.verify(ctx)`
+ * whose middleware answered with a response (a redirect, a replay) instead of throwing. The
+ * exception handler sends `response` unchanged.
+ *
+ * @example
+ * throw new ResponseError(new Response(null, { status: 302, headers: { location: '/login' } }))
+ */
+export class ResponseError extends Error {
+  readonly response: Response
+
+  constructor(response: Response) {
+    super(`Responded early with status ${response.status}.`)
+    this.name = 'ResponseError'
+    this.response = response
+  }
+}

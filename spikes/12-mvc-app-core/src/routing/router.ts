@@ -41,9 +41,27 @@ export interface CompiledRoute {
   readonly action: CompiledAction
   /** Middleware references in run order (group aliases like `api` are expanded later). */
   readonly middleware: readonly string[]
+  /**
+   * The references the route itself adds (`.middleware()`, `middlewareFor()`), as opposed to
+   * those it inherits from groups. An explicit add and an opt-out of the same alias conflict.
+   */
+  readonly ownMiddleware: readonly string[]
+  /** Aliases the route opts out of, and where each opt-out was written. */
+  readonly excluded: readonly MiddlewareExclusion[]
   readonly parameters: readonly RouteParameter[]
   /** Matches a concrete path; capture groups follow `parameters`. */
   readonly pattern: RegExp
+}
+
+/**
+ * One opt-out: `.withoutMiddleware('csrf')` on a route (`route`) or on an enclosing group (`group`).
+ *
+ * @example
+ * const exclusion: MiddlewareExclusion = { alias: 'csrf', source: 'route' }
+ */
+export interface MiddlewareExclusion {
+  readonly alias: string
+  readonly source: 'route' | 'group'
 }
 
 /**
@@ -66,6 +84,7 @@ interface Scope {
   readonly prefix: string
   readonly namePrefix: string
   readonly middleware: readonly string[]
+  readonly excluded: readonly MiddlewareExclusion[]
 }
 
 const PLACEHOLDER = /\{([^{}]*)\}/g
@@ -80,9 +99,9 @@ const PARAM_NAME = /^[a-zA-Z_][a-zA-Z0-9_]*$/
  */
 export function compileRoutes(files: RoutingFiles): CompiledRoute[] {
   const table: CompiledRoute[] = []
-  if (files.web !== undefined) flatten(files.web.entries, { prefix: '', namePrefix: '', middleware: ['web'] }, table)
-  if (files.api !== undefined) flatten(files.api.entries, { prefix: files.apiPrefix ?? '/api', namePrefix: '', middleware: ['api'] }, table)
-  for (const extra of files.extra ?? []) flatten(extra.routes.entries, { prefix: extra.prefix, namePrefix: '', middleware: extra.group === undefined ? [] : [extra.group] }, table)
+  if (files.web !== undefined) flatten(files.web.entries, { prefix: '', namePrefix: '', middleware: ['web'], excluded: [] }, table)
+  if (files.api !== undefined) flatten(files.api.entries, { prefix: files.apiPrefix ?? '/api', namePrefix: '', middleware: ['api'], excluded: [] }, table)
+  for (const extra of files.extra ?? []) flatten(extra.routes.entries, { prefix: extra.prefix, namePrefix: '', middleware: extra.group === undefined ? [] : [extra.group], excluded: [] }, table)
   assertUnique(table)
   return table
 }
@@ -97,10 +116,21 @@ function flatten(entries: readonly RouteEntry[], scope: Scope, table: CompiledRo
           name: entry.routeName === undefined ? undefined : `${scope.namePrefix}${entry.routeName}`,
           action: compileAction(entry.action),
           middleware: [...scope.middleware, ...entry.middlewareList],
+          ownMiddleware: entry.middlewareList,
+          excluded: [...scope.excluded, ...entry.excludedMiddleware.map((alias) => ({ alias, source: 'route' as const }))],
         }),
       )
     } else if (entry.kind === 'group') {
-      flatten(entry.entries, { prefix: joinPath(scope.prefix, entry.prefix), namePrefix: `${scope.namePrefix}${entry.namePrefix}`, middleware: [...scope.middleware, ...entry.middlewareList] }, table)
+      flatten(
+        entry.entries,
+        {
+          prefix: joinPath(scope.prefix, entry.prefix),
+          namePrefix: `${scope.namePrefix}${entry.namePrefix}`,
+          middleware: [...scope.middleware, ...entry.middlewareList],
+          excluded: [...scope.excluded, ...entry.excludedMiddleware.map((alias) => ({ alias, source: 'group' as const }))],
+        },
+        table,
+      )
     } else {
       for (const route of entry.routes) {
         table.push(
@@ -110,6 +140,8 @@ function flatten(entries: readonly RouteEntry[], scope: Scope, table: CompiledRo
             name: `${scope.namePrefix}${entry.resourceName}.${route.action}`,
             action: { kind: 'controller', controller: entry.controller, method: route.action },
             middleware: [...scope.middleware, ...entry.middlewareList, ...actionMiddleware(entry.middlewareByAction, route.action)],
+            ownMiddleware: [...entry.middlewareList, ...actionMiddleware(entry.middlewareByAction, route.action)],
+            excluded: [...scope.excluded, ...entry.excludedMiddleware.map((alias) => ({ alias, source: 'route' as const }))],
           }),
         )
       }

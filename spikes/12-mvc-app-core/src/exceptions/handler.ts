@@ -10,7 +10,7 @@
  */
 import { randomUUID } from 'node:crypto'
 import type { HttpContext } from '../http/context.ts'
-import { HttpError, problemResponse, type Problem } from '../http/problem.ts'
+import { HttpError, problemResponse, ResponseError, type Problem } from '../http/problem.ts'
 import type { Logger } from '../support/log.ts'
 import { buildReport, escapeHtml, renderDebugPage } from './debug-page.ts'
 
@@ -107,6 +107,7 @@ export class ExceptionHandler {
   async render(error: unknown, ctx: HttpContext): Promise<Response> {
     const custom = await this.#custom(error, ctx)
     if (custom !== undefined) return custom
+    if (error instanceof ResponseError) return error.response
     if (error instanceof HttpError) return this.#renderHttpError(error, ctx)
     const errorId = randomUUID()
     this.#report(error, ctx, errorId)

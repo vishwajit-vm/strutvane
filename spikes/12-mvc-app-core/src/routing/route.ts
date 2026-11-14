@@ -65,13 +65,16 @@ export class RouteDefinition<TName extends string, TPath extends string> impleme
   /** The route name, if `.name()` was called. */
   readonly routeName: string | undefined
   readonly middlewareList: readonly string[]
+  /** Aliases this route opts out of (`.withoutMiddleware('csrf')`), flagged by `route:list --security`. */
+  readonly excludedMiddleware: readonly string[]
 
-  constructor(init: { methods: readonly HttpMethod[]; path: TPath; action: StoredAction; routeName?: string | undefined; middleware?: readonly string[] }) {
+  constructor(init: { methods: readonly HttpMethod[]; path: TPath; action: StoredAction; routeName?: string | undefined; middleware?: readonly string[]; excluded?: readonly string[] }) {
     this.methods = init.methods
     this.path = init.path
     this.action = init.action
     this.routeName = init.routeName
     this.middlewareList = init.middleware ?? []
+    this.excludedMiddleware = init.excluded ?? []
   }
 
   /**
@@ -94,8 +97,19 @@ export class RouteDefinition<TName extends string, TPath extends string> impleme
     return new RouteDefinition<TName, TPath>({ ...this.#init(), middleware: [...this.middlewareList, ...references] })
   }
 
-  #init(): { methods: readonly HttpMethod[]; path: TPath; action: StoredAction; routeName: string | undefined; middleware: readonly string[] } {
-    return { methods: this.methods, path: this.path, action: this.action, routeName: this.routeName, middleware: this.middlewareList }
+  /**
+   * Opt this route out of middleware its groups add, by alias (Laravel's `withoutMiddleware`).
+   * Opting out is always explicit, and `node strut route:list --security` flags it.
+   *
+   * @example
+   * Route.post('/webhooks/stripe', [StripeWebhookController, 'handle']).withoutMiddleware('csrf')
+   */
+  withoutMiddleware(...aliases: string[]): RouteDefinition<TName, TPath> {
+    return new RouteDefinition<TName, TPath>({ ...this.#init(), excluded: [...this.excludedMiddleware, ...aliases] })
+  }
+
+  #init(): { methods: readonly HttpMethod[]; path: TPath; action: StoredAction; routeName: string | undefined; middleware: readonly string[]; excluded: readonly string[] } {
+    return { methods: this.methods, path: this.path, action: this.action, routeName: this.routeName, middleware: this.middlewareList, excluded: this.excludedMiddleware }
   }
 }
 
@@ -111,6 +125,8 @@ export interface GroupOptions<TPrefix extends string = string, TNamePrefix exten
   /** Prefix for every route name inside, usually ending in a dot: `'admin.'`. */
   readonly name?: TNamePrefix
   readonly middleware?: readonly string[]
+  /** Aliases every route inside opts out of (flagged by `route:list --security`). */
+  readonly withoutMiddleware?: readonly string[]
 }
 
 /**
@@ -125,12 +141,14 @@ export class RouteGroup<TSignatures> implements HasSignatures<TSignatures> {
   readonly prefix: string
   readonly namePrefix: string
   readonly middlewareList: readonly string[]
+  readonly excludedMiddleware: readonly string[]
   readonly entries: readonly RouteEntry[]
 
   constructor(options: GroupOptions, entries: readonly RouteEntry[]) {
     this.prefix = options.prefix ?? ''
     this.namePrefix = options.name ?? ''
     this.middlewareList = options.middleware ?? []
+    this.excludedMiddleware = options.withoutMiddleware ?? []
     this.entries = entries
   }
 }
@@ -173,13 +191,15 @@ export class ResourceRoutes<TSignatures> implements HasSignatures<TSignatures> {
   readonly routes: readonly ResourceActionRoute[]
   readonly middlewareList: readonly string[]
   readonly middlewareByAction: Readonly<Partial<Record<ResourceAction, readonly string[]>>>
+  readonly excludedMiddleware: readonly string[]
 
-  constructor(init: { resourceName: string; controller: ControllerClass; routes: readonly ResourceActionRoute[]; middleware?: readonly string[]; middlewareByAction?: Partial<Record<ResourceAction, readonly string[]>> }) {
+  constructor(init: { resourceName: string; controller: ControllerClass; routes: readonly ResourceActionRoute[]; middleware?: readonly string[]; middlewareByAction?: Partial<Record<ResourceAction, readonly string[]>>; excluded?: readonly string[] }) {
     this.resourceName = init.resourceName
     this.controller = init.controller
     this.routes = init.routes
     this.middlewareList = init.middleware ?? []
     this.middlewareByAction = init.middlewareByAction ?? {}
+    this.excludedMiddleware = init.excluded ?? []
   }
 
   /**
@@ -204,8 +224,19 @@ export class ResourceRoutes<TSignatures> implements HasSignatures<TSignatures> {
     return new ResourceRoutes<TSignatures>({ ...this.#init(), middlewareByAction: byAction })
   }
 
-  #init(): { resourceName: string; controller: ControllerClass; routes: readonly ResourceActionRoute[]; middleware: readonly string[]; middlewareByAction: Partial<Record<ResourceAction, readonly string[]>> } {
-    return { resourceName: this.resourceName, controller: this.controller, routes: this.routes, middleware: this.middlewareList, middlewareByAction: this.middlewareByAction }
+  /**
+   * Opt every action of the resource out of group middleware, by alias (flagged by
+   * `route:list --security`).
+   *
+   * @example
+   * Route.apiResource('imports', ImportController).withoutMiddleware('throttle')
+   */
+  withoutMiddleware(...aliases: string[]): ResourceRoutes<TSignatures> {
+    return new ResourceRoutes<TSignatures>({ ...this.#init(), excluded: [...this.excludedMiddleware, ...aliases] })
+  }
+
+  #init(): { resourceName: string; controller: ControllerClass; routes: readonly ResourceActionRoute[]; middleware: readonly string[]; middlewareByAction: Partial<Record<ResourceAction, readonly string[]>>; excluded: readonly string[] } {
+    return { resourceName: this.resourceName, controller: this.controller, routes: this.routes, middleware: this.middlewareList, middlewareByAction: this.middlewareByAction, excluded: this.excludedMiddleware }
   }
 }
 
@@ -267,6 +298,53 @@ function buildResource<TSignatures>(name: string, controller: ControllerClass, a
   return new ResourceRoutes<TSignatures>({ resourceName: name, controller, routes })
 }
 
+/**
+ * A group being built fluently, Laravel's `Route::middleware([...])->group(...)`. Calling
+ * `.group([...])` returns an ordinary {@link RouteGroup}.
+ *
+ * @example
+ * Route.middleware('csrf', 'auth').withoutMiddleware('throttle').group([Route.post('/import', handler)])
+ */
+export class PendingGroup {
+  readonly #middleware: readonly string[]
+  readonly #excluded: readonly string[]
+
+  constructor(middleware: readonly string[], excluded: readonly string[]) {
+    this.#middleware = middleware
+    this.#excluded = excluded
+  }
+
+  /**
+   * Add middleware for every route in the group.
+   *
+   * @example
+   * Route.withoutMiddleware('throttle').middleware('auth').group([...])
+   */
+  middleware(...references: string[]): PendingGroup {
+    return new PendingGroup([...this.#middleware, ...references], this.#excluded)
+  }
+
+  /**
+   * Opt every route in the group out of these aliases.
+   *
+   * @example
+   * Route.middleware('auth').withoutMiddleware('csrf').group([...])
+   */
+  withoutMiddleware(...aliases: string[]): PendingGroup {
+    return new PendingGroup(this.#middleware, [...this.#excluded, ...aliases])
+  }
+
+  /**
+   * Close the group over its routes.
+   *
+   * @example
+   * Route.middleware('csrf').group([Route.post('/import', [ImportController, 'store'])])
+   */
+  group<const TEntries extends readonly RouteEntry[]>(entries: TEntries): RouteGroup<PrefixSignatures<SignaturesOf<TEntries[number]>, '', ''>> {
+    return new RouteGroup({ middleware: this.#middleware, withoutMiddleware: this.#excluded }, entries)
+  }
+}
+
 function single<const TPath extends string, TController extends ControllerClass>(methods: readonly HttpMethod[], path: TPath, action: RouteAction<TController>): RouteDefinition<never, TPath> {
   return new RouteDefinition<never, TPath>({ methods, path, action })
 }
@@ -301,6 +379,26 @@ export const Route = {
   /** One route answering several methods: `Route.match(['GET', 'POST'], '/search', …)`. */
   match<const TPath extends string, TController extends ControllerClass>(methods: readonly HttpMethod[], path: TPath, action: RouteAction<TController>): RouteDefinition<never, TPath> {
     return single(methods, path, action)
+  },
+
+  /**
+   * Start a fluent group with middleware, Laravel's `Route::middleware([...])->group(...)`.
+   *
+   * @example
+   * Route.middleware('auth').group([Route.get('/me', [ProfileController, 'show']).name('me')])
+   */
+  middleware(...references: string[]): PendingGroup {
+    return new PendingGroup(references, [])
+  },
+
+  /**
+   * Start a fluent group that opts out of middleware, Laravel's `Route::withoutMiddleware()`.
+   *
+   * @example
+   * Route.withoutMiddleware('csrf').group([Route.post('/webhooks/stripe', handler)])
+   */
+  withoutMiddleware(...aliases: string[]): PendingGroup {
+    return new PendingGroup([], aliases)
   },
 
   /**

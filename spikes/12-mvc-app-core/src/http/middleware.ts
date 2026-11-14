@@ -5,7 +5,9 @@
  * Every alias is resolved when the app is created, not when the first request arrives, so a typo
  * like `'auht'` fails `node strut route:list` and the test suite instead of production traffic.
  */
-import { token, type Injectable } from '../foundation/container.ts'
+import { token, type Container, type Injectable } from '../foundation/container.ts'
+import type { AuthUser } from '../registry.ts'
+import { SecuritySettings, type CsrfOptions } from '../security/settings.ts'
 import { StrutvaneError } from '../support/errors.ts'
 import { closestMatch } from '../support/str.ts'
 import type { HttpContext } from './context.ts'
@@ -41,6 +43,23 @@ export interface Middleware {
 export type MiddlewareClass = Injectable<Middleware>
 
 /**
+ * Build a middleware instance through the container (so its `static inject` list is honoured)
+ * and check it really has a `handle` method, instead of trusting a cast.
+ *
+ * @example
+ * const middleware = buildMiddleware(app.container, VerifyCsrfToken)
+ */
+export function buildMiddleware(container: Container, middlewareClass: MiddlewareClass): Middleware {
+  const instance = container.build(middlewareClass)
+  if (isMiddleware(instance)) return instance
+  throw new StrutvaneError('NOT_MIDDLEWARE', `${middlewareClass.name} has no handle(ctx, next) method.`, 'A middleware class needs: async handle(ctx: HttpContext, next: Next): Promise<Response>.')
+}
+
+function isMiddleware(value: unknown): value is Middleware {
+  return typeof value === 'object' && value !== null && 'handle' in value && typeof value.handle === 'function'
+}
+
+/**
  * A rate limiter definition, Laravel's `RateLimiter::for('api', …)`.
  *
  * @example
@@ -52,6 +71,15 @@ export interface LimiterDefinition {
   /** The bucket key. Defaults to the user id, then the client IP. */
   readonly by?: (ctx: HttpContext) => string
 }
+
+/**
+ * A named ability for the `can:<ability>` middleware, Laravel's `Gate::define()`. It returns
+ * `true` to allow; anything else denies (deny by default).
+ *
+ * @example
+ * const viewStats: AbilityCheck = (user) => user !== null && hasAdminRole(user)
+ */
+export type AbilityCheck = (user: AuthUser | null, ctx: HttpContext) => boolean | Promise<boolean>
 
 /**
  * A parsed middleware reference: `'throttle:60,1'` → `{ alias: 'throttle', params: ['60', '1'] }`.
@@ -94,6 +122,42 @@ export class MiddlewareConfig {
     ['api', []],
   ])
   readonly #limiters = new Map<string, LimiterDefinition>()
+  readonly #abilities = new Map<string, AbilityCheck>()
+  /** CSRF exceptions, trusted proxies and hosts, CORS, headers and body limits. */
+  readonly security = new SecuritySettings()
+
+  /**
+   * App-wide CSRF exceptions and extra trusted origins, Laravel 11's `validateCsrfTokens()`.
+   * Patterns are paths without the leading slash; `*` matches anything.
+   *
+   * @example
+   * middleware.validateCsrfTokens({ except: ['webhooks/*'] })
+   */
+  validateCsrfTokens(options: CsrfOptions): this {
+    this.security.csrf(options)
+    return this
+  }
+
+  /**
+   * Define a named ability for `can:<name>`.
+   *
+   * @example
+   * middleware.defineAbility('view-stats', (user) => hasAdminRole(user))
+   */
+  defineAbility(name: string, check: AbilityCheck): this {
+    this.#abilities.set(name, check)
+    return this
+  }
+
+  /** A named ability, if defined. */
+  ability(name: string): AbilityCheck | undefined {
+    return this.#abilities.get(name)
+  }
+
+  /** Every ability name, for boot errors. */
+  get abilityNames(): readonly string[] {
+    return [...this.#abilities.keys()]
+  }
 
   /**
    * Name middleware classes so routes can refer to them by string.
@@ -172,14 +236,20 @@ export class MiddlewareConfig {
    * config.expand(['api', 'auth']) // [{ alias: 'throttle', params: ['api'] }, { alias: 'auth', params: [] }]
    */
   expand(references: readonly string[], where: string): MiddlewareReference[] {
-    return sortByPriority(this.#expandGroups(references, where))
+    return sortByPriority(this.expandGroups(references, where))
   }
 
-  #expandGroups(references: readonly string[], where: string): MiddlewareReference[] {
+  /**
+   * Expand groups and check aliases, keeping the listed order (no priority sort, no dedupe).
+   *
+   * @example
+   * config.expandGroups(['web'], 'GET /') // [{ alias: 'csrf', params: [] }]
+   */
+  expandGroups(references: readonly string[], where: string): MiddlewareReference[] {
     const expanded: MiddlewareReference[] = []
     for (const reference of references) {
       if (this.isGroup(reference)) {
-        expanded.push(...this.#expandGroups(this.group(reference), `the "${reference}" group`))
+        expanded.push(...this.expandGroups(this.group(reference), `the "${reference}" group`))
         continue
       }
       const parsed = parseMiddleware(reference)
@@ -187,23 +257,36 @@ export class MiddlewareConfig {
         expanded.push(parsed)
         continue
       }
-      const suggestion = closestMatch(parsed.alias, this.aliasNames)
-      throw new StrutvaneError(
-        'UNKNOWN_MIDDLEWARE',
-        `No middleware is called "${parsed.alias}" (used by ${where}).`,
-        suggestion === undefined ? `Register it in bootstrap/app.ts: withMiddleware((m) => m.alias({ ${parsed.alias}: YourMiddleware })). Known: ${this.aliasNames.join(', ')}.` : `Did you mean "${suggestion}"?`,
-      )
+      throw this.unknownAlias(parsed.alias, where)
     }
     return expanded
+  }
+
+  /**
+   * The friendly error for an alias nobody registered, with a "did you mean".
+   *
+   * @example
+   * throw config.unknownAlias('auht', 'GET /api/x')
+   */
+  unknownAlias(alias: string, where: string): StrutvaneError {
+    const suggestion = closestMatch(alias, this.aliasNames)
+    return new StrutvaneError(
+      'UNKNOWN_MIDDLEWARE',
+      `No middleware is called "${alias}" (used by ${where}).`,
+      suggestion === undefined ? `Register it in bootstrap/app.ts: withMiddleware((m) => m.alias({ ${alias}: YourMiddleware })). Known: ${this.aliasNames.join(', ')}.` : `Did you mean "${suggestion}"?`,
+    )
   }
 }
 
 /**
  * Laravel's `$middlewarePriority`: whatever order routes and groups list them in, these run in
  * this order. It matters because the `api` group lists `throttle` before a route's `auth`, yet
- * throttling must see the signed-in user to give them their own bucket.
+ * throttling must see the signed-in user to give them their own bucket. `signed` runs before
+ * `auth` (a bad link is a 403 whoever you are), `can` needs the user, and `idempotent` runs
+ * last so a replayed response is scoped to the user and never skips the checks before it.
  */
-const PRIORITY: readonly string[] = ['csrf', 'auth', 'throttle']
+export const MIDDLEWARE_PRIORITY: readonly string[] = ['csrf', 'signed', 'auth', 'can', 'throttle', 'idempotent']
+const PRIORITY = MIDDLEWARE_PRIORITY
 
 /**
  * Reorder only the priority middleware among themselves, leaving every other entry in place.

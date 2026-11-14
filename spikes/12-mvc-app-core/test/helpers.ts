@@ -4,7 +4,11 @@
  */
 import { createApp } from '../fixtures/example-app/bootstrap/app.ts'
 import { DatabaseSeeder } from '../fixtures/example-app/database/seeders/database.seeder.ts'
-import type { Application } from '#strutvane/foundation'
+import { join } from 'node:path'
+import { Application, type RoutingOptions } from '#strutvane/foundation'
+import type { MiddlewareConfig } from '#strutvane/http'
+import { config } from '../fixtures/example-app/config/index.ts'
+import { providers } from '../fixtures/example-app/bootstrap/providers.ts'
 import { ClockToken, LoggerToken, MemoryLogger } from '#strutvane/foundation'
 import { refreshDatabase } from '#strutvane/testing'
 
@@ -38,4 +42,29 @@ export async function exampleApp(env: Readonly<Record<string, string>> = {}): Pr
   await refreshDatabase(app)
   await app.run(() => new DatabaseSeeder().run())
   return { app, logger, clock }
+}
+
+/** The example app's folder (schema dump and metadata live here; tests never write into it). */
+export const EXAMPLE_BASE = join(import.meta.dirname, '..', 'fixtures', 'example-app')
+
+/**
+ * An app with the example's config, providers and seeded database, but your own routes and
+ * middleware settings: for testing protections in isolation.
+ *
+ * @example
+ * const { app } = await customApp({ web: defineRoutes([Route.post('/x', handler)]) }, (m) => m.validateCsrfTokens({ except: ['x'] }))
+ */
+export async function customApp(routing: RoutingOptions, configure: (middleware: MiddlewareConfig) => void = () => {}, env: Readonly<Record<string, string>> = {}): Promise<{ app: Application; logger: MemoryLogger }> {
+  const app = Application.configure({ basePath: EXAMPLE_BASE, env: { ...testEnv, ...env } })
+    .withConfig(config)
+    .withProviders(providers)
+    .withRouting(routing)
+    .withMiddleware(configure)
+    .create()
+  const logger = new MemoryLogger()
+  app.container.instance(LoggerToken, logger)
+  app.container.instance(ClockToken, () => NOW)
+  await refreshDatabase(app)
+  await app.run(() => new DatabaseSeeder().run())
+  return { app, logger }
 }

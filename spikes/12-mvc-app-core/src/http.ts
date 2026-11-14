@@ -1,10 +1,16 @@
 /**
- * `#strutvane/http`: controllers, the context, middleware types and HTTP errors.
+ * `#strutvane/http`: controllers, the context, middleware types, protections and HTTP errors.
  */
-export { HttpContext } from './http/context.ts'
+export { HttpContext, isJsonMediaType, readCookie, SESSION_COOKIE } from './http/context.ts'
 export { Controller, ResourceController, type ResourceModel, type ResourceRecord } from './http/resource-controller.ts'
-export { csrfToken, VerifyCsrfToken } from './http/csrf.ts'
-export { MiddlewareConfig, type Middleware, type MiddlewareClass, type Next } from './http/middleware.ts'
-export { abort, ForbiddenError, HttpError, NotFoundError, TooManyRequestsError, UnauthenticatedError, ValidationError, type Issue, type Problem } from './http/problem.ts'
+export { csrfToken, csrfTokenFor, VerifyCsrfToken } from './http/csrf.ts'
+export { csrf_field, csrf_meta } from './http/csrf-field.ts'
+export { Authorize } from './http/authorize.ts'
+export { MiddlewareConfig, type AbilityCheck, type Middleware, type MiddlewareClass, type Next } from './http/middleware.ts'
+export { defineProtection, PROTECTIONS, protectionsOf, type ControllerMiddleware, type ProtectedHandler, type Protection, type ProtectionOptions } from './http/protection.ts'
+export { auth, can, csrf, throttle, withAuth, withCan, withCsrf, withThrottle } from './http/protections.ts'
+export { securityProfile, type RouteSecurityProfile } from './http/security-profile.ts'
+export type { RequestState, BodyLimits } from './http/request-state.ts'
+export { abort, ForbiddenError, HttpError, NotFoundError, ResponseError, TooManyRequestsError, UnauthenticatedError, ValidationError, type Issue, type Problem } from './http/problem.ts'
 export { ipBucket, ThrottleRequests } from './http/throttle.ts'
 export { ExceptionsConfig } from './exceptions/handler.ts'
