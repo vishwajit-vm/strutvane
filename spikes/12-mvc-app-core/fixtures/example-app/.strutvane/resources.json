@@ -1,0 +1,467 @@
+{
+  "version": 1,
+  "resources": [
+    {
+      "table": "authors",
+      "model": "Author",
+      "route": "authors",
+      "label": {
+        "singular": "Author",
+        "plural": "Authors"
+      },
+      "primaryKey": "id",
+      "titleField": "name",
+      "timestamps": true,
+      "softDeletes": false,
+      "defaultSort": "-created_at",
+      "perPage": 15,
+      "fields": [
+        {
+          "name": "id",
+          "label": "Id",
+          "kind": "id",
+          "cast": "integer",
+          "nullable": false,
+          "required": false,
+          "fillable": false,
+          "unique": false,
+          "hidden": false,
+          "searchable": "exact",
+          "sortable": true,
+          "listed": true,
+          "input": "none",
+          "filterOperators": [
+            "eq",
+            "ne",
+            "in",
+            "gt",
+            "gte",
+            "lt",
+            "lte"
+          ]
+        },
+        {
+          "name": "name",
+          "label": "Name",
+          "kind": "string",
+          "cast": "string",
+          "nullable": false,
+          "required": true,
+          "fillable": true,
+          "unique": false,
+          "hidden": false,
+          "searchable": "text",
+          "sortable": true,
+          "listed": true,
+          "input": "text",
+          "filterOperators": [
+            "eq",
+            "ne",
+            "in",
+            "contains",
+            "startsWith"
+          ],
+          "maxLength": 100
+        },
+        {
+          "name": "email",
+          "label": "Email",
+          "kind": "string",
+          "cast": "string",
+          "nullable": false,
+          "required": true,
+          "fillable": true,
+          "unique": true,
+          "hidden": false,
+          "searchable": "text",
+          "sortable": true,
+          "listed": true,
+          "input": "text",
+          "filterOperators": [
+            "eq",
+            "ne",
+            "in",
+            "contains",
+            "startsWith"
+          ],
+          "maxLength": 255
+        },
+        {
+          "name": "bio",
+          "label": "Bio",
+          "kind": "text",
+          "cast": "string",
+          "nullable": true,
+          "required": false,
+          "fillable": true,
+          "unique": false,
+          "hidden": false,
+          "searchable": "text",
+          "sortable": false,
+          "listed": false,
+          "input": "textarea",
+          "filterOperators": [
+            "contains",
+            "null"
+          ]
+        },
+        {
+          "name": "is_admin",
+          "label": "Is admin",
+          "kind": "boolean",
+          "cast": "boolean",
+          "nullable": false,
+          "required": false,
+          "fillable": true,
+          "unique": false,
+          "hidden": false,
+          "searchable": false,
+          "sortable": true,
+          "listed": true,
+          "input": "switch",
+          "filterOperators": [
+            "eq"
+          ],
+          "default": false
+        },
+        {
+          "name": "api_token",
+          "label": "Api token",
+          "kind": "string",
+          "cast": "string",
+          "nullable": true,
+          "required": false,
+          "fillable": false,
+          "unique": true,
+          "hidden": true,
+          "searchable": false,
+          "sortable": false,
+          "listed": false,
+          "input": "none",
+          "filterOperators": [],
+          "maxLength": 64
+        },
+        {
+          "name": "created_at",
+          "label": "Created at",
+          "kind": "timestamp",
+          "cast": "datetime",
+          "nullable": true,
+          "required": false,
+          "fillable": false,
+          "unique": false,
+          "hidden": false,
+          "searchable": false,
+          "sortable": true,
+          "listed": true,
+          "input": "none",
+          "filterOperators": [
+            "eq",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "null"
+          ]
+        },
+        {
+          "name": "updated_at",
+          "label": "Updated at",
+          "kind": "timestamp",
+          "cast": "datetime",
+          "nullable": true,
+          "required": false,
+          "fillable": false,
+          "unique": false,
+          "hidden": false,
+          "searchable": false,
+          "sortable": true,
+          "listed": false,
+          "input": "none",
+          "filterOperators": [
+            "eq",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "null"
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "name": "posts",
+          "kind": "hasMany",
+          "resource": "posts",
+          "foreignKey": "author_id",
+          "ownerKey": "id"
+        }
+      ],
+      "sidebar": {
+        "order": 1,
+        "hidden": false
+      }
+    },
+    {
+      "table": "posts",
+      "model": "Post",
+      "route": "posts",
+      "label": {
+        "singular": "Post",
+        "plural": "Posts"
+      },
+      "primaryKey": "id",
+      "titleField": "title",
+      "slug": {
+        "field": "slug",
+        "from": "title"
+      },
+      "timestamps": true,
+      "softDeletes": true,
+      "defaultSort": "-created_at",
+      "perPage": 15,
+      "fields": [
+        {
+          "name": "id",
+          "label": "Id",
+          "kind": "id",
+          "cast": "integer",
+          "nullable": false,
+          "required": false,
+          "fillable": false,
+          "unique": false,
+          "hidden": false,
+          "searchable": "exact",
+          "sortable": true,
+          "listed": true,
+          "input": "none",
+          "filterOperators": [
+            "eq",
+            "ne",
+            "in",
+            "gt",
+            "gte",
+            "lt",
+            "lte"
+          ]
+        },
+        {
+          "name": "title",
+          "label": "Title",
+          "kind": "string",
+          "cast": "string",
+          "nullable": false,
+          "required": true,
+          "fillable": true,
+          "unique": false,
+          "hidden": false,
+          "searchable": "text",
+          "sortable": true,
+          "listed": true,
+          "input": "text",
+          "filterOperators": [
+            "eq",
+            "ne",
+            "in",
+            "contains",
+            "startsWith"
+          ],
+          "maxLength": 200
+        },
+        {
+          "name": "slug",
+          "label": "Slug",
+          "kind": "slug",
+          "cast": "string",
+          "nullable": false,
+          "required": false,
+          "fillable": true,
+          "unique": true,
+          "hidden": false,
+          "searchable": "text",
+          "sortable": true,
+          "listed": true,
+          "input": "text",
+          "filterOperators": [
+            "eq",
+            "ne",
+            "in",
+            "contains",
+            "startsWith"
+          ],
+          "maxLength": 255
+        },
+        {
+          "name": "body",
+          "label": "Body",
+          "kind": "text",
+          "cast": "string",
+          "nullable": true,
+          "required": false,
+          "fillable": true,
+          "unique": false,
+          "hidden": false,
+          "searchable": "text",
+          "sortable": false,
+          "listed": false,
+          "input": "textarea",
+          "filterOperators": [
+            "contains",
+            "null"
+          ]
+        },
+        {
+          "name": "status",
+          "label": "Status",
+          "kind": "enum",
+          "cast": "string",
+          "nullable": false,
+          "required": false,
+          "fillable": true,
+          "unique": false,
+          "hidden": false,
+          "searchable": "text",
+          "sortable": true,
+          "listed": true,
+          "input": "select",
+          "filterOperators": [
+            "eq",
+            "ne",
+            "in"
+          ],
+          "options": [
+            "draft",
+            "published"
+          ],
+          "default": "draft"
+        },
+        {
+          "name": "author_id",
+          "label": "Author",
+          "kind": "foreignId",
+          "cast": "integer",
+          "nullable": false,
+          "required": true,
+          "fillable": true,
+          "unique": false,
+          "hidden": false,
+          "searchable": "exact",
+          "sortable": true,
+          "listed": true,
+          "input": "relation",
+          "filterOperators": [
+            "eq",
+            "ne",
+            "in"
+          ],
+          "references": "authors"
+        },
+        {
+          "name": "published_at",
+          "label": "Published at",
+          "kind": "timestamp",
+          "cast": "datetime",
+          "nullable": true,
+          "required": false,
+          "fillable": true,
+          "unique": false,
+          "hidden": false,
+          "searchable": false,
+          "sortable": true,
+          "listed": true,
+          "input": "datetime",
+          "filterOperators": [
+            "eq",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "null"
+          ]
+        },
+        {
+          "name": "created_at",
+          "label": "Created at",
+          "kind": "timestamp",
+          "cast": "datetime",
+          "nullable": true,
+          "required": false,
+          "fillable": false,
+          "unique": false,
+          "hidden": false,
+          "searchable": false,
+          "sortable": true,
+          "listed": true,
+          "input": "none",
+          "filterOperators": [
+            "eq",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "null"
+          ]
+        },
+        {
+          "name": "updated_at",
+          "label": "Updated at",
+          "kind": "timestamp",
+          "cast": "datetime",
+          "nullable": true,
+          "required": false,
+          "fillable": false,
+          "unique": false,
+          "hidden": false,
+          "searchable": false,
+          "sortable": true,
+          "listed": false,
+          "input": "none",
+          "filterOperators": [
+            "eq",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "null"
+          ]
+        },
+        {
+          "name": "deleted_at",
+          "label": "Deleted at",
+          "kind": "timestamp",
+          "cast": "datetime",
+          "nullable": true,
+          "required": false,
+          "fillable": false,
+          "unique": false,
+          "hidden": false,
+          "searchable": false,
+          "sortable": true,
+          "listed": false,
+          "input": "none",
+          "filterOperators": [
+            "eq",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "null"
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "name": "author",
+          "kind": "belongsTo",
+          "resource": "authors",
+          "foreignKey": "author_id",
+          "ownerKey": "id"
+        }
+      ],
+      "sidebar": {
+        "order": 2,
+        "hidden": false
+      }
+    }
+  ]
+}

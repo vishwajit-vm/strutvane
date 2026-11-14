@@ -1,0 +1,26 @@
+{
+  "name": "spike-12-mvc-app-core",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Spike 12: a Laravel-style MVC application core in strict TypeScript: container and providers, fluent bootstrap, routes files with typed names, resource controllers, form requests, policies, an Ignition-like error page and an artisan-like `node strut` CLI.",
+  "engines": { "node": ">=24" },
+  "imports": {
+    "#strutvane/*": "./src/*.ts"
+  },
+  "scripts": {
+    "test": "tsc --noEmit -p . && vitest run",
+    "typecheck": "tsc --noEmit -p .",
+    "strut": "node fixtures/example-app/strut.js"
+  },
+  "dependencies": {
+    "@hono/node-server": "2.1.8",
+    "hono": "4.13.18",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "24.10.1",
+    "typescript": "6.0.3",
+    "vitest": "5.1.0"
+  }
+}

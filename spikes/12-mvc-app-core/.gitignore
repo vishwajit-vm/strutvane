@@ -1,0 +1,5 @@
+test/.tmp/
+.vitest/
+*.sqlite
+*.sqlite-journal
+.env
