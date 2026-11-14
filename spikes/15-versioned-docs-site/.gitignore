@@ -5,3 +5,6 @@ dist/
 # Docs sources fetched from git branches (see scripts/lib/content-source.ts).
 .cache/
 .astro/
+# The hub ignores every `packages/` folder (the package repos live there), but the docs'
+# package pages are content: without this line they were never committed.
+!versions/*/packages/
