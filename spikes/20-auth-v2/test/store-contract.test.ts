@@ -1,0 +1,139 @@
+import { mkdtempSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { DatabaseSync } from 'node:sqlite'
+import { afterAll, describe, expect, it } from 'vitest'
+import { manualClock } from '../src/ports/clock.ts'
+import type { AuthStore, UserRecord } from '../src/ports/store.ts'
+import { memoryAuthStore, memoryCounterStore } from '../src/store/memory.ts'
+import { sqliteAuthStore, sqliteCounterStore } from '../src/store/sqlite.ts'
+import { Browser, harness, rejectsWith, START } from './helpers/harness.ts'
+
+const dir = mkdtempSync(join(tmpdir(), 'sv-auth-'))
+/** Every file-backed connection, closed before the folder is removed (Windows keeps open files locked). */
+const opened: DatabaseSync[] = []
+const openFile = (file: string): DatabaseSync => {
+  const db = new DatabaseSync(file)
+  opened.push(db)
+  return db
+}
+afterAll(() => {
+  for (const db of opened) db.close()
+  rmSync(dir, { recursive: true, force: true })
+})
+
+const user = (id: string, email: string): UserRecord => ({
+  id,
+  email,
+  name: 'n',
+  passwordHash: null,
+  emailVerifiedAt: null,
+  twoFactorSecret: null,
+  twoFactorConfirmedAt: null,
+  twoFactorLastStep: null,
+  currentTeamId: null,
+  createdAt: START,
+})
+
+const STORES: [string, () => AuthStore][] = [
+  ['memory', () => memoryAuthStore()],
+  ['sqlite', () => sqliteAuthStore(new DatabaseSync(':memory:'))],
+]
+
+describe.each(STORES)('store contract (%s)', (_name, make) => {
+  it('emails are unique; createUser reports a conflict instead of throwing', async () => {
+    const s = make()
+    expect(await s.createUser(user('u1', 'a@b.io'))).toBeDefined()
+    expect(await s.createUser(user('u2', 'a@b.io'))).toBeUndefined()
+  })
+
+  it('advanceTotpStep only moves forward', async () => {
+    const s = make()
+    await s.createUser(user('u1', 'a@b.io'))
+    expect(await s.advanceTotpStep('u1', 10)).toBe(true)
+    expect(await s.advanceTotpStep('u1', 10)).toBe(false)
+    expect(await s.advanceTotpStep('u1', 9)).toBe(false)
+    expect(await s.advanceTotpStep('u1', 11)).toBe(true)
+    expect(await s.advanceTotpStep('missing', 1)).toBe(false)
+  })
+
+  it('one-time records are single-use and separated by purpose', async () => {
+    const s = make()
+    await s.putOneTime({ digest: 'd', purpose: 'password-reset', userId: 'u1', payload: { a: 'b' }, createdAt: 1, expiresAt: 2 })
+    expect(await s.findOneTime('d', 'email-link')).toBeUndefined()
+    expect((await s.findOneTime('d', 'password-reset'))?.payload).toEqual({ a: 'b' })
+    expect(await s.consumeOneTime('d', 'password-reset')).toBeDefined()
+    expect(await s.consumeOneTime('d', 'password-reset')).toBeUndefined()
+  })
+
+  it('recovery codes, tokens and passkeys are owner-scoped', async () => {
+    const s = make()
+    await s.replaceRecoveryCodes('u1', ['c1', 'c2'])
+    expect(await s.consumeRecoveryCode('u2', 'c1')).toBe(false)
+    expect(await s.consumeRecoveryCode('u1', 'c1')).toBe(true)
+    expect(await s.consumeRecoveryCode('u1', 'c1')).toBe(false)
+    expect(await s.countRecoveryCodes('u1')).toBe(1)
+    await s.addToken({ id: 't1', userId: 'u1', name: 'x', digest: 'td', abilities: ['*'], createdAt: 1, lastUsedAt: null, expiresAt: null })
+    expect(await s.deleteToken('u2', 't1')).toBe(false)
+    expect(await s.findTokenByDigest('td')).toBeDefined()
+    expect(await s.deleteToken('u1', 't1')).toBe(true)
+    await s.addPasskey({ id: 'p1', userId: 'u1', name: 'x', credentialId: 'c', publicKey: 'k', counter: 0, transports: [], backedUp: false, createdAt: 1, lastUsedAt: null })
+    expect(await s.deletePasskey('u2', 'p1')).toBe(false)
+    expect(await s.deletePasskey('u1', 'p1')).toBe(true)
+  })
+
+  it('invitations are consumed once', async () => {
+    const s = make()
+    await s.createTeam({ id: 't', name: 'T', personal: false, createdAt: 1 }, { teamId: 't', userId: 'u1', role: 'admin' })
+    await s.addInvitation({ id: 'i', teamId: 't', email: 'x@y.io', role: 'member', digest: 'g', invitedBy: 'u1', createdAt: 1, expiresAt: 2 })
+    expect(await s.consumeInvitation('i')).toBeDefined()
+    expect(await s.consumeInvitation('i')).toBeUndefined()
+  })
+})
+
+describe('SQLite across connections (several app processes on one database)', () => {
+  it('single-use holds across two connections to the same file', async () => {
+    const file = join(dir, 'shared.sqlite')
+    const a = sqliteAuthStore(openFile(file))
+    const b = sqliteAuthStore(openFile(file))
+    await a.putOneTime({ digest: 'd', purpose: 'email-link', userId: 'u', payload: {}, createdAt: 1, expiresAt: 2 })
+    await a.createUser(user('u', 'a@b.io'))
+    expect(await b.consumeOneTime('d', 'email-link')).toBeDefined()
+    expect(await a.consumeOneTime('d', 'email-link')).toBeUndefined()
+    expect(await b.advanceTotpStep('u', 5)).toBe(true)
+    expect(await a.advanceTotpStep('u', 5)).toBe(false)
+  })
+
+  it('bypass attempt: spreading attempts over two app instances does not double the limit', async () => {
+    const file = join(dir, 'limits.sqlite')
+    const clock = manualClock(START)
+    const one = harness({ store: 'sqlite', db: openFile(file), clock, config: { lockout: { threshold: 1000 } } })
+    const two = harness({ store: 'sqlite', db: openFile(file), clock, config: { lockout: { threshold: 1000 } } })
+    for (let i = 0; i < 10; i++) {
+      const instance = i % 2 === 0 ? one : two
+      await rejectsWith(() => instance.auth.passwords.login(new Browser('198.51.100.1').req, { email: `x${i}@acme.test`, password: 'wrong password!' }), 'INVALID_CREDENTIALS')
+    }
+    await rejectsWith(() => one.auth.passwords.login(new Browser('198.51.100.1').req, { email: 'y@acme.test', password: 'wrong password!' }), 'RATE_LIMITED')
+    await rejectsWith(() => two.auth.passwords.login(new Browser('198.51.100.1').req, { email: 'y@acme.test', password: 'wrong password!' }), 'RATE_LIMITED')
+  })
+
+  it('counter stores expire values and restart from 1', async () => {
+    for (const [name, make] of [
+      ['memory', (c: ReturnType<typeof manualClock>) => memoryCounterStore(c)],
+      ['sqlite', (c: ReturnType<typeof manualClock>) => sqliteCounterStore(new DatabaseSync(':memory:'), c)],
+    ] as const) {
+      const clock = manualClock(START)
+      const counters = make(clock)
+      expect(await counters.increment('k', 1000), name).toBe(1)
+      expect(await counters.increment('k', 1000)).toBe(2)
+      expect(await counters.get('k')).toBe(2)
+      clock.advance(1000)
+      expect(await counters.get('k')).toBeUndefined()
+      expect(await counters.increment('k', 1000)).toBe(1)
+      await counters.set('k', 42, 500)
+      expect(await counters.get('k')).toBe(42)
+      await counters.delete('k')
+      expect(await counters.get('k')).toBeUndefined()
+    }
+  })
+})

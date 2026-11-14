@@ -1,0 +1,24 @@
+{
+  "name": "spike-20-auth-v2",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Spike 20: the engine-agnostic core of @strutvane/auth v2: passwords, reset, verification, email links, TOTP 2FA, passkeys, sessions, personal access tokens, teams, impersonation and feature switches behind a small storage interface.",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p .",
+    "test": "tsc --noEmit -p . && vitest run",
+    "serve:example": "node example/serve.ts"
+  },
+  "dependencies": {
+    "@simplewebauthn/server": "14.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "24.10.1",
+    "fast-check": "4.10.2",
+    "typescript": "6.0.3",
+    "vitest": "5.1.0"
+  }
+}
