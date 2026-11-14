@@ -1,0 +1,27 @@
+{
+  "name": "spike-10-migration-first-schema",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Spike 10: Laravel-style migration files as the schema source of truth -> offline model types, resource metadata, SQL DDL and a metadata-driven CRUD API.",
+  "engines": { "node": ">=24" },
+  "imports": {
+    "#strutvane/*": "./src/*.ts"
+  },
+  "scripts": {
+    "test": "tsc --noEmit -p . && vitest run",
+    "typecheck": "tsc --noEmit -p .",
+    "generate": "node scripts/generate.ts fixtures/blog",
+    "bench": "node scripts/bench.ts"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "0.5.16",
+    "hono": "4.13.18",
+    "oxc-parser": "0.158.0"
+  },
+  "devDependencies": {
+    "@types/node": "24.10.1",
+    "typescript": "6.0.3",
+    "vitest": "5.1.0"
+  }
+}
