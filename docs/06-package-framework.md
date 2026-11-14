@@ -11,7 +11,7 @@
 | `/database` | Connections and pools, model DSL → table schema, migrations (auto-diff + manual), seeders, factories, query layer, transactions, soft deletes, tenancy scopes, RLS session variables, introspection (`db:pull`) |
 | `/resource` | The CRUD engine: list/show/create/update/delete/restore/bulk/export/query, hooks, actions, overrides, serialisation, field visibility |
 | `/validation` | Model → Zod schemas (create/update/partial), custom rules, i18n messages, Standard Schema interop |
-| `/openapi` | OpenAPI 3.1 document, `x-strutvane-*` extensions, Scalar docs UI at `/docs`, typed client generation |
+| `/openapi` | OpenAPI 3.1 document at `/openapi.json`, `x-strutvane-*` extensions, a readable docs page at `/docs` (§5.5), typed client generation |
 | `/queue` | Jobs, schedules, retries, idempotency, outbox relay; `sync` / `database` / `valkey` drivers |
 | `/cache` | Cache facade, tags, tenant namespacing; `memory` / `database` / `valkey` drivers |
 | `/mail` | Mailables, templates, drivers (SMTP, SES, Resend, Postmark, log) |
@@ -173,6 +173,19 @@ export default [
 ```
 
 Typed input and output flow into OpenAPI and the generated client automatically.
+
+### 5.5 API documentation (`/openapi.json` and `/docs`)
+
+The framework serves the app's OpenAPI 3.1 document (resources and custom routes) at `GET /openapi.json` and a readable HTML page for the same document at `GET /docs`. Both follow **one visibility rule** (`openapi` option of the HTTP app, set from `config/api.ts` `docs` / `API_DOCS`):
+
+| Setting | `APP_ENV=local` | Any other `APP_ENV` |
+|---------|-----------------|---------------------|
+| `docs: true` (the default) | public | identified callers only (anonymous requests get 401) |
+| `docs: false` (`API_DOCS=false`) | not served | not served |
+
+Why not public everywhere: the document lists every resource, field and filter, a map an anonymous visitor of a production API does not need. The generated `.env.example` ships `API_DOCS=false`; the local `.env` turns it on.
+
+The `/docs` page is rendered on the server with no script at all. A docs UI loaded from a CDN would need a page CSP that allows third-party scripts on the API's origin, and an inline renderer would need `'unsafe-inline'` scripts. The page's own CSP allows only inline styles (`default-src 'none'; style-src 'unsafe-inline'; …; frame-ancestors 'none'`), every value taken from the document is HTML-escaped (model names, descriptions and enum values come from app code), responses are `Cache-Control: no-store`, and the page links to `/openapi.json` for tools such as Postman or a generated client.
 
 ## 6. Database providers
 

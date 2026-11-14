@@ -124,6 +124,42 @@ Custom field types registered in the backend (`money`, `phone`, …) ship a matc
   - an impersonation banner
 - **Error pages:** 403 (with "request access" slot), 404, 500 (with trace id), offline.
 
+### 4.1 The app shell: `<StrutvaneApp>` (implemented)
+
+`@strutvane/ui/react` exports `StrutvaneApp`, the whole generated UI in one component. The starter's `web/app.tsx` renders it, and `web/router.tsx` exports the app's own screens as `RouteDefinition[]`:
+
+```tsx
+// web/app.tsx
+import { StrutvaneApp } from '@strutvane/ui/react'
+import { routes } from './router.tsx'
+
+export function App() {
+  return <StrutvaneApp apiUrl={import.meta.env.VITE_API_URL} appName={import.meta.env.VITE_APP_NAME} routes={routes} />
+}
+
+// web/router.tsx
+import type { RouteDefinition } from '@strutvane/ui/react'
+export const routes: RouteDefinition[] = [] // e.g. { path: '/reports', title: 'Reports', element: <Reports /> }
+```
+
+From the API alone (the session endpoints and the resource manifest) it provides a sign-in screen, a workspace picker and switcher for multi-tenant APIs, a menu of every resource the actor may list (grouped by `ui.group`) plus app routes with a `title`, and list (`/:resource`), create (`/:resource/new`), detail (`/:resource/:id`) and edit (`/:resource/:id/edit`) pages gated by the actor's capabilities.
+
+| Prop | Purpose |
+|------|---------|
+| `apiUrl` | API base URL, e.g. `/api/v1` (`VITE_API_URL`). Required. |
+| `appName` | Shown in the header, the document title and the sign-in screen |
+| `routes` | App screens (`RouteDefinition[]`); they win over resource routes at the same path |
+| `home` | The page at `/` (default: a welcome with the menu entries) |
+| `overrides` | Widget, cell and message overrides (L1/L2, §6) |
+| `locale` | Message locale (default `en`) |
+| `auth` | Use the `@strutvane/auth` session endpoints (default `true`; `false` for APIs without auth) |
+| `credentials` | Fetch cookie policy: `include` when the UI is served from another origin than the API (the starter sets it for the `ui` preset) |
+| `styles` | Inject the default stylesheet (`APP_STYLES`, themable with `--sv-*` CSS variables from `web/theme/tokens.css`; default `true`) |
+
+`RouteDefinition` is `{ path, element, title? }`: `path` is a pattern such as `/reports` or `/reports/:year`, and routes with a `title` appear in the menu. The shell ships a small built-in router (`Router`, `Link`, `useRouter`, `matchPath`) whose links are real `<a href>` elements; the TanStack Router integration of §10 is the target.
+
+Failure handling: a 401 from any request returns to the sign-in screen with a notice, a manifest that cannot load shows an error instead of an empty app, and unknown paths and hidden resources show the same "not found or no access" page, so resource names cannot be enumerated.
+
 ## 5. Theming and design systems
 
 **Design tokens** are CSS custom properties in `web/theme/tokens.css`, consumed by Tailwind 4 `@theme`:
@@ -235,7 +271,7 @@ Ejected files are tracked in `.strutvane/lock.json`. `sv upgrade` applies templa
 ## 8. UI-only mode (any OpenAPI API)
 
 ```bash
-npm create strutvane@latest backoffice -- --preset ui
+npm create strutvane@next backoffice -- --preset ui
 # prompts: API base URL, OpenAPI URL, auth type (Strutvane | OIDC | API key | custom)
 ```
 
@@ -260,6 +296,7 @@ export default defineResources({
 ```
 
 - `sv ui:pages --from-openapi <url>` re-runs inference and shows a diff against the mapping file.
+- *Today:* the `ui` preset connects to a Strutvane API and reads its manifest only (the starter no longer writes `web/ui.resources.ts`). OpenAPI inference and the mapping file are planned.
 
 ## 9. Providers (pluggable)
 
@@ -276,6 +313,7 @@ export default defineResources({
 ## 10. Routing
 
 - **TanStack Router** with a generated route tree: `.strutvane/routes.gen.ts`, built from the manifest plus `web/pages/**` overrides and custom pages.
+  - *Today:* `<StrutvaneApp>` uses its own small router and `RouteDefinition[]` from `web/router.tsx` (§4.1); the generated TanStack route tree is not built yet.
 - Resource routes are **lazy**: each resource's pages are a separate chunk.
 - Search params (filters, sort, page, view) are typed and URL-synced, so links are shareable and the back button works.
 - Route guards use `AccessProvider`. Unauthenticated users go to `/login?redirect=…`; forbidden users get a 403 page.
@@ -319,7 +357,7 @@ export default defineResources({
 | Entry | Contents |
 |-------|----------|
 | `@strutvane/ui/core` | Manifest loader, resource registry, data client, query state, providers (no React) |
-| `@strutvane/ui/react` | Renderer components, hooks (`useResource`, `useList`, `useRecord`, `useForm`, `useCan`, `useActor`, `useTenant`), `defineUi`, `defineColumns`, `defineFields` |
+| `@strutvane/ui/react` | App shell (`StrutvaneApp`, `RouteDefinition`, `Router`, `Link`; §4.1), renderer components, hooks (`useResource`, `useList`, `useRecord`, `useForm`, `useCan`, `useActor`, `useTenant`), `defineUi`, `defineColumns`, `defineFields` |
 | `@strutvane/ui/vite` | Vite plugin: route-tree generation, manifest typing, dev integration with the API server |
 | `@strutvane/ui/installer` | Installer used by `sv add ui` |
 | `@strutvane/ui/testing` | Test utilities |

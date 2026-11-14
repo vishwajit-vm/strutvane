@@ -17,7 +17,7 @@
 A realistic B2B app (10–20 models, auth, RBAC, UI) should be **running in 1–2 hours**. Every line of it stays readable, overridable TypeScript in the developer's repo.
 
 ```bash
-npm create strutvane@latest acme      # choose: Full-stack | API only | UI only
+npm create strutvane@next acme        # choose: Full-stack | API only | UI only
 cd acme && pnpm sv make:model Product # add fields: name:string price:decimal status:enum(draft,active)
 pnpm sv migrate                       # migration auto-generated from the model and applied
 pnpm dev                              # API + docs + UI live: /api/v1/products, /docs, /products
@@ -53,9 +53,9 @@ pnpm dev                              # API + docs + UI live: /api/v1/products, 
 
 | I want to… | Install | Command |
 |------------|---------|---------|
-| Build a full app (API + UI + auth) | framework + auth + ui | `npm create strutvane@latest acme -- --preset full` |
-| Build only an API | framework (+ auth) | `npm create strutvane@latest acme -- --preset api` |
-| Build only a UI against an existing API (any OpenAPI 3.x) | ui | `npm create strutvane@latest acme -- --preset ui` |
+| Build a full app (API + UI + auth) | framework + auth + ui | `npm create strutvane@next acme -- --preset full` |
+| Build only an API | framework (+ auth) | `npm create strutvane@next acme -- --preset api` |
+| Build only a UI against an existing API (any OpenAPI 3.x) | ui | `npm create strutvane@next acme -- --preset ui` |
 | Add auth to an existing Express/Fastify/Nest/Hono app | auth | `npx strutvane add auth` |
 | Add a package later | any | `pnpm sv add ui` · `pnpm sv add auth` |
 

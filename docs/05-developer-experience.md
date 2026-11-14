@@ -6,7 +6,7 @@ This is the most important document in the blueprint. Every package decision exi
 
 | Minute | Developer does | Strutvane does |
 |--------|----------------|----------------|
-| 0 | `npm create strutvane@latest acme` | Interactive prompts (§2) |
+| 0 | `npm create strutvane@next acme` | Interactive prompts (§2) |
 | 2 | — | Generates the full project: configs, `.env` + `.env.example` (with a generated `APP_KEY`), local Docker services, auth tables, admin user seed, UI shell, tests, README |
 | 3 | `cd acme && pnpm sv up` | Starts local Docker services (DB, Valkey, Mailpit), waits for health checks, runs migrations and seeds |
 | 4 | `pnpm dev` | API on `:3000/api/v1`, API docs on `:3000/docs`, UI on `:3000`. Login with the seeded admin. |
@@ -14,7 +14,22 @@ This is the most important document in the blueprint. Every package decision exi
 | 60–100 | Tweak labels, validation, a custom action ("Approve invoice"), a dashboard widget | L1/L2 customisation (§6). No regeneration needed. |
 | 100–120 | `pnpm test`, `pnpm build` | Generated tests, including cross-tenant and permission tests, pass. A production build is ready. |
 
-## 2. `npm create strutvane@latest`
+**What the starter generates today.** The project README's quick start (create-strutvane, Docker on):
+
+```bash
+pnpm install
+pnpm services:up          # local database and services (Docker)
+pnpm sv auth:migration    # PostgreSQL with auth only: writes the migration for the sign-in tables
+pnpm sv migrate
+pnpm sv db:seed
+pnpm dev
+```
+
+`sv auth:migration` appears only when auth keeps identity in the app's own PostgreSQL database (`session.driver: 'database'`, the generated default; [07 §2.4](07-package-auth.md#24-environment-keys)). Folding the identity tables into `sv migrate`, so this step disappears, is planned. The single `pnpm sv up` of the table above is the target.
+
+## 2. `npm create strutvane@next`
+
+Until 1.0, pre-releases are published on the `next` dist-tag, so the starter is run as `create strutvane@next`. From 1.0, `npm create strutvane@latest` (or plain `npm create strutvane`) is the default.
 
 ```
 ◆  Project name › acme
@@ -34,7 +49,7 @@ This is the most important document in the blueprint. Every package decision exi
 Every prompt has a flag, for CI and scripting:
 
 ```bash
-npm create strutvane@latest acme -- --preset full --db postgres --auth email,google --tenancy shared \
+npm create strutvane@next acme -- --preset full --db postgres --auth email,google --tenancy shared \
   --extras queue,cache,mail,audit,otel --docker --pm pnpm --yes
 ```
 
@@ -45,8 +60,7 @@ npm create strutvane@latest acme -- --preset full --db postgres --auth email,goo
 ```
 acme/
 ├─ app/                              ← your application code (owned)
-│  ├─ models/
-│  │  └─ user.model.ts               (from auth; extendable)
+│  ├─ models/                        ← your models (no User model: accounts live in @strutvane/auth, 07 §6)
 │  ├─ resources/                     ← optional per-model API behaviour (hooks, actions, overrides)
 │  ├─ policies/                      ← per-model authorization rules
 │  ├─ services/                      ← business logic
@@ -132,7 +146,7 @@ MAIL_FROM_NAME="${APP_NAME}"
 
 # ─── Auth (@strutvane/auth) ─────────────────────────────────────
 AUTH_SECRET=                  # generated; rotate with: pnpm sv auth:secret:rotate
-AUTH_SESSION_DRIVER=database  # database | valkey | jwt
+AUTH_SESSION_DRIVER=database  # database | memory (database persists on PostgreSQL; 07 §2.4)
 AUTH_SESSION_LIFETIME=120     # minutes idle
 AUTH_JWT_TTL=900              # seconds (API tokens)
 AUTH_ALLOW_REGISTRATION=false # public sign-up is off by default
@@ -153,7 +167,7 @@ TENANCY_RESOLVE=subdomain,header,session
 # ─── HTTP / API ─────────────────────────────────────────────────
 API_PREFIX=/api
 API_VERSION=v1
-API_DOCS=true                 # serves /docs (Scalar) and /openapi.json
+API_DOCS=false                # true in the local .env: serves /openapi.json and the /docs page (06 §5.5)
 CORS_ORIGINS=http://localhost:3000
 RATE_LIMIT=120/min
 
@@ -312,7 +326,7 @@ When a model exists and `pnpm dev` is running (watch mode) or `sv build` runs:
 
    Each route goes through validation, authorization (policy + field rules + tenant scope), hooks, audit, events, problem+json errors and OpenAPI docs.
 3. **Permissions.** `invoice.viewAny|view|create|update|delete|restore|forceDelete|export` plus custom actions are synced to the auth permission catalogue. The role map in `config/auth.ts` grants on top of the model's policy: `admin` = all, `member` = view + create + update/delete own, `viewer` = view, and with tenancy `owner` = all inside the tenant it created. A policy `deny` always wins ([07 §4.4](07-package-auth.md#44-permission-auto-sync-from-models)).
-4. **OpenAPI 3.1** at `/openapi.json` and interactive docs at `/docs`. A typed client SDK (`.strutvane/client.gen.ts`) is used by the UI and can be exported for other apps (`sv api:client --out ../mobile/src/api`).
+4. **OpenAPI 3.1** at `/openapi.json` and a readable docs page at `/docs`, under one visibility rule: public only when `APP_ENV=local`, identified callers only everywhere else, or off with `API_DOCS=false` ([06 §5.5](06-package-framework.md#55-api-documentation-openapijson-and-docs)). A typed client SDK (`.strutvane/client.gen.ts`) is used by the UI and can be exported for other apps (`sv api:client --out ../mobile/src/api`).
 5. **UI.** Routes and pages, all permission-aware:
    - `/invoices`: data table with search, filter chips, sort, column toggles, pagination, bulk actions, export, saved views
    - `/invoices/new` and `/invoices/:id/edit`: form with widgets inferred from field types, relation pickers, client + server validation

@@ -20,7 +20,7 @@ Declare models as fields and types, run one command, and get migrations, a secur
 ## The idea
 
 ```bash
-npm create strutvane@latest acme       # Full-stack | API only | UI only
+npm create strutvane@next acme         # Full-stack | API only | UI only
 cd acme
 pnpm sv make:model Invoice number:string:unique customer:belongsTo(Customer) amount:decimal(12,2) "status:enum(draft,sent,paid)"
 pnpm sv migrate                        # migration generated from the model and applied
@@ -50,7 +50,7 @@ export default defineModel('Invoice', {
 | `@strutvane/contracts` | [strutvane-contracts](https://github.com/vishwajit-vm/strutvane-contracts) | Shared types & wire protocols (zero dependencies) |
 | `strutvane` · `@strutvane/cli` | [strutvane-cli](https://github.com/vishwajit-vm/strutvane-cli) | Unified CLI (`pnpm sv …`) |
 | `@strutvane/devkit` | [strutvane-devkit](https://github.com/vishwajit-vm/strutvane-devkit) | SDK for installers, generators, plugins |
-| `create-strutvane` | [create-strutvane](https://github.com/vishwajit-vm/create-strutvane) | `npm create strutvane@latest` |
+| `create-strutvane` | [create-strutvane](https://github.com/vishwajit-vm/create-strutvane) | `npm create strutvane@next` |
 | *(internal)* | [strutvane-tooling](https://github.com/vishwajit-vm/strutvane-tooling) | Shared configs, CI/release workflows, config sync |
 | *(docs site)* | [strutvane-docs](https://github.com/vishwajit-vm/strutvane-docs) | Friendly public documentation ([live site](https://vishwajit-vm.github.io/strutvane-docs/)) |
 

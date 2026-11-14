@@ -11,7 +11,7 @@
 | Meaning | *Strut*: the structural member that carries load; *vane*: the blade that sets direction. "The structure that points the way." |
 | npm scope | **`@strutvane`** (every package lives here; nobody else can ever publish into it) |
 | CLI package | unscoped **`strutvane`** (bin `strutvane`; project script alias **`sv`** → `pnpm sv make:model`) |
-| Starter | unscoped **`create-strutvane`** → `npm create strutvane@latest` |
+| Starter | unscoped **`create-strutvane`** → `npm create strutvane@next` |
 | GitHub org | **`strutvane`**: one repo per package ([10](10-repositories-publishing-versioning.md)) |
 | Domains | `strutvane.com`, `.dev`, `.io`, `.org`, `.sh`: all **unregistered** at check time |
 | Trademark class | Coined/fanciful word, the **strongest** trademark category (no descriptive meaning in software) |

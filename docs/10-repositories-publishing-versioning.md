@@ -32,7 +32,7 @@
 | `strutvane/ui` | `@strutvane/ui` | React resource renderer, auth screens, registry components, themes, shadcn-compatible registry JSON |
 | `strutvane/cli` | `@strutvane/cli` **and** `strutvane` (unscoped launcher, bin `strutvane`) | Command implementations, installer runner, generator host; plus the thin launcher in `launcher/` |
 | `strutvane/devkit` | `@strutvane/devkit` | SDK for installers, generators, plugins and codemods (`AstEditor`, file sandbox, env-file writer, config patcher) |
-| `strutvane/create-strutvane` | `create-strutvane` | `npm create strutvane@latest`, **including the starter templates** (`templates/full`, `templates/api`, `templates/ui`) |
+| `strutvane/create-strutvane` | `create-strutvane` | `npm create strutvane@next`, **including the starter templates** (`templates/full`, `templates/api`, `templates/ui`) |
 | `strutvane/tooling` | `@strutvane/tsconfig`, `@strutvane/biome-config`, `@strutvane/vitest-config`, `@strutvane/test-utils` | Shared configs and test helpers (Testcontainers presets, golden-file utils, fake IdP) consumed by every repo |
 | `strutvane/.github` | — | Org-wide **reusable workflows** (`workflow_call`), issue/PR templates, `SECURITY.md`, `CODE_OF_CONDUCT.md`, `CONTRIBUTING.md`, `FUNDING.yml` |
 | `strutvane/docs` | — (deploys strutvane.dev) | Versioned documentation site (Diátaxis) |
@@ -308,7 +308,7 @@ After the first real release: `npm deprecate <pkg>@0.0.0 "placeholder"`.
 ### 8.3 How users install from npmjs.com
 
 ```bash
-npm create strutvane@latest acme            # or: pnpm create strutvane acme / bun create strutvane acme
+npm create strutvane@next acme              # or: pnpm create strutvane@next acme / bun create strutvane@next acme
 #   prompts: preset (full | api | ui), database, auth?, tenancy?, package manager, local Docker?
 
 npx strutvane add auth                      # existing project: install + run the package's installer

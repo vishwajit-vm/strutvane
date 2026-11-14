@@ -69,7 +69,6 @@ pnpm sv add auth --methods email,google --mfa optional --registration open --ten
 ```
 config/auth.ts                         ← methods, sessions, password policy, role→permission defaults
 config/tenancy.ts                      ← only when tenancy is enabled
-app/models/user.model.ts               ← extendable User model (§6)
 app/models/tenant.model.ts             ← tenancy only (extendable)
 app/policies/user.policy.ts  role.policy.ts  tenant.policy.ts
 app/providers/auth.provider.ts         ← registers the identity engine, resolvers, hooks
@@ -80,6 +79,8 @@ database/seeders/auth.seeder.ts       ← system roles, permission catalogue, ad
 tests/feature/auth/*.test.ts          ← login, MFA, lockout, reset, roles, tenant isolation
 web/pages/auth/…                       ← only when @strutvane/ui is installed (§2.6)
 ```
+
+No `app/models/user.model.ts` is generated: accounts live in the auth identity store, and app data about a user is keyed by the actor id (§6).
 
 ### 2.3 Migrations (default tables; prefix configurable, e.g. `auth_`)
 
@@ -92,6 +93,8 @@ web/pages/auth/…                       ← only when @strutvane/ui is installe
 | Enterprise | `sso_connections`, `scim_tokens`, `impersonation_sessions` |
 | Audit | `audit_events` (Postgres: monthly partitions) |
 
+**Implemented today (persistent identity).** With `session.driver: 'database'` on PostgreSQL (§2.4), the identity tables are Better Auth's schema (users, accounts, sessions, verifications, organizations, members, invitations) plus `strutvane_rate_limits` for the auth rate-limit counters. `sv auth:migration` writes them to `database/migrations/<timestamp>_auth_identity.sql` (only what is missing in the database), and `sv migrate` applies that file like any other migration. Folding the identity tables into the `sv migrate` diff, so the extra command disappears, is planned.
+
 ### 2.4 Environment keys
 
 Appended to `.env` (values filled in) and `.env.example` (empty, commented):
@@ -99,7 +102,7 @@ Appended to `.env` (values filled in) and `.env.example` (empty, commented):
 ```dotenv
 # ─── Auth (@strutvane/auth) ─────────────────────────────────────
 AUTH_SECRET=                  # generated; rotate: pnpm sv auth:secret:rotate
-AUTH_SESSION_DRIVER=database  # database | valkey | jwt
+AUTH_SESSION_DRIVER=database  # database | memory (see below)
 AUTH_SESSION_LIFETIME=120     # idle minutes
 AUTH_SESSION_ABSOLUTE=1440    # absolute minutes
 AUTH_JWT_TTL=900              # access-token seconds (jwt driver / API tokens)
@@ -121,6 +124,20 @@ TENANCY_ENABLED=true
 TENANCY_STRATEGY=shared       # shared | schema | database
 TENANCY_RESOLVE=subdomain,header,session
 ```
+
+#### Session driver and persistent identity
+
+`AUTH_SESSION_DRIVER` feeds `config/auth.ts` `session.driver`, which selects the identity engine together with `config/database.ts`:
+
+| `session.driver` | Database | Identity engine |
+|------------------|----------|-----------------|
+| `database` (generated default) | PostgreSQL (`postgres`, `azure-postgres`) | **Better Auth** on the app's own database: accounts, sessions, tenants and memberships survive restarts and are shared by every process |
+| `database` | anything else | native engine, in memory, with a boot warning (persistence needs PostgreSQL today) |
+| `memory`, or unset | any | native engine, in memory: development and tests |
+
+Cookie sessions in Valkey and JWT + refresh sessions (the other options in §2.1) are planned. Until they exist, any other value falls back to the native in-memory engine with a warning.
+
+The persistent engine fails the boot, with the fix in the message, when `better-auth` or `pg` is not installed, when `AUTH_SECRET` is shorter than 32 characters, or when the auth tables are missing (run `sv auth:migration`, then `sv migrate`; §2.3). `create-strutvane` handles this for PostgreSQL apps with auth: it adds the pinned `better-auth` dependency and puts `sv auth:migration` before `sv migrate` in the printed next steps, the project README and the migrations README.
 
 ### 2.5 API routes (auto-registered under `API_PREFIX/API_VERSION`)
 
@@ -394,27 +411,29 @@ For sharing graphs ("viewers of folder X can view its files"), the `Authorizatio
 - **Platform operators:** `actor.type === 'system'` access is explicit, audited and never implicit. Server-side code runs **with** access control by default; bypass needs `withSystemActor('reason', fn)`.
 - **Lifecycle:** provision, suspend, export (portability), delete (GDPR erasure, with a crypto-shredding option). Each stage has hooks (`onTenantCreated`, …).
 
-## 6. Extending the User model
+## 6. User profile data
+
+Accounts, sessions, roles and memberships belong to `@strutvane/auth` and live in its identity store. Apps do **not** get a `User` model: a `defineModel('User')` in the app would be a second, unrelated users table (tenant-scoped when tenancy is on) that sign-up and the seed admin never write to, and `user` is an identity resource that the role map keeps out of wildcards (`wildcardExclude`, §4.4).
+
+A request knows its user as the **actor**, and `actor.id` is the link. Profile fields go into an app model keyed by that id:
+
+```bash
+pnpm sv make:model Profile userId:string:unique jobTitle:string
+```
 
 ```ts
-// app/models/user.model.ts (generated by sv add auth — owned)
-import { extendModel, field } from '@strutvane/framework'
-import { UserModel } from '@strutvane/auth/models'
+// app/models/profile.model.ts (owned)
+import { defineModel, field } from '@strutvane/framework'
 
-export default extendModel(UserModel, {
-  jobTitle:   field.string().optional(),
-  department: field.belongsTo('Department').optional().filterable(),
-  avatar:     field.image().optional(),          // requires the future files package
-}, {
-  ui: { list: { columns: ['name', 'email', 'department', 'roles', 'lastLoginAt'] } },
+export default defineModel('Profile', {
+  userId:   field.string().unique(),     // the actor id from @strutvane/auth
+  jobTitle: field.string().optional(),
 })
 ```
 
-Engine-owned columns (`email`, `emailVerified`, password hash, etc.) are protected:
-
-- They cannot be removed.
-- The password hash is `hidden` and never serialised.
-- Added fields flow into migrations, the API, the profile screen and the admin Users screen like any other model.
+- The profile is an ordinary model: it gets its migration, CRUD API, policy and UI pages like any other.
+- Engine-owned data (email, verification state, password hash) stays in the identity store and is never copied into app tables.
+- Adding columns to the identity user itself (an `extendModel(UserModel, …)` API) is not provided; see §12.
 
 ## 7. Audit logging
 
@@ -499,7 +518,7 @@ UI hiding is **convenience, never enforcement**. The API re-checks every request
 | `requirePermission`, `requireRole`, `requireRecentAuth` | Middleware/guards |
 | `currentActor`, `currentTenant`, `withTenant`, `withSystemActor` | Context (AsyncLocalStorage) |
 | `audit.record`, `audit.query` | Audit |
-| `UserModel`, `TenantModel` | Extendable models |
+| `TenantModel` | Extendable tenant model *(planned)*. There is no `UserModel`: profile data is an app model keyed by `actor.id` (§6) |
 | `@strutvane/auth/identity/*` | Identity adapters (better-auth, oidc, saml, native) |
 | `@strutvane/auth/testing` | `actingAs(user, { tenant, roles })`, `withPermissions([...])`, cross-tenant assertion helpers |
 
@@ -515,6 +534,7 @@ sv auth:explain --actor <id> --action invoice.approve --resource invoice:123
 sv auth:keys:rotate · sv auth:secret:rotate
 sv auth:token:create --service <name> --roles … · sv auth:token:revoke <id>
 sv auth:sso:add --tenant acme --type saml|oidc --metadata-url …
+sv auth:migration                     # writes the identity-table migration (persistent identity, §2.3)
 sv auth:migrate                       # standalone mode only
 sv tenant:create | tenant:list | tenant:suspend | tenant:export | tenant:delete | tenant:migrate
 sv audit:verify [--tenant] · sv audit:prune --before 2025-01-01
@@ -526,3 +546,4 @@ sv audit:verify [--tenant] · sv audit:prune --before 2025-01-01
 2. Should the predicate builder live as `@strutvane/policy` so future packages can reuse it without auth? *(Lean: types in `contracts`, runtime in `auth`; split only if demanded.)*
 3. Should "bring your own IdP only" (no local users, Entra ID everywhere) be a first-class preset? *(Yes: `--methods sso-only`.)*
 4. Should identity tables live in a separate schema (`auth.`) on Postgres by default? *(Lean: yes on Postgres, prefix elsewhere.)*
+5. Should apps be able to add columns to the identity user itself (`extendModel(UserModel, …)`), or is a profile model keyed by `actor.id` (§6) enough? *(Lean: profile model; revisit with demand.)*

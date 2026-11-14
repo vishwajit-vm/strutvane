@@ -5,7 +5,7 @@ The CLI is the "artisan" of Strutvane: one entry point for creating projects, ad
 | Item | Value |
 |------|-------|
 | npm package | `strutvane` (unscoped launcher, bin `strutvane`), implemented in `@strutvane/cli` |
-| Starter | `create-strutvane` → `npm create strutvane@latest` |
+| Starter | `create-strutvane` → `npm create strutvane@next` |
 | In projects | `package.json` script `"sv": "strutvane-cli"` (the bin of the project's own `@strutvane/cli`) → `pnpm sv <command>` (also `npm run sv --`, `yarn sv`, `bun sv`). `pnpm sv help` therefore lists the project's commands; the global `strutvane` launcher answers `help` itself (§1.1) |
 | Without install | `npx strutvane <command>` / `pnpm dlx strutvane <command>` |
 
@@ -65,7 +65,7 @@ The CLI is the "artisan" of Strutvane: one entry point for creating projects, ad
 
 | Command | Description | Key flags |
 |---------|-------------|-----------|
-| `strutvane new <name>` / `npm create strutvane@latest <name>` | Create a project (prompts: [05 §2](05-developer-experience.md#2-npm-create-strutvanelatest)) | `--preset full\|api\|ui`, `--db postgres\|mysql\|sqlite\|azure-postgres\|azure-mysql`, `--auth email,google,microsoft,github,magic,passkey`, `--tenancy none\|shared\|schema\|database`, `--extras queue,cache,mail,audit,otel,versioning`, `--docker` / `--no-docker`, `--docker=commit`, `--pm pnpm\|npm\|yarn\|bun`, `--git` / `--no-git`, `--template <git-url\|preset-pkg>` |
+| `strutvane new <name>` / `npm create strutvane@next <name>` | Create a project (prompts: [05 §2](05-developer-experience.md#2-npm-create-strutvanenext)) | `--preset full\|api\|ui`, `--db postgres\|mysql\|sqlite\|azure-postgres\|azure-mysql`, `--auth email,google,microsoft,github,magic,passkey`, `--tenancy none\|shared\|schema\|database`, `--extras queue,cache,mail,audit,otel,versioning`, `--docker` / `--no-docker`, `--docker=commit`, `--pm pnpm\|npm\|yarn\|bun`, `--git` / `--no-git`, `--template <git-url\|preset-pkg>` |
 | `sv add <package>` | Install and run a package's installer (deps, config, env, provider, migrations, routes, pages, tests) | `--dry-run --diff`, package-specific flags (e.g. `sv add auth --methods email`) |
 | `sv remove <package>` | Reverse an installer. Keeps edited files and lists them. | `--keep-data`, `--dry-run` |
 | `sv dev` (`pnpm dev`) | API + UI + watchers (registry, types, migration drift warning) on one port | `--port`, `--api-only`, `--ui-only`, `--open`, `--inspect` |
