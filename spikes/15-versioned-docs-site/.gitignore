@@ -1,0 +1,7 @@
+node_modules/
+# Build output: one Astro build per version, then the merged site.
+.build/
+dist/
+# Docs sources fetched from git branches (see scripts/lib/content-source.ts).
+.cache/
+.astro/

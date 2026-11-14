@@ -1,0 +1,27 @@
+{
+  "name": "spike-15-versioned-docs-site",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Spike 15: a Laravel-style, versioned documentation site for Strutvane (Starlight, one build per version, merged into one GitHub Pages site).",
+  "license": "MIT",
+  "engines": { "node": ">=24" },
+  "scripts": {
+    "dev": "node scripts/dev.ts",
+    "build": "node scripts/build.ts",
+    "preview": "node scripts/preview.ts",
+    "check:links": "node scripts/check-links.ts",
+    "typecheck": "tsc --noEmit -p .",
+    "test": "tsc --noEmit -p . && node --test \"test/*.test.ts\"",
+    "verify": "npm run build && npm run check:links && npm test"
+  },
+  "dependencies": {
+    "@astrojs/starlight": "0.43.0",
+    "astro": "7.4.11",
+    "sharp": "0.35.5"
+  },
+  "devDependencies": {
+    "@types/node": "24.10.1",
+    "typescript": "6.0.3"
+  }
+}

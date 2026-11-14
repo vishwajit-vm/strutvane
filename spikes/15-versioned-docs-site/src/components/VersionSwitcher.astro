@@ -1,0 +1,73 @@
+---
+/**
+ * The version switcher at the top of the sidebar (Laravel puts it in the same place).
+ *
+ * Every option's value is the target URL, computed at build time: the same page in the
+ * other version when it exists there, otherwise that version's home page. So the switcher
+ * keeps you where you are, and every target is verified by the link checker.
+ * Without JavaScript, the "All versions" link still gets you there.
+ */
+import context from 'virtual:strutvane-docs/context'
+import { versionTarget, switcherOptions } from '../../scripts/lib/site-context.ts'
+
+const slug = Astro.locals.starlightRoute.id
+const options = switcherOptions(context, slug)
+const releases = versionTarget(context, context.building, 'releases')
+---
+
+<div class="docs-version-switcher">
+  <label for="docs-version-select">Version</label>
+  <select id="docs-version-select" data-docs-version-switcher autocomplete="off">
+    {options.map((option) => (
+      <option value={option.url} selected={option.selected} data-same-page={String(option.samePage)}>
+        {option.label}
+      </option>
+    ))}
+  </select>
+  <noscript><a href={releases.url}>All versions</a></noscript>
+</div>
+
+<script>
+  // Navigate when a version is picked. Keep the #section only when the same page exists
+  // in the other version; on a fallback page that heading wouldn't be there.
+  for (const select of document.querySelectorAll<HTMLSelectElement>('[data-docs-version-switcher]')) {
+    select.addEventListener('change', () => {
+      const option = select.selectedOptions[0]
+      if (option === undefined) return
+      const keepHash = option.dataset['samePage'] === 'true'
+      window.location.href = option.value + (keepHash ? window.location.hash : '')
+    })
+  }
+</script>
+
+<style>
+  .docs-version-switcher {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-block-end: 1rem;
+    padding-block-end: 1rem;
+    border-block-end: 1px solid var(--sl-color-hairline);
+  }
+  .docs-version-switcher label {
+    font-size: var(--sl-text-sm);
+    font-weight: 600;
+    color: var(--sl-color-gray-2);
+  }
+  .docs-version-switcher select {
+    flex: 1;
+    min-width: 0;
+    padding: 0.35rem 0.5rem;
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: 0.5rem;
+    background-color: var(--sl-color-bg);
+    color: var(--sl-color-white);
+    font: inherit;
+    font-size: var(--sl-text-sm);
+    cursor: pointer;
+  }
+  .docs-version-switcher select:focus-visible {
+    outline: 2px solid var(--sl-color-text-accent);
+    outline-offset: 2px;
+  }
+</style>

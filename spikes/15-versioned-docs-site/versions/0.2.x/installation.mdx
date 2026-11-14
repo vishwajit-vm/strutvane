@@ -1,0 +1,167 @@
+---
+title: Installation
+description: Create a Strutvane app with one command. Every question the installer asks, what it does for you afterwards, and what to do when Docker or a port gets in the way.
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components'
+
+## Before you start
+
+You need two things on your computer:
+
+1. **Node.js 24.3 or newer.** It comes with npm, which is the only package manager Strutvane uses. Check what you have:
+
+   ```bash
+   node --version
+   ```
+
+   If it prints something lower than `v24.3.0`, install the current LTS from [nodejs.org](https://nodejs.org).
+
+2. **Docker Desktop** *(recommended, not required)*. New apps use MySQL by default. If you choose **"with Docker"**, your app, MySQL and the other services all run in containers, so you don't install MySQL at all (like Laravel Sail). No Docker? That's fine too: run the app directly on your machine, with your own MySQL server or with SQLite, which needs nothing at all.
+
+Git is optional too. If it's installed, your new project starts with a first commit.
+
+## Create your app
+
+Run this in the folder where you keep your projects:
+
+<Tabs syncKey="os">
+  <TabItem label="macOS / Linux">
+
+```bash
+npm create strutvane@latest my-app
+```
+
+  </TabItem>
+  <TabItem label="Windows (PowerShell)">
+
+```powershell
+npm create strutvane@latest my-app
+```
+
+If PowerShell says that running scripts is disabled, use `npm.cmd` instead of `npm` (same command otherwise), or allow scripts for your user once with `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`.
+
+  </TabItem>
+</Tabs>
+
+`my-app` is the folder name; pick anything you like. npm may ask "Ok to proceed?" the first time: answer `y`.
+
+### The questions
+
+The installer asks about ten short questions. Every question has a sensible default, so you can just press <kbd>Enter</kbd> all the way through.
+
+| Question | What it means | Default |
+|---|---|---|
+| **What is the name of your project?** | Only asked when you didn't type a folder name. | `my-app` |
+| **What are you building?** | A **full-stack app** (API plus a React UI) or an **API only** (for a mobile app or another frontend). | Full-stack |
+| **Which React UI starter?** | The **Admin app** gives you screens generated from your tables. A **blank React + Vite app** gives you an empty UI to build yourself. | Admin app |
+| **How should people sign in?** | **Email + password**, or **no sign-in** at all (for a quick experiment). | Email + password |
+| **Which sign-in features?** | Turn on **registration** (anyone can create an account), **email verification** and **two-factor authentication**. | — |
+| **Teams?** | Should each customer company see only its own data? Say yes if several companies will use one app. | No |
+| **Which database?** | **MySQL** (recommended), **PostgreSQL** (adds row-level security for teams) or **SQLite** (zero setup, a single file). | MySQL |
+| **With Docker or without Docker?** | **With Docker**, everything (the app, the database, mail…) runs in containers. **Without Docker**, the app runs directly on your machine. See [below](#with-docker-or-without-docker). | — |
+| **Which tests do you want?** | Vitest for unit and feature tests, optionally with Playwright browser tests. | Vitest |
+| **Create a git repository with a first commit?** | Starts version control with everything already committed. | Yes |
+
+Finally you see a **review screen** with all your answers. Choose **Create it**, **Change an answer** (jump back to any question) or **Cancel**.
+
+:::tip[Teams on MySQL]
+If you choose teams with MySQL, the installer shows a short note: each team's data is kept apart by the ORM's tenant scope, which every query goes through. PostgreSQL adds a second wall on top: row-level security inside the database itself.
+:::
+
+### What happens next (automatically)
+
+After you choose **Create it**, the installer does all of this for you, with one line of progress per step:
+
+1. **Writes your project** files.
+2. **Installs dependencies** with `npm install`.
+3. **Generates secrets** (like `APP_KEY` and the database password) into `.env`. They never go into `.env.example`, which is the file you commit.
+4. **Picks free ports.** If port 3000 is taken, it uses the next free one.
+5. **Starts the containers** (app, database and other services), if you chose Docker, and waits until they're healthy.
+6. **Runs your migrations and seeders** (`node strut migrate`). This creates your tables and the **first admin user**.
+7. **Creates a git repository** with a first commit.
+8. **Offers to start the app** with `npm run dev`.
+
+When it's done, a summary box shows your app's URL and the admin user's email and password. **The password is shown once**, so copy it now. (It's also in `.env` as `SEED_ADMIN_PASSWORD`.)
+
+## Start the app
+
+```bash
+cd my-app
+npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000) and sign in with the admin email and password. The API and the UI run together on **one port**, and both reload when you change a file.
+
+From here on, the commands you'll use most are `npm run dev` (every day) and `node strut <command>` (to make files and run migrations). Try `node strut help`.
+
+:::note[Why `node strut`?]
+`strut.js` lives in your project's root folder, so `node strut migrate` works the same way in PowerShell, cmd, bash and zsh. There are no wrapper scripts and no Windows execution-policy problems. If you prefer, `npx strutvane migrate` does exactly the same thing.
+:::
+
+## With Docker or without Docker?
+
+Both work, and you can change your mind later.
+
+| | With Docker | Without Docker |
+|---|---|---|
+| **What runs where** | The app, MySQL and the other services run in containers, like Laravel Sail. | The app runs on your machine with Node.js. |
+| **What you install** | Node.js and Docker Desktop. No database server. | Node.js, plus MySQL or PostgreSQL yourself, or nothing extra with SQLite. |
+| **`node strut …`** | Type it as usual: it **forwards the command into the app container** for you. | Runs directly on your machine. |
+| **Best for** | Teams who want everyone on identical versions. | Quick experiments, or machines where Docker isn't allowed. |
+
+The Docker setup lives in `docker/compose.yaml`. It's for local development only, so it is **git-ignored**; `npm run setup` recreates it for a teammate.
+
+:::caution[Coming in 0.2]
+The "with or without Docker" question and command forwarding are new decisions; the installer prototype (spike 13) is being updated to match.
+:::
+
+## When something goes wrong
+
+The installer is built to recover instead of leaving you with half a project.
+
+**Docker isn't installed, or isn't running.** The installer stops and asks what to do: start Docker and wait, **use SQLite instead** (it rewrites the database settings in `.env` and keeps everything else), or retry after you've fixed it.
+
+**A port is already in use.** It picks the next free port and writes it into `.env`. Nothing for you to do.
+
+**Something else failed** (for example the network dropped during `npm install`). Your project is kept, the step that failed is remembered in `.strutvane/setup.json`, and the message tells you exactly what to run. Fix the cause, then:
+
+```bash
+cd my-app
+npm run setup
+```
+
+`npm run setup` continues from the step that failed. It's also how a **teammate** starts after `git clone`: it installs packages, creates `.env` from `.env.example` with fresh secrets, starts the database, migrates and seeds.
+
+### Exit codes (for scripts and CI)
+
+| Code | Meaning |
+|---|---|
+| `0` | Created and fully set up. |
+| `1` | Nothing was created (for example an invalid name). |
+| `2` | The project was created, but setup didn't finish. Run `npm run setup`. |
+| `130` | You cancelled before anything was written. |
+
+## Skipping the questions
+
+To accept every default (handy in CI), add `--yes`. With `npm create`, options for the installer go after a `--`, so npm doesn't keep them for itself:
+
+```bash
+npm create strutvane@latest my-app -- --yes
+npm create strutvane@latest my-app -- --db sqlite --yes
+```
+
+Every question has an option like `--db`; the full list will be in the [CLI Reference](../cli-reference/).
+
+## Windows notes
+
+- **Use PowerShell or Windows Terminal.** Everything in these docs works there as written.
+- **Scripts disabled?** Type `npm.cmd` instead of `npm`, or run `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` once.
+- **Docker Desktop** must be running before the containers can start. If it isn't, the installer offers to wait for it, or to use SQLite.
+- **Antivirus or an open editor** can briefly lock files during `npm install`. The installer retries once by itself; if it still fails, close the editor and run `npm run setup`.
+
+## Next steps
+
+- Follow [Your First CRUD](../first-crud/) to build a working screen in five minutes.
+- See what's in your new project in [Directory Structure](../structure/).
+- Learn about `.env` and `config/` in [Configuration](../configuration/).
