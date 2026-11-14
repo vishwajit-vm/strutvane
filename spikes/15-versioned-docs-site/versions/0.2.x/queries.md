@@ -1,10 +1,10 @@
 ---
 title: "Query Builder"
-description: "Building queries in TypeScript, fully typed from your migrations."
+description: "Building database queries in TypeScript, fully typed from your migrations."
 ---
 
-The query builder is fluent and typed: `Post.query().where('status', 'published').orderBy('createdAt', 'desc').paginate(25)`. A wrong column name or value type is a compile error. The final API comes from the ORM spike, still in progress.
+The query builder is fluent and typed: `Post.query().where('status', 'published').orderBy('created_at', 'desc').paginate(25)`. Columns keep their migration names (`created_at`, not `createdAt`), and a wrong column name or value type is a compile error. The full guide, with every condition, ordering and raw-SQL example, is in [ORM: Querying](../orm-querying/).
 
 :::note[Being written]
-This page is being written for 0.2. The summary above is accurate; the step-by-step guide with examples is on its way. Until then, [Your First CRUD](../first-crud/) shows the whole flow end to end.
+This page will cover the query builder on its own (without models): joins, grouping and aggregates, which are coming in 0.2. Until then, [ORM: Querying](../orm-querying/) documents everything that is already built.
 :::

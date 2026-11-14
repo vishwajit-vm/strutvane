@@ -3,6 +3,12 @@ title: Upgrade Guide
 description: Upgrading an app from Strutvane 0.1 to 0.2. Every breaking change, how likely it is to affect you, what to do, and why it changed.
 ---
 
+This guide lists every change that can break an app when you move from Strutvane 0.1 to 0.2, how likely each one is to affect you, and exactly what to do.
+
+:::tip[Coming from Laravel?]
+It follows the format of Laravel's upgrade guide: an estimated time, the changes grouped by **likelihood of impact** (High, Medium, Low), and for each one what changed, why, who is affected, and the code before and after.
+:::
+
 ## Upgrading to 0.2 from 0.1
 
 #### Estimated upgrade time: not measured yet
@@ -189,3 +195,28 @@ node strut make:migration create_posts_table --seeder
 `@strutvane/core`, `@strutvane/contracts`, `@strutvane/cli`, `@strutvane/devkit` and the logging pipeline from `@strutvane/logs` are now part of `@strutvane/framework`, like `laravel/framework`. The log viewer is the separate `@strutvane/log-viewer` package. If you imported from the old packages, import from `@strutvane/framework` instead.
 
 The full list of changes in 0.2 is in the [release notes](../releases/).
+
+## Common mistakes
+
+### `npm install` fails with "No matching version found for @strutvane/core"
+
+```text
+npm error notarget No matching version found for @strutvane/core@^0.2.0.
+```
+
+**Why:** `@strutvane/core` (and `contracts`, `cli`, `devkit`, `logs`) don't exist in 0.2: they were merged into `@strutvane/framework`.
+**Fix:** remove them from `package.json`, keep `@strutvane/framework`, and change imports from the old packages to `@strutvane/framework`.
+
+### `pnpm sv migrate` says "command not found"
+
+**Why:** 0.2 apps use npm only, and the `sv` script is gone.
+**Fix:**
+
+```bash
+node strut migrate
+```
+
+### My 0.1 model file still compiles, but nothing uses it
+
+**Why:** `defineModel()` files aren't read in 0.2; columns come from migrations.
+**Fix:** write a `create_…_table` migration with the same columns, move any behaviour into the new `class … extends Model('…')` file, then delete the old model.

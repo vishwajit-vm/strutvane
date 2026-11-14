@@ -5,6 +5,12 @@ description: How Strutvane is versioned, how long each version gets fixes, how t
 
 import SupportTable from '@docs-components/SupportTable.astro'
 
+This page explains how Strutvane's version numbers work, how long each version gets fixes, how to install an older one, and what's new in 0.2. A **version line** is a family of releases that never break each other: 0.2.0, 0.2.1, 0.2.2… are the 0.2 line.
+
+:::tip[Coming from Laravel?]
+It's Laravel's policy: one version number for the whole framework, a yearly major release from 1.0, **18 months of bug fixes and 2 years of security fixes**, and a support table on every version's Release Notes page. Before 1.0, each `0.N` line plays the role of a major. Docs for each line live at `/docs/<line>.x/`, like `laravel.com/docs/12.x/`.
+:::
+
 ## Versioning scheme
 
 Every Strutvane package follows [Semantic Versioning](https://semver.org). The framework packages always share one version number:
@@ -167,3 +173,36 @@ schema.create('posts', (t) => {
 **Auth built in.** Email and password sign-in, registration, email verification, password reset, two-factor authentication, API tokens and teams, configured in `config/auth.ts`.
 
 **npm only.** No pnpm or yarn needed, anywhere.
+
+## Common mistakes
+
+### `npm update` didn't move me to the next line
+
+**Why:** `^0.2.4` means "any 0.2 release from 0.2.4 on", never 0.3. That's on purpose: a new line may break things, so you move to it deliberately.
+**Fix:** follow the [upgrade guide](../upgrade/), then change the range:
+
+```json title="package.json"
+"@strutvane/framework": "^0.3.0"
+```
+
+### The starter refuses an old version
+
+```text
+npm create strutvane@0.1 my-app
+```
+
+**Why:** 0.1 has reached end of life, so it gets no fixes, including security fixes. The starter refuses end-of-life lines by default.
+**Fix:** use the current line (`npm create strutvane@latest my-app`). If you really need the old one (for example to reproduce an old bug), pass `--allow-eol`:
+
+```bash
+npm create strutvane@0.1 my-app -- --allow-eol
+```
+
+:::caution[Coming in 0.2]
+`--allow-eol`, the `latest-<line>` dist-tags and the support status in `node strut about` / `doctor` are designed (ADR-0020) and arrive with 0.2.
+:::
+
+### I'm reading the docs for the wrong version
+
+**Why:** a search engine or an old link took you to another line's docs.
+**Fix:** use the version switcher at the top of the page; it keeps you on the same page when it exists. Links that start with `/docs/latest/` always go to the current line.

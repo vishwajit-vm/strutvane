@@ -12,7 +12,7 @@ const root = fileURLToPath(new URL('..', import.meta.url))
 describe('parseNavigation', () => {
   it('accepts slugs and { slug, label } items', () => {
     const nav = parseNavigation({ home: 'introduction', groups: [{ label: 'Getting Started', items: ['introduction', { slug: 'first-crud', label: 'Your First CRUD' }] }] }, 'nav.json')
-    assert.deepEqual(toStarlightSidebar(nav), [{ label: 'Getting Started', items: [{ slug: 'introduction' }, { slug: 'first-crud', label: 'Your First CRUD' }] }])
+    assert.deepEqual(toStarlightSidebar(nav), [{ label: 'Getting Started', collapsed: true, items: [{ slug: 'introduction' }, { slug: 'first-crud', label: 'Your First CRUD' }] }])
   })
 
   it('explains what is wrong with a malformed file', () => {

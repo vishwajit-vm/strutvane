@@ -76,7 +76,9 @@ export function checkLinks(distDir: string, baseInput: string): LinkReport {
   const broken: BrokenLink[] = []
   let checked = 0
   for (const page of pages) {
-    const html = readFileSync(page, 'utf8')
+    // Code samples are text, not links: an example like <script src="/build/app.js"> inside a
+    // code block must not be checked as if it were part of the page.
+    const html = readFileSync(page, 'utf8').replace(/<pre\b[\s\S]*?<\/pre>/g, '')
     const pageUrl = new URL(urlOf(page), 'https://docs.invalid')
     const links = [
       ...[...html.matchAll(/\s(?:href|src)="([^"]*)"/g)].map((match) => match[1] ?? ''),

@@ -3,6 +3,10 @@ title: Migrations
 description: Migrations are the source of truth for your database. How to create tables, add and change columns, roll back, and why Strutvane can generate types and screens from them without a database.
 ---
 
+:::tip[Coming from Laravel?]
+Almost everything carries over: `Schema::create('posts', function (Blueprint $table) { … })` becomes `schema.create('posts', (t) => { … })`, `$table->string('title')` becomes `t.string('title')`, and `php artisan migrate` becomes `node strut migrate`. Two differences: `schema` is passed **into** `up()` and `down()` (there's no global `Schema`), and the migrations are the **source of truth** for your TypeScript types, so you never repeat columns in the model.
+:::
+
 ## What is a migration?
 
 A **migration** is a small TypeScript file that describes one change to your database: "create a `posts` table", "add a `subtitle` column", "rename `body` to `content`". Your migrations, run in order, build your whole database.
@@ -23,7 +27,16 @@ Because all three come from the same file, they can't drift apart.
 node strut make:migration create_posts_table
 ```
 
-The new file lands in `database/migrations/`, with the date and time at the start of its name (`2026_11_14_093000_create_posts_table.ts`) so migrations always run in order.
+**What you'll see:**
+
+```text
+  Created database/migrations/2026_11_14_093000_create_posts_table.ts
+  Created app/models/post.ts
+
+  Next: add your columns to the migration, then run `node strut migrate`.
+```
+
+The new file lands in `database/migrations/`, with the date and time (in UTC, so every machine agrees) at the start of its name, so migrations always run in order. The model is only written when it doesn't exist yet.
 
 Strutvane reads the **name** to give you a head start, just like Laravel:
 
@@ -187,6 +200,139 @@ You find the problem in your editor, not in production.
 :::note[How it works]
 Strutvane runs the `up()` functions of all your migrations in memory, against a recorder instead of a database. For 100 tables that takes about 50 milliseconds, and it needs no database. The same recorded steps produce the SQL that `migrate` runs, so the types and the database always match. (Proven in spike 10, with 248 tests on SQLite and PostgreSQL.)
 :::
+
+## Three migrations, from small to advanced
+
+**Small:** add one optional column.
+
+```ts title="database/migrations/2026_11_14_101500_add_subtitle_to_posts_table.ts"
+import { migration } from '@strutvane/framework/schema'
+
+export default migration({
+  up(schema) {
+    schema.table('posts', (t) => {
+      t.string('subtitle').nullable()
+    })
+  },
+  down(schema) {
+    schema.table('posts', (t) => {
+      t.dropColumn('subtitle')
+    })
+  },
+})
+```
+
+**Typical:** a new table that links to another one.
+
+```ts title="database/migrations/2026_11_14_102000_create_categories_table.ts"
+import { migration } from '@strutvane/framework/schema'
+
+export default migration({
+  up(schema) {
+    schema.create('categories', (t) => {
+      t.id()
+      t.string('name', 120).unique()
+      t.timestamps()
+    })
+    schema.table('posts', (t) => {
+      t.foreignId('category_id').nullable().constrained().nullOnDelete()
+    })
+  },
+  down(schema) {
+    // Reverse order: remove the link before the table it points to.
+    schema.table('posts', (t) => {
+      t.dropConstrainedForeignId('category_id')
+    })
+    schema.drop('categories')
+  },
+})
+```
+
+**Advanced:** a defensive migration that uses a constant and checks before changing. It's ordinary TypeScript, so loops, helpers and `if` work, and `hasColumn` answers correctly even when Strutvane replays the migration without a database.
+
+```ts title="database/migrations/2026_11_14_103000_add_sku_to_products_table.ts"
+import { migration } from '@strutvane/framework/schema'
+
+const SKU_LENGTH = 40
+
+export default migration({
+  up(schema) {
+    if (!schema.hasColumn('products', 'sku')) {
+      schema.table('products', (t) => {
+        t.string('sku', SKU_LENGTH).nullable().unique()
+      })
+    }
+  },
+  down(schema) {
+    if (schema.hasColumn('products', 'sku')) {
+      schema.table('products', (t) => {
+        t.dropUnique('products_sku_unique')
+        t.dropColumn('sku')
+      })
+    }
+  },
+})
+```
+
+**What you'll see** after `node strut migrate`: one line per migration that ran, and the types updated (`product.sku` is now `string | null`).
+
+## Which database you use
+
+Your migrations are written once and run on all three databases. The differences you might notice:
+
+| | MySQL (default) | PostgreSQL | SQLite |
+|---|---|---|---|
+| A failing migration | Earlier steps of that migration may stay applied (MySQL commits table changes one at a time) | Rolled back completely | Rolled back completely |
+| `t.decimal` | Exact | Exact | Stored as a float; Strutvane re-formats it on the way out |
+| `t.enum` | Native `ENUM` | A `CHECK` constraint | A `CHECK` constraint |
+| Dropping an indexed or foreign-key column | Direct | Direct | Strutvane drops the index first, or rebuilds the table |
+
+With Docker or without, the commands are the same; with Docker, `node strut migrate` runs inside the app container against the database container.
+
+## Common mistakes
+
+Strutvane checks your migrations before touching the database, and prints a code, the file, what's wrong and a hint.
+
+### "is required but has no default"
+
+```text
+[INVALID_COLUMN] in 2026_11_14_101500_add_subtitle_to_posts_table.ts: The new column "posts.subtitle" is required but has no default, so existing rows would have no value. Hint: Make it .nullable(), or give it a .default(…).
+```
+
+**Why:** the table may already have rows, and they need a value.
+**Fix:** `t.string('subtitle').nullable()` or `.default('')`.
+
+### "There is no table … at this point in the migrations"
+
+```text
+[UNKNOWN_TABLE] in 2026_11_14_101500_add_subtitle_to_posts_table.ts: There is no table "post" at this point in the migrations. Hint: Known tables: users, posts. Check the spelling and the migration order.
+```
+
+**Why:** a typo (`post` instead of `posts`), or the migration that creates the table runs later (its file name sorts after this one).
+**Fix:** correct the name, or rename the file so its date comes after the `create_…` migration.
+
+### "points to the table …, which doesn't exist yet"
+
+```text
+[INVALID_FOREIGN_KEY] in 2026_11_14_093000_create_posts_table.ts: "posts.author_id" points to the table "users", which doesn't exist yet. Hint: Create "users" in an earlier migration, or fix the name in .constrained('…').
+```
+
+**Why:** a foreign key needs its parent table first.
+**Fix:** create the parent table in an earlier migration, or check the name in `.constrained('…')`.
+
+### "Can't drop …: the slug … is built from it"
+
+```text
+[INVALID_SLUG_SOURCE] in 2026_11_20_090000_remove_title_from_posts_table.ts: Can't drop "posts.title": the slug "slug" is built from it. Hint: Change the slug's source first, or drop "slug" in the same migration before "title".
+```
+
+**Why:** the slug would have nothing to be made from.
+**Fix:** drop or change the slug first, in the same migration.
+
+### I edited an old migration and nothing changed
+
+**Why:** a migration that has already run never runs again; the `migrations` table remembers it.
+**Fix:** write a new migration for the change. On your own machine only, you can start over with `node strut migrate:fresh --seed` (this **deletes all data**).
 
 ## Next steps
 

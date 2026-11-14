@@ -56,7 +56,8 @@ export default defineConfig({
       logo: { src: './src/assets/logo.svg', alt: 'Strutvane logo' },
       favicon: '/favicon.svg',
       social: [{ icon: 'github', label: 'GitHub', href: repositoryUrl }],
-      customCss: ['./src/styles/docs.css'],
+      // Open-licensed fonts (SIL OFL), self-hosted: no third-party request from readers' browsers.
+      customCss: ['@fontsource-variable/inter', '@fontsource-variable/jetbrains-mono', './src/styles/docs.css'],
       sidebar: settings.sidebar,
       // Content lives outside src/content/docs, so tell Starlight to run its Markdown
       // features (asides, heading anchors) on that folder too.
@@ -64,10 +65,14 @@ export default defineConfig({
       routeMiddleware: './src/route-middleware.ts',
       components: {
         Banner: './src/components/Banner.astro',
+        Header: './src/components/Header.astro',
+        PageSidebar: './src/components/PageSidebar.astro',
         PageTitle: './src/components/PageTitle.astro',
         Sidebar: './src/components/Sidebar.astro',
       },
-      // Copy buttons on code blocks are on by default; one dark and one light theme.
+      // Code blocks: copy button and file-name tabs (```ts title="app/models/post.ts") are built in.
+      // Their look (radius, fonts, borders) is tuned in src/styles/docs.css through Expressive Code's
+      // CSS variables, next to the rest of the theme.
       expressiveCode: { themes: ['github-dark', 'github-light'] },
     }),
   ],

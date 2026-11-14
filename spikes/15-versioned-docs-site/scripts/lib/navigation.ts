@@ -188,6 +188,8 @@ export function loadNavigation(contentDir: string, versionId: string): Navigatio
 /** The sidebar shape Starlight's `sidebar` option accepts (a subset). */
 export interface StarlightSidebarGroup {
   label: string
+  /** Closed until opened; the group holding the current page opens by itself. */
+  collapsed: boolean
   items: Array<{ slug: string; label?: string }>
 }
 
@@ -199,12 +201,14 @@ export interface StarlightSidebarGroup {
  *
  * @example
  * ```ts
- * toStarlightSidebar(nav) // [{ label: 'Prologue', items: [{ slug: 'release-notes' }, …] }, …]
+ * toStarlightSidebar(nav) // [{ label: 'Prologue', collapsed: true, items: [{ slug: 'release-notes' }, …] }, …]
  * ```
  */
 export function toStarlightSidebar(nav: Navigation): StarlightSidebarGroup[] {
   return nav.groups.map((group) => ({
     label: group.label,
+    // Like Laravel's menu: every group starts closed except the one you're reading.
+    collapsed: true,
     items: group.items.map((item) => (item.label === undefined ? { slug: item.slug } : { slug: item.slug, label: item.label })),
   }))
 }

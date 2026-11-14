@@ -3,7 +3,12 @@
   "groups": [
     {
       "label": "Prologue",
-      "items": ["releases", "upgrade", "deprecations", "contributions"]
+      "items": [
+        "releases",
+        "upgrade",
+        "deprecations",
+        "contributions"
+      ]
     },
     {
       "label": "Getting Started",
@@ -12,7 +17,10 @@
         "installation",
         "configuration",
         "structure",
-        { "slug": "first-crud", "label": "Your First CRUD" },
+        {
+          "slug": "first-crud",
+          "label": "Your First CRUD"
+        },
         "frontend",
         "starter-kits",
         "ai-agents",
@@ -21,24 +29,68 @@
     },
     {
       "label": "Architecture Concepts",
-      "items": ["lifecycle", "container", "providers"]
+      "items": [
+        "lifecycle",
+        "container",
+        "providers",
+        {
+          "slug": "helpers",
+          "label": "Helpers, Not Facades"
+        }
+      ]
     },
     {
       "label": "The Basics",
-      "items": ["routing", "middleware", "csrf", "controllers", "requests", "responses", "validation", "errors", "logging"]
+      "items": [
+        "routing",
+        "middleware",
+        "csrf",
+        "controllers",
+        "requests",
+        "validation",
+        "responses",
+        "errors",
+        "logging"
+      ]
     },
     {
       "label": "Digging Deeper",
-      "items": ["strut-console", "cache", "events", "storage", "http-client", "localization", "mail", "notifications", "queues", "rate-limiting", "scheduling"]
+      "items": [
+        "strut-console",
+        "cache",
+        "events",
+        "storage",
+        "http-client",
+        "localization",
+        "mail",
+        "notifications",
+        "queues",
+        "rate-limiting",
+        "scheduling"
+      ]
     },
     {
       "label": "Security",
-      "items": ["authentication", "authorization", "email-verification", "passwords", "two-factor", "api-tokens", "tenancy", "audit", "encryption", "hashing"]
+      "items": [
+        "authentication",
+        "authorization",
+        "email-verification",
+        "passwords",
+        "two-factor",
+        "api-tokens",
+        "tenancy",
+        "audit",
+        "encryption",
+        "hashing"
+      ]
     },
     {
       "label": "Database",
       "items": [
-        { "slug": "database", "label": "Getting Started" },
+        {
+          "slug": "database",
+          "label": "Getting Started"
+        },
         "queries",
         "pagination",
         "migrations",
@@ -48,22 +100,45 @@
     {
       "label": "ORM",
       "items": [
-        { "slug": "orm", "label": "Getting Started" },
+        {
+          "slug": "orm",
+          "label": "Getting Started"
+        },
+        {
+          "slug": "orm-querying",
+          "label": "Querying"
+        },
         "orm-relationships",
-        "orm-collections",
+        "orm-scopes",
         "orm-casts",
+        "orm-mass-assignment",
+        "orm-pagination",
+        "orm-soft-deletes",
+        "orm-slugs",
+        "orm-transactions",
+        "orm-tenancy",
+        "orm-collections",
         "orm-factories",
         "orm-resources"
       ]
     },
     {
       "label": "Auto CRUD & UI",
-      "items": ["crud", "crud-sidebar", "crud-customising", "crud-slugs", "crud-search"]
+      "items": [
+        "crud",
+        "crud-sidebar",
+        "crud-customising",
+        "crud-slugs",
+        "crud-search"
+      ]
     },
     {
       "label": "Testing",
       "items": [
-        { "slug": "testing", "label": "Getting Started" },
+        {
+          "slug": "testing",
+          "label": "Getting Started"
+        },
         "http-tests",
         "database-testing",
         "mocking",
@@ -105,7 +180,9 @@
     },
     {
       "label": "CLI Reference",
-      "items": ["cli-reference"]
+      "items": [
+        "cli-reference"
+      ]
     }
   ]
 }

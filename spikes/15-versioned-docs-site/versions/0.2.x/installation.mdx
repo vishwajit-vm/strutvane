@@ -5,6 +5,12 @@ description: Create a Strutvane app with one command. Every question the install
 
 import { Tabs, TabItem } from '@astrojs/starlight/components'
 
+Creating a Strutvane app is one command. The **installer** (the small program `npm create` downloads and runs) asks you a few questions, then writes the project, installs everything, sets up the database, creates your tables and the first admin user, and makes a first git commit. This page explains every question and every step, and what to do when something gets in the way.
+
+:::tip[Coming from Laravel?]
+`npm create strutvane@latest my-app` is `laravel new my-app` plus a starter kit. Choosing **with Docker** is like Laravel Sail; `npm run dev` is `composer run dev`; `node strut` is `php artisan`. The big difference: Strutvane's installer also starts the database and runs the migrations and seeders for you, so the app works the moment it finishes.
+:::
+
 ## Before you start
 
 You need two things on your computer:
@@ -84,6 +90,27 @@ After you choose **Create it**, the installer does all of this for you, with one
 
 When it's done, a summary box shows your app's URL and the admin user's email and password. **The password is shown once**, so copy it now. (It's also in `.env` as `SEED_ADMIN_PASSWORD`.)
 
+**What you'll see** (something like this; the exact wording is still being finalised):
+
+```text
+◇  Files written (64 files)                                  0.2s
+◇  Dependencies installed with npm (212 packages)           41s
+◇  Secrets generated in .env (APP_KEY, DB_PASSWORD, SEED_ADMIN_PASSWORD)
+◇  Ports checked (3000, 3306 free)
+◇  Services healthy: mysql                                  11s
+◇  Migrations run                                           1.4s
+◇  Database seeded (roles; first admin)                     0.6s
+◇  Git repository created (main, 1 commit)                  0.3s
+│
+◇  Ready ─────────────────────────────────────────────╮
+│  App        http://localhost:3000                   │
+│  Admin      admin@my-app.test                       │
+│  Password   q7Vd-3kPz-Xm2c-8RtL   (shown once)      │
+│  Every day: cd my-app; npm run dev                  │
+│  Commands:  node strut list                         │
+├─────────────────────────────────────────────────────╯
+```
+
 ## Start the app
 
 ```bash
@@ -93,7 +120,22 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000) and sign in with the admin email and password. The API and the UI run together on **one port**, and both reload when you change a file.
 
-From here on, the commands you'll use most are `npm run dev` (every day) and `node strut <command>` (to make files and run migrations). Try `node strut help`.
+From here on, the commands you'll use most are `npm run dev` (every day) and `node strut <command>` (to make files and run migrations). Try listing every command:
+
+```bash
+node strut list
+```
+
+**What you'll see:** every command with a one-line description, grouped like `make:controller`, `make:migration`, `route:list`. The [CLI Reference](../cli-reference/) explains each one.
+
+## Three ways to create an app
+
+| You want… | Run | What you get |
+|---|---|---|
+| **The usual setup** (small, recommended) | `npm create strutvane@latest my-app` | Questions, then a full-stack app with MySQL. |
+| **No questions, all defaults** (typical for CI) | `npm create strutvane@latest my-app -- --yes` | The same app, without prompts. |
+| **Specific choices without prompts** (advanced) | `npm create strutvane@latest my-app -- --db sqlite --yes` | Defaults, except SQLite. |
+| **An older line** | `npm create strutvane@0.2 my-app` | The newest 0.2 starter (see [Release Notes](../releases/)). |
 
 :::note[Why `node strut`?]
 `strut.js` lives in your project's root folder, so `node strut migrate` works the same way in PowerShell, cmd, bash and zsh. There are no wrapper scripts and no Windows execution-policy problems. If you prefer, `npx strutvane migrate` does exactly the same thing.
@@ -159,6 +201,60 @@ Every question has an option like `--db`; the full list will be in the [CLI Refe
 - **Scripts disabled?** Type `npm.cmd` instead of `npm`, or run `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` once.
 - **Docker Desktop** must be running before the containers can start. If it isn't, the installer offers to wait for it, or to use SQLite.
 - **Antivirus or an open editor** can briefly lock files during `npm install`. The installer retries once by itself; if it still fails, close the editor and run `npm run setup`.
+
+## macOS and Linux notes
+
+- **Node.js:** use the installer from nodejs.org or a version manager. Check with `node --version`.
+- **Linux and Docker:** if Docker says `permission denied … docker.sock`, add yourself to the `docker` group (`sudo usermod -aG docker $USER`), then log out and back in. The installer explains this and offers SQLite meanwhile.
+
+## Common mistakes
+
+### My options were ignored
+
+```text
+npm create strutvane@latest my-app --db sqlite
+```
+
+**Why:** without `--`, npm keeps `--db` for itself and never passes it to the installer.
+**Fix:** put the installer's options after `--`:
+
+```bash
+npm create strutvane@latest my-app -- --db sqlite
+```
+
+### PowerShell says running scripts is disabled
+
+```text
+npm : File C:\Program Files\nodejs\npm.ps1 cannot be loaded because running scripts is disabled on this system.
+```
+
+**Why:** Windows' execution policy blocks npm's PowerShell wrapper.
+**Fix:** use `npm.cmd`, or allow signed scripts for your user once:
+
+```powershell
+npm.cmd create strutvane@latest my-app
+# or, once:
+Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+```
+
+### The installer exited with code 2
+
+**Why:** the project was created, but a setup step (for example starting the database) didn't finish.
+**Fix:** read the last lines it printed, fix the cause (often: start Docker Desktop), then continue:
+
+```bash
+cd my-app
+npm run setup
+```
+
+### Node is too old
+
+**Why:** Strutvane needs Node.js 24.3 or newer; older versions lack features it relies on.
+**Fix:** install the current LTS from nodejs.org, open a new terminal and check:
+
+```bash
+node --version   # v24.3.0 or newer
+```
 
 ## Next steps
 

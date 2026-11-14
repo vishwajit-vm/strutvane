@@ -78,6 +78,10 @@ runMain(async () => {
   writeFileSync(manifestFile, `${JSON.stringify(manifest, null, 2)}\n`)
 
   for (const version of manifest.versions) {
+    // Start every release build from an empty content cache. Astro caches rendered Markdown,
+    // and that HTML links to the code-block stylesheet by its hash: after a theme change, cached
+    // pages pointed at a stylesheet that no longer existed (found by the link checker).
+    rmSync(join(root, 'node_modules', '.astro-docs', version.id), { recursive: true, force: true })
     console.log(`\n→ Building docs ${version.id} (${version.pages.length} pages) at ${manifest.base}docs/${version.id}/`)
     await runAstro(root, ['build'], { DOCS_VERSION: version.id, DOCS_MANIFEST: manifestFile })
   }

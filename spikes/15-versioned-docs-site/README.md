@@ -9,7 +9,7 @@ npm run dev                      # live preview of the current version: http://l
 npm run dev -- --version 0.1.x   # live preview of another version
 npm run build                    # every version → dist/ (one Astro build per version, then merged)
 npm run preview                  # serve dist/ like GitHub Pages: http://localhost:4321/strutvane-docs/
-npm run verify                   # build + link check (all versions) + type check + 56 tests
+npm run verify                   # build + link check (all versions) + type check + 93 tests
 ```
 
 `npm run dev` shows one version with hot reload. Search, redirects and the other versions need the merged site: `npm run build && npm run preview`.
@@ -20,7 +20,7 @@ What should Strutvane's new docs site be, so that it works like Laravel's docs (
 
 ## Answer
 
-**Starlight, built once per version (per branch), merged into one static site.** The prototype builds 0.2.x (current, 96 pages, with real content for the getting-started path) and 0.1.x (end of life, 8 pages imported from the old site) into one GitHub Pages-ready `dist/`. Every internal link in both versions is checked (12,500+ links, 304 HTML pages, including switcher targets and redirects), and 56 tests pass.
+**Starlight, built once per version (per branch), merged into one static site.** The prototype builds 0.2.x (current, 105 pages, 34 of them full guides) and 0.1.x (end of life, 8 pages imported from the old site) into one GitHub Pages-ready `dist/`. Every internal link in both versions is checked (16,600+ links, 331 HTML pages, including switcher targets and redirects), and 93 tests pass, including a check that every full page follows the writing guide.
 
 ### What Laravel's docs do (studied 2026-11-14)
 
@@ -75,9 +75,36 @@ On a custom domain, build with `DOCS_SITE=https://strutvane.dev DOCS_BASE=/` and
 
 ### Content
 
-- **0.2.x, real pages** (written from the v2 blueprint, spike 10, the spike 11/12/13 notes in SHARED-DESIGN and the research drafts; anything not built is marked "Coming in 0.2"): Introduction, Installation (questions, automatic steps, with/without Docker, recovery, exit codes, `--yes`, Windows notes), Configuration, Directory Structure, Your First CRUD in 5 Minutes, Migrations, Seeding, Release Notes (versioning scheme, support policy, live support table; from the drafted page), Upgrade Guide 0.1 → 0.2 (Laravel's format with likelihood of impact; from the drafted template).
-- **0.2.x, "being written" pages:** every other menu entry, including all 28 first-party packages and the CLI reference, each with an accurate 2–3 line summary.
+- **0.2.x, full pages (34)**, written to [docs/WRITING-GUIDE.md](docs/WRITING-GUIDE.md) from the v2 blueprint, spikes 10–13 and the research drafts; anything not built is marked "Coming in 0.2":
+  - **Getting started and prologue:** Introduction, Installation, Configuration, Directory Structure, Your First CRUD, Migrations, Seeding, Release Notes (support table from `versions.json`), Upgrade Guide 0.1 → 0.2.
+  - **ORM** (only the API proven in spike 11): Getting Started, Querying, Relationships, Scopes, Casts & Accessors, Mass Assignment, Pagination, Soft Deletes, Slugs, Transactions, Tenancy.
+  - **Application core** (only the API proven in spike 12): Request Lifecycle, Service Container, Service Providers, Helpers (no facades), Routing, Middleware, CSRF Protection, Controllers, Requests, Validation, Responses, Error Handling, Authorization, CLI Reference.
+- **0.2.x, "being written" pages:** every other menu entry, including all 28 first-party packages, each with an accurate 2–3 line summary.
 - **0.1.x:** What is Strutvane?, Quick start, Project structure, Environment variables, Models and fields, Migrations and CLI commands, copied from `packages/docs` with links flattened, plus a short Release Notes page with the live support table.
+
+## Design: Laravel's reading experience, Strutvane's look
+
+Measured on 2026-11-14 at `laravel.com/docs/13.x/installation` (1440 × 900, dark theme, computed styles). We copy the **layout, spacing, type scale and behaviour**. We don't copy the brand: no Laravel logo, red, fonts, CSS, images or wording.
+
+| Part | Laravel's docs | Strutvane's docs |
+|---|---|---|
+| **Top bar** | Full width, about 100px tall with a hairline under it. Logo on the left, a wide search box in the middle (`⌘K`), "Version 13.x" select on the right, then a theme icon. | `Header.astro`: wordmark on the left (its column is as wide as the menu, so search lines up with the text), search in the middle (`Ctrl K`), then the version select, GitHub and the theme toggle. It's 4.25rem tall, slightly translucent, with a hairline. |
+| **Left menu** | About 273px. Groups in learning order (Prologue → … → Packages). Only the group you're reading is open; group names are bold and bright, links muted; the current page has a coloured bar on its left. | Starlight's sidebar, 17.5rem, with every group `collapsed`: Starlight opens the group holding the current page by itself. Bold, bright group names; muted links; an amber 2px bar marks the current page, with no filled block. |
+| **Content column** | 616px wide. h1 40px, regular weight. h2 28px with 56px above and 21px below. h3 20px, medium, 40px/15px. Body 16px with a 1.8 line height, in a muted grey. | `--sl-content-width: 40rem`. h1 2.5rem/500. h2 1.75rem/500 with 3.5rem/1.25rem margins. h3 1.25rem/600 with 2.5rem/0.9rem. h4 1.0625rem. Body 1rem, line height 1.8, `gray-2` text with brighter headings and bold. |
+| **Right column** | "Copy as markdown" above "On this page", which scrolls on its own and marks the current section. | `PageSidebar.astro`: Copy as Markdown, View as Markdown and `llms.txt` above Starlight's "On this page", with the current section in amber. On phones the tools sit under the title, and "On this page" becomes Starlight's dropdown. |
+| **Code blocks** | A framed box with a 6px radius and a 2px inner padding, a monospace font, and a copy button. | Expressive Code: a frame with a 0.6rem radius, a **file-name tab** from `title="app/models/post.ts"`, a terminal frame for shell, a copy button, and JetBrains Mono (ligatures off, so `!=` stays two characters). |
+| **Callouts** | A bordered box with a 6px radius and 12px × 16px padding. | Starlight asides as bordered cards with a 0.6rem radius and a 3px coloured left edge: blue note, green tip, amber caution, red danger. The title is in the same colour, so meaning never relies on colour alone. |
+| **Previous / next** | Links at the end of every page. | Starlight's pagination as quiet bordered cards. |
+| **Dark mode** | Dark by default, with a toggle. | Dark by default, a light theme, and Starlight's Auto/Light/Dark toggle. |
+| **Mobile** | Logo, version, search icon and a menu button; the menu slides in. | Wordmark, search icon and menu button. The drawer holds the version switcher, the menu, GitHub and the theme toggle. |
+
+**Palette** (all CSS variables in `src/styles/docs.css`, defined once per theme): steel-blue neutrals (`#0d1726` page, `#122033` surfaces, `#24364d` borders, text from `#f4f7fb` to `#8798ad`) with an **amber "vane" accent** (`#f5a524` dark, `#9a5a00` light) for links, the current page and focus. Callout colours are blue `#7fb3ff`, green `#4fd1a5`, amber and red `#ff7a85`.
+
+**Fonts:** Inter (text) and JetBrains Mono (code). Both are under the SIL Open Font License and are self-hosted through `@fontsource-variable/*` 5.3.0, so readers' browsers make no request to a font CDN.
+
+## Writing standard
+
+[docs/WRITING-GUIDE.md](docs/WRITING-GUIDE.md) sets the rules: plain words, every new term explained, a "Coming from Laravel?" box, the smallest example with "What you'll see", every way to use a feature from small to advanced, OS and Docker differences, `## Common mistakes` with the exact error text and the fix, and "Coming in 0.2" for anything not built. `test/content.test.ts` enforces the checkable parts on every full page: a fenced code example, the Laravel box, a Common mistakes section, npm-only commands, and stubs that stay short.
 
 ## Layout
 
@@ -87,7 +114,9 @@ On a custom domain, build with `DOCS_SITE=https://strutvane.dev DOCS_BASE=/` and
 | `docs.sources.ts` | Site title, repositories, and where each branch's content comes from |
 | `versions/<branch>/` | Content of one version: `navigation.json` + pages (`.md`/`.mdx`) |
 | `astro.config.ts`, `src/content.config.ts` | One Starlight site, parameterised by `DOCS_VERSION` |
-| `src/components/` | Overrides: `Sidebar` (+ `VersionSwitcher`), `Banner`, `PageTitle` (Copy as Markdown), plus `SupportTable` for MDX |
+| `src/components/` | Overrides: `Header` (wordmark, search, version switcher), `Sidebar` (drawer switcher on phones), `Banner`, `PageTitle` and `PageSidebar` (both use `PageTools`: Copy as Markdown), plus `SupportTable` for MDX |
+| `src/styles/docs.css` | The theme: palette, type scale, menu, callouts, code blocks |
+| `docs/WRITING-GUIDE.md` | How every page is written |
 | `src/pages/` | Endpoints: `[...slug].md`, `llms.txt`, `llms-full.txt` |
 | `src/route-middleware.ts` | Per-version edit links and canonical URLs |
 | `scripts/lib/` | Pure, tested logic: versions, navigation, site context, redirects, Markdown export, link checker, git sources |
@@ -110,6 +139,9 @@ On a custom domain, build with `DOCS_SITE=https://strutvane.dev DOCS_BASE=/` and
 5. **Inline redirect scripts need `<` escaping.** `JSON.stringify` doesn't escape `</script>`; the test suite caught it, and the fix (`\u003c`) has a regression test.
 6. **Cross-version links must go through `/docs/latest/`** (or be relative). The 0.1.x Release Notes link to the upgrade guide via `../../latest/upgrade/`, so a frozen version never hard-codes the current one.
 7. **Frozen end-of-life builds** bake in the switcher as it was when they were built. If that matters, a later step can refresh the switcher from `/versions.json` at runtime.
+
+8. **Astro's content cache can outlive a theme change.** Cached rendered Markdown links to the code-block stylesheet by its hash. After the redesign, pages that weren't re-rendered pointed at a stylesheet that no longer existed. The link checker caught it, and `npm run build` now starts each version from an empty content cache.
+9. **The link checker must skip code samples.** An example like `<script src="/build/app.js">` inside a code block isn't a link. Text inside `<pre>` is now ignored, with a test.
 
 ## Not done (next steps)
 

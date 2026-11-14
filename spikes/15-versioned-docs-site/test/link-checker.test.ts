@@ -23,7 +23,8 @@ page('docs/0.2.x/a/index.html', `
   <a href="/strutvane-docs/docs/0.2.x/a.md">markdown export</a>
   <a href="https://example.com/">external</a>
   <a href="/elsewhere/">outside base</a>
-  <select><option value="/strutvane-docs/docs/0.1.x/a/">0.1</option><option value="/strutvane-docs/docs/0.1.x/gone/">bad switcher target</option></select>`)
+  <select><option value="/strutvane-docs/docs/0.1.x/a/">0.1</option><option value="/strutvane-docs/docs/0.1.x/gone/">bad switcher target</option></select>
+  <pre><code>&lt;script src="/build/app.js"&gt; is example code, not a link</code></pre>`)
 page('docs/0.2.x/a.md', '# A')
 page('docs/0.2.x/b/index.html', '<h2 id="there">There</h2>')
 page('docs/0.1.x/a/index.html', '<p>old</p>')

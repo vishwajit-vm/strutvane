@@ -1,0 +1,450 @@
+---
+title: CLI Reference
+description: Every node strut command that exists today, with every flag, a copy-pasteable example and the output you'll see, plus the commands still on their way.
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components'
+
+`node strut` is your app's command line: Strutvane's `php artisan`. It lives in `strut.js` in your project's root folder and works the same in PowerShell, cmd, bash and zsh.
+
+```bash
+node strut <command> [arguments] [options]
+```
+
+This page lists every command that exists in the application-core prototype, with all of its options. Commands that are designed but not built yet are listed at the end.
+
+:::tip[Coming from Laravel?]
+`php artisan route:list` → `node strut route:list`, `php artisan about` → `node strut about`, `php artisan make:controller` → `node strut make:controller`, `php artisan serve` → `node strut serve`. `--json` is available on the inspection commands, for scripts and AI agents.
+
+`npx strutvane <command>` does exactly the same as `node strut <command>`.
+:::
+
+## The smallest example
+
+```bash
+node strut
+```
+
+What you'll see:
+
+```text
+Strutvane console. Usage: node strut <command> [arguments] [options]
+
+Available commands:
+  about            Show the app name, environment, database, routes and providers
+  serve            Serve the application on the local HTTP server
+ make
+  make:controller  Create a new controller class
+  make:migration   Create a migration (and the model, for create_*_table)
+ model
+  model:show       Show a model's columns, casts and API behaviour
+ route
+  route:list       List every registered route
+
+Run `node strut help <command>` for details.
+```
+
+## Commands at a glance
+
+| Command | What it does |
+|---|---|
+| [`list`](#list) | List every command (the same as `node strut` alone) |
+| [`help <command>`](#help) | Usage, arguments, options and examples for one command |
+| [`route:list`](#routelist) | Show every route: method, URI, name, action, middleware |
+| [`about`](#about) | Show the app's name, environment, database, routes and navigation |
+| [`model:show <model>`](#modelshow) | Show a model's columns and how the API treats each one |
+| [`make:migration <name>`](#makemigration) | Create a migration (and the model, seeder, factory) |
+| [`make:controller <name>`](#makecontroller) | Create a controller (and its policy) |
+| [`serve`](#serve) | Run the app on a local HTTP server |
+
+## list
+
+```bash
+node strut list
+```
+
+Lists every command, grouped by the part before the colon (`make`, `model`, `route`). Packages and your app can add commands; they show up here too.
+
+## help
+
+```bash
+node strut help make:controller
+node strut make:controller --help     # the same
+```
+
+What you'll see:
+
+```text
+Create a new controller class
+
+Usage: node strut make:controller <name> [options]
+
+Arguments:
+  name                The class name, ending in Controller (PostController) (required)
+
+Options:
+  -r, --resource      Write all 7 resource actions (index, create, store, show, edit, update, destroy)
+  --api               Write the 5 API actions (no create/edit form pages)
+  -m, --model=<value> Inherit the API actions from ResourceController for this model
+  --force             Overwrite the file if it exists
+
+Examples:
+  node strut make:controller ReportController
+  node strut make:controller PostController --resource
+  node strut make:controller PostController --api
+  node strut make:controller PostController --model=Post
+```
+
+`<name>` is required; `[name]` would be optional. Options with `=<value>` take a value: `--model=Post` or `--model Post`.
+
+## route:list
+
+Shows every route in the order they're matched.
+
+| Option | What it does |
+|---|---|
+| `--path=<value>` | Only routes whose URI contains this text |
+| `--name=<value>` | Only routes whose name contains this text |
+| `--json` | Print JSON, for scripts and agents |
+
+```bash
+node strut route:list --path=posts
+```
+
+What you'll see (the example app):
+
+```text
+  Method     URI                             Name           Action                  Middleware
+  ---------  ------------------------------  -------------  ----------------------  ------------------
+  GET        /api/posts                      posts.index    PostController@index    api, auth:optional
+  POST       /api/posts                      posts.store    PostController@store    api, auth
+  GET        /api/posts/{post:slug}          posts.show     PostController@show     api, auth:optional
+  PUT|PATCH  /api/posts/{post:slug}          posts.update   PostController@update   api, auth
+  DELETE     /api/posts/{post:slug}          posts.destroy  PostController@destroy  api, auth
+  POST       /api/posts/{post:slug}/publish  posts.publish  PostController@publish  api, auth
+  GET        /posts/{post:slug}              posts.page     SpaController@show      web
+
+  Showing 7 of 15 routes.
+```
+
+With `--json`:
+
+```bash
+node strut route:list --name=admin. --json
+```
+
+```json
+[
+  {
+    "method": "GET",
+    "uri": "/api/admin/stats",
+    "name": "admin.stats",
+    "action": "StatsController@show",
+    "middleware": "api, auth, admin"
+  }
+]
+```
+
+Because `route:list` boots the whole app, it's also the quickest way to check that your app starts: a bad `.env` value, an unknown middleware alias or a missing binding fails here.
+
+## about
+
+A summary of the app. Secrets (like `APP_KEY`) are never printed.
+
+| Option | What it does |
+|---|---|
+| `--json` | Print JSON, for scripts and agents |
+
+```bash
+node strut about
+```
+
+What you'll see:
+
+```text
+
+  Application
+    name          My Blog
+    environment   local
+    debug         true
+    url           http://localhost:3000
+
+  Runtime
+    node          v24.21.0
+    platform      win32
+
+  Database
+    connection    sqlite
+    driverLoaded  true
+    tables        authors, posts
+
+  Http
+    routes        15
+    namedRoutes   14
+
+  Console
+    commands      6
+
+  Navigation
+    Posts, Authors
+```
+
+`debug` is `true` only when the debug page would really be shown (`APP_DEBUG=true` **and** a local or testing environment).
+
+:::caution[Coming in 0.2]
+The installed version and its support status (from the [support table](../releases/)) will be added to `about`.
+:::
+
+## model:show
+
+Shows one model's columns and how the generated API treats each: is it writable, hidden, searchable, sortable, filterable?
+
+| Argument / option | What it does |
+|---|---|
+| `<model>` | The model class (`Post`) or table (`posts`) |
+| `--json` | Print the full metadata as JSON |
+
+```bash
+node strut model:show Post
+```
+
+What you'll see (something like this):
+
+```text
+
+  Post  (table posts)
+  Route key: slug · Soft deletes: yes · Default sort: -created_at
+
+  Column      Cast      Fillable  Hidden  Search  Sort  Filters
+  ----------  --------  --------  ------  ------  ----  ---------------------
+  id          integer                             yes   eq,ne,in,gt,gte,lt,lte
+  title       string    yes               text    yes   eq,ne,in,contains
+  slug        string    yes               exact   yes   eq,in
+  body        string?   yes               text          null
+  status      string    yes                       yes   eq,ne,in
+  author_id   integer                             yes   eq,ne,in
+  created_at  datetime                            yes   gt,gte,lt,lte
+```
+
+It reads `.strutvane/resources.json`, which `node strut migrate` generates from your migrations.
+
+## make:migration
+
+Creates a migration file in `database/migrations/`, named with the current time (UTC) so migrations always run in order. A `create_<table>_table` name also creates the model.
+
+| Argument / option | What it does |
+|---|---|
+| `<name>` | snake_case: `create_posts_table`, `add_subtitle_to_posts_table`, or anything else for a blank migration |
+| `-s`, `--seeder` | Also create `database/seeders/<model>.seeder.ts` |
+| `-f`, `--factory` | Also create `database/factories/<model>.factory.ts` |
+
+```bash
+node strut make:migration create_posts_table --seeder --factory
+```
+
+What you'll see:
+
+```text
+  Created database/migrations/2026_11_14_093000_create_posts_table.ts
+  Created app/models/post.ts
+  Created database/seeders/post.seeder.ts
+  Created database/factories/post.factory.ts
+
+  Next: add your columns to the migration, then run `node strut migrate`.
+  Then call PostSeeder from database/seeders/database.seeder.ts.
+```
+
+| Name | You get |
+|---|---|
+| `create_posts_table` | `schema.create('posts', …)` with `t.id()` and `t.timestamps()`, plus `app/models/post.ts` (kept if it already exists) |
+| `add_subtitle_to_posts_table`, `remove_excerpt_from_posts_table` | `schema.table('posts', …)` in `up` and `down` |
+| anything else (`backfill_slugs`) | Empty `up` and `down` |
+
+See [Migrations](../migrations/) for what to write inside.
+
+## make:controller
+
+Creates a controller in `app/http/controllers/`, named `<name>.controller.ts`.
+
+| Argument / option | What you get |
+|---|---|
+| `<name>` | PascalCase ending in `Controller`: `PostController` |
+| *(no option)* | An empty controller with one `index` action |
+| `-m`, `--model=<value>` | A `ResourceController` for that model (all 5 API actions inherited) and a policy |
+| `--api` | The 5 API actions written out, each calling `authorize()`, and a policy |
+| `-r`, `--resource` | The 7 actions, including the `create` and `edit` form-page actions, and a policy |
+| `--force` | Overwrite the controller if it already exists |
+
+```bash
+node strut make:controller PostController --model=Post
+```
+
+What you'll see:
+
+```text
+  Created app/http/controllers/post.controller.ts
+  Created app/policies/post.policy.ts (denies everyone but admins until you edit it)
+
+  Next: route it in routes/api.ts:
+    Route.apiResource('posts', PostController)
+  and bind the model in bootstrap/app.ts: withRouting({ bindings: { post: Post } })
+```
+
+The generated policy **denies everyone except admins**, so a new endpoint is never open by accident. Open each action deliberately in the policy. See [Controllers](../controllers/) and [Authorization](../authorization/).
+
+## serve
+
+Runs your app on a local HTTP server.
+
+| Option | Default | What it does |
+|---|---|---|
+| `--host=<value>` | `127.0.0.1` | The address to listen on (`0.0.0.0` to reach it from other devices) |
+| `--port=<value>` | `3000` | The port |
+
+```bash
+node strut serve --port=8000
+```
+
+What you'll see:
+
+```text
+  Server running on http://127.0.0.1:8000  (Ctrl+C to stop)
+```
+
+<kbd>Ctrl</kbd>+<kbd>C</kbd> closes the server and the database connection cleanly.
+
+:::note
+For day-to-day work use `npm run dev`, which also serves the UI with hot reload. `serve` runs just the app.
+:::
+
+## Typos get a suggestion
+
+Every mistake on the command line prints what went wrong and a fix, and exits with code `1`:
+
+```bash
+node strut rout:list
+```
+
+```text
+  ✖ There is no "rout:list" command.
+  → Did you mean `node strut route:list`?
+```
+
+```bash
+node strut make:controller PostController --resorce
+```
+
+```text
+  ✖ make:controller has no --resorce option.
+  → Did you mean --resource?
+```
+
+```bash
+node strut make:migration
+```
+
+```text
+  ✖ make:migration needs <name>.
+  → Example: node strut make:migration <name>  (more: node strut help make:migration)
+```
+
+## Exit codes
+
+| Code | Meaning |
+|---|---|
+| `0` | The command succeeded |
+| `1` | Something needs fixing: an unknown command or option, a missing argument, a bad `.env` value, a file that already exists… The message says what to do |
+
+Scripts and CI can rely on them: `node strut route:list || exit 1`.
+
+## Setting a variable for one command
+
+Sometimes you want to run one command with a different setting, without editing `.env`. Real environment variables always win over `.env`:
+
+<Tabs syncKey="os">
+  <TabItem label="macOS / Linux">
+
+```bash
+APP_ENV=testing node strut route:list
+```
+
+  </TabItem>
+  <TabItem label="Windows (PowerShell)">
+
+```powershell
+$env:APP_ENV='testing'; node strut route:list
+```
+
+The variable stays set for the rest of that PowerShell window. Remove it with `Remove-Item Env:APP_ENV`.
+
+  </TabItem>
+  <TabItem label="Windows (cmd)">
+
+```bat
+set APP_ENV=testing && node strut route:list
+```
+
+  </TabItem>
+</Tabs>
+
+## Coming in 0.2
+
+These commands are designed in the blueprint but don't exist yet:
+
+| Command | What it will do |
+|---|---|
+| `migrate` | Run new migrations, regenerate types, the API and the UI, and seed in development |
+| `migrate:status` | Show which migrations have run |
+| `migrate:rollback` | Undo the last batch of migrations |
+| `migrate:fresh --seed` | Drop everything, migrate again and seed (development only) |
+| `db:seed` | Run the seeders again |
+| `make:model`, `make:policy`, `make:request`, `make:seeder`, `make:factory` | Generate one file of that kind |
+| `repl` | An interactive console inside your app (Laravel's `tinker`) |
+| `doctor` | Check your setup and report problems (including end-of-life versions and deprecated settings) |
+| `install:<package>` | Install a first-party package and run its installer |
+| `services:up`, `services:down` | Start and stop the Docker services for local development |
+| `logs`, `db:shell` | Follow the logs; open a database shell |
+
+## Common mistakes
+
+### "There is no … command"
+
+```text
+  ✖ There is no "migrate" command.
+  → Run `node strut list` to see every command.
+```
+
+**Why:** the command doesn't exist (yet), or it's misspelled.
+
+**Fix:** check `node strut list`. `migrate` arrives with 0.2 (see the table above).
+
+### Every command fails with "The app can't start"
+
+```text
+  ✖ The app can't start: 1 environment variable needs attention.
+  - APP_KEY is required (a text value); add it to .env (read in config/app.ts)
+  → Fix the values in .env (see .env.example for every key) and start again.
+```
+
+**Why:** most commands boot the app, and booting checks every setting.
+
+**Fix:** fix `.env` as the message says. (`make:*` commands work even before `.env` exists, so you can scaffold first.)
+
+### "… already exists, so nothing was written"
+
+```text
+  ✖ app/http/controllers/post.controller.ts already exists, so nothing was written.
+  → Pick another name, or add --force to overwrite it (your changes in that file would be lost).
+```
+
+### `npm run strut route:list -- --json` behaves oddly
+
+**Why:** through `npm run`, npm takes options for itself unless you put them after `--`.
+
+**Fix:** call it directly: `node strut route:list --json`.
+
+## Next steps
+
+- [Routing](../routing/): what `route:list` shows.
+- [Controllers](../controllers/): what `make:controller` writes.
+- [Migrations](../migrations/): what `make:migration` writes.
