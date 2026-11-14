@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Strutvane admin, design direction B: Glass" />
+    <title>Strutvane · Glass</title>
+    <script>
+      // Apply the remembered theme before first paint so dark mode never flashes light.
+      // Same key and rules as src/lib/theme.tsx; storage can throw (private mode), so it is guarded.
+      try {
+        var saved = localStorage.getItem('strutvane.glass.theme')
+        var dark = saved === 'dark' || (saved !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches)
+        document.documentElement.classList.toggle('dark', dark)
+        if (localStorage.getItem('strutvane.glass.solid') === '1') document.documentElement.dataset.transparency = 'reduced'
+      } catch (error) {}
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

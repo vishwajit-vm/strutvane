@@ -328,6 +328,8 @@ Generated projects get `"scripts": { "sv": "strutvane" }`, so `pnpm sv make:mode
 
 ## 9. Docker policy: local only, never committed (D16)
 
+> **Generated apps (ADR-0021, 2026-11-15):** this section is about Strutvane's own repositories, and that rule is unchanged. An app created by the installer may commit a secure production `Dockerfile` + `.dockerignore` and a `.devcontainer/`, but only when the developer picks them. The app's local `docker/compose.yaml` stays git-ignored by default.
+
 Docker runs **local development services only** (Postgres, MySQL, Valkey, Mailpit, an OTel collector with Jaeger). **No Docker files are committed in any Strutvane repo.** Every repo's `.gitignore` (from the `tooling` template) includes:
 
 ```gitignore

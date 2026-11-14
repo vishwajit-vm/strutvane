@@ -1,0 +1,287 @@
+/*
+ * Glass: global styles. Fonts, Tailwind 4, the token → utility mapping, the glass utilities and
+ * the mesh backdrop. All colour VALUES live in tokens.css; this file only wires them up.
+ *
+ * Fonts are self-hosted through @fontsource (OFL): Plus Jakarta Sans for UI, Geist Mono for ids,
+ * amounts in code-like contexts and API tokens.
+ */
+@import '@fontsource-variable/plus-jakarta-sans/wght.css';
+@import '@fontsource-variable/geist-mono/wght.css';
+@import 'tailwindcss';
+@import './tokens.css';
+
+@source '../';
+
+/* `dark:` follows the `.dark` class the theme switch puts on <html>. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+ * Tailwind theme. `--color-*: initial` REMOVES Tailwind's built-in palette, so `bg-red-500` or
+ * `text-white` do not even exist: the only colours a component can use are the tokens below.
+ */
+@theme inline {
+  --color-*: initial;
+  --color-fg: var(--foreground);
+  --color-fg-muted: var(--foreground-muted);
+  --color-backdrop: var(--backdrop);
+  --color-primary: var(--primary);
+  --color-primary-2: var(--primary-2);
+  --color-primary-fg: var(--primary-foreground);
+  --color-primary-text: var(--primary-text);
+  --color-primary-soft: var(--primary-soft);
+  --color-primary-soft-fg: var(--primary-soft-foreground);
+  --color-control: var(--control);
+  --color-control-fg: var(--control-foreground);
+  --color-ring: var(--ring);
+  --color-glass-chrome: var(--glass-chrome);
+  --color-glass-card: var(--glass-card);
+  --color-glass-overlay: var(--glass-overlay);
+  --color-glass-hover: var(--glass-hover);
+  --color-glass-border: var(--glass-border);
+  --color-glass-edge: var(--glass-edge);
+  --color-surface: var(--surface);
+  --color-surface-muted: var(--surface-muted);
+  --color-surface-input: var(--surface-input);
+  --color-surface-hover: var(--surface-hover);
+  --color-surface-selected: var(--surface-selected);
+  --color-border: var(--border);
+  --color-input: var(--input-border);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-danger-solid: var(--danger-solid);
+  --color-danger-fg: var(--danger-foreground);
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+  --color-neutral-soft: var(--neutral-soft);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-tone-1: var(--tone-1);
+  --color-tone-1-soft: var(--tone-1-soft);
+  --color-tone-2: var(--tone-2);
+  --color-tone-2-soft: var(--tone-2-soft);
+  --color-tone-3: var(--tone-3);
+  --color-tone-3-soft: var(--tone-3-soft);
+  --color-tone-4: var(--tone-4);
+  --color-tone-4-soft: var(--tone-4-soft);
+  --color-tone-5: var(--tone-5);
+  --color-tone-5-soft: var(--tone-5-soft);
+  --color-tone-6: var(--tone-6);
+  --color-tone-6-soft: var(--tone-6-soft);
+  --color-scrim: var(--scrim);
+
+  --font-sans: 'Plus Jakarta Sans Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'Geist Mono Variable', ui-monospace, 'SFMono-Regular', monospace;
+
+  --radius-xs: var(--radius-xs);
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+  --radius-xl: var(--radius-xl);
+  --radius-2xl: var(--radius-2xl);
+
+  --shadow-glass: var(--shadow-glass);
+  --shadow-float: var(--shadow-float);
+  --shadow-primary: var(--shadow-primary);
+
+  /* Type scale (DESIGN-B.md §4): size / line height pairs. */
+  --text-2xs: 0.6875rem;
+  --text-2xs--line-height: 1rem;
+  --text-xs: 0.75rem;
+  --text-xs--line-height: 1.125rem;
+  --text-sm: 0.8125rem;
+  --text-sm--line-height: 1.25rem;
+  --text-base: 0.875rem;
+  --text-base--line-height: 1.375rem;
+  --text-md: 0.9375rem;
+  --text-md--line-height: 1.5rem;
+  --text-lg: 1.125rem;
+  --text-lg--line-height: 1.625rem;
+  --text-xl: 1.375rem;
+  --text-xl--line-height: 1.875rem;
+  --text-2xl: 1.75rem;
+  --text-2xl--line-height: 2.25rem;
+  --text-3xl: 2.125rem;
+  --text-3xl--line-height: 2.5rem;
+}
+
+/* ── Base ─────────────────────────────────────────────────────────────────── */
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-rendering: optimizeLegibility;
+  }
+  body {
+    margin: 0;
+    min-height: 100dvh;
+    background-color: var(--backdrop);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    font-size: var(--text-base);
+    line-height: var(--text-base--line-height);
+    -webkit-font-smoothing: antialiased;
+    /* No horizontal page scroll, ever: wide tables scroll inside their own card. */
+    overflow-x: clip;
+  }
+  ::selection {
+    background-color: var(--primary-soft);
+  }
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+  /*
+   * Scroll areas are containing blocks. Without this, a visually hidden (`sr-only`, absolutely
+   * positioned) label inside a wide table escapes the scroll area and widens the PAGE on phones.
+   * `:where()` keeps specificity at zero, so an explicit `sticky`/`fixed` still wins.
+   */
+  :where(.overflow-auto, .overflow-x-auto, .overflow-y-auto, .overflow-hidden) {
+    position: relative;
+  }
+  /* Native date pickers and scrollbars follow the active theme. */
+  input,
+  textarea,
+  select {
+    color-scheme: inherit;
+  }
+}
+
+/* ── Glass utilities (DESIGN-B.md §3). Blur appears ONLY in chrome and overlays. ── */
+
+/* The floating sidebar and top bar: translucent + blurred (content scrolls under the top bar). */
+@utility glass-chrome {
+  background-color: var(--glass-chrome);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow-inner), var(--shadow-glass);
+  -webkit-backdrop-filter: blur(var(--blur-chrome)) saturate(var(--glass-saturate));
+  backdrop-filter: blur(var(--blur-chrome)) saturate(var(--glass-saturate));
+}
+
+/*
+ * Cards: translucent but NOT blurred. The backdrop is already a soft mesh, so a blur would cost
+ * a compositing layer per card and change nothing visible. This keeps blur layers to a handful.
+ */
+@utility glass-card {
+  background-color: var(--glass-card);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow-inner), var(--shadow-glass);
+}
+
+/* Menus, popovers, dialogs, drawers, toasts: they sit over busy content, so they blur. */
+@utility glass-overlay {
+  background-color: var(--glass-overlay);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow-inner), var(--shadow-float);
+  -webkit-backdrop-filter: blur(var(--blur-overlay)) saturate(var(--glass-saturate));
+  backdrop-filter: blur(var(--blur-overlay)) saturate(var(--glass-saturate));
+}
+
+/* Reading surfaces (tables, forms, long text): near-opaque, so legibility never depends on the backdrop. */
+@utility surface {
+  background-color: var(--surface);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow-inner), var(--shadow-glass);
+}
+
+/* The vibrant brand gradient used by primary buttons and a few accents. */
+@utility bg-brand-gradient {
+  background-image: linear-gradient(135deg, var(--primary) 0%, var(--primary-2) 100%);
+}
+
+/* Timing helpers that read the motion tokens (and so honour reduced motion). */
+@utility transition-base {
+  transition-property: color, background-color, border-color, box-shadow, opacity, transform;
+  transition-duration: var(--duration-base);
+  transition-timing-function: var(--ease-out);
+}
+@utility transition-fast {
+  transition-property: color, background-color, border-color, box-shadow, opacity, transform;
+  transition-duration: var(--duration-fast);
+  transition-timing-function: var(--ease-out);
+}
+
+/* Numbers line up in columns. */
+@utility tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── The mesh backdrop: four static radial blobs; no animation, no images. ── */
+.app-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(48rem 36rem at 4% -6%, var(--mesh-1), transparent 70%),
+    radial-gradient(42rem 34rem at 100% 0%, var(--mesh-2), transparent 70%),
+    radial-gradient(44rem 36rem at 0% 100%, var(--mesh-3), transparent 70%),
+    radial-gradient(40rem 32rem at 96% 104%, var(--mesh-4), transparent 70%),
+    var(--backdrop);
+}
+
+/* Overlay entrance animations (Radix sets data-state). Durations are tokens → reduced motion = 0. */
+@keyframes glass-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.98);
+  }
+}
+@keyframes glass-fade {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes glass-slide-right {
+  from {
+    transform: translateX(100%);
+  }
+}
+@keyframes glass-slide-left {
+  from {
+    transform: translateX(-100%);
+  }
+}
+@keyframes shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}
+.animate-glass-in {
+  animation: glass-in var(--duration-base) var(--ease-out);
+}
+.animate-glass-fade {
+  animation: glass-fade var(--duration-base) var(--ease-out);
+}
+.animate-slide-right {
+  animation: glass-slide-right var(--duration-slow) var(--ease-out);
+}
+.animate-slide-left {
+  animation: glass-slide-left var(--duration-slow) var(--ease-out);
+}
+
+/* Skeleton shimmer (static under reduced motion because the duration token is 0). */
+.skeleton {
+  background-image: linear-gradient(90deg, var(--neutral-soft) 0%, var(--glass-hover) 50%, var(--neutral-soft) 100%);
+  background-size: 200% 100%;
+  animation: shimmer calc(var(--duration-slow) * 5) linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none;
+  }
+}
+
+/* Thin, themed scrollbars inside scroll areas (tables, menus). */
+.scroll-thin {
+  scrollbar-width: thin;
+  scrollbar-color: var(--input-border) transparent;
+}

@@ -46,10 +46,12 @@ This folder is the **umbrella workspace and the hub repo** (`github.com/vishwaji
 | Source of truth in apps | `app/models/*.model.ts` (`defineModel` + `field.*`); migrations auto-diffed to SQL |
 | Generation | Thin, metadata-driven files. Levels L0 declare → L1 configure → L2 override → L3 eject (three-way merge on upgrade) |
 | Stack | TS strict, ESM, Node 26 LTS (min 24); Hono; Zod 4 / Standard Schema; Drizzle behind an internal adapter; Better Auth behind an identity adapter; React 19 + Vite + TanStack + Tailwind 4 + shadcn registry |
-| Docker | **Local development only, never committed**, in any repo |
+| Docker | **Never committed in Strutvane's own repos.** Generated apps keep the local compose git-ignored, but may commit a production `Dockerfile` and `.devcontainer/` when the developer opts in (ADR-0021) |
 | License | MIT for everything, including enterprise features |
 
 ## Working rules
+
+- **Production readiness protocol** (`docs/19-production-readiness.md`) is binding for every package, both built and in progress. Nothing reaches npm `latest` until gates R1–R9 pass with evidence.
 
 - Package boundaries: `contracts` ← `core` ← {`framework`, `auth`, `ui`}. Product packages never import each other.
 - When a decision changes, update **all** affected docs: `00`, the relevant spec, `README.md` indexes, plus a new ADR. The `blueprint-sync` skill covers this.
