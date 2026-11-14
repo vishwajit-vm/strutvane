@@ -1,0 +1,46 @@
+{
+  "name": "spike-17-design-a-modern-pro",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Spike 17: design direction A, \"Modern Pro\": a polished, clickable mockup of the @strutvane/ui admin (vertical menu, rich cards, light and dark) for the project lead to compare against directions B and C.",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "dev": "vite --port 5181 --strictPort",
+    "preview": "vite preview --port 5181 --strictPort",
+    "typecheck": "tsc --noEmit -p .",
+    "test": "tsc --noEmit -p . && vitest run",
+    "build": "tsc --noEmit -p . && vite build"
+  },
+  "dependencies": {
+    "@fontsource-variable/plus-jakarta-sans": "5.3.0",
+    "@tabler/icons-react": "3.50.0",
+    "class-variance-authority": "0.7.1",
+    "clsx": "2.1.1",
+    "cmdk": "1.1.1",
+    "radix-ui": "1.8.1",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "recharts": "3.10.1",
+    "tailwind-merge": "3.7.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "4.3.5",
+    "@testing-library/dom": "10.4.2",
+    "@testing-library/jest-dom": "7.0.1",
+    "@testing-library/react": "16.3.3",
+    "@testing-library/user-event": "14.6.10",
+    "@types/node": "24.10.1",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "6.3.0",
+    "axe-core": "4.14.0",
+    "jsdom": "31.0.1",
+    "tailwindcss": "4.3.5",
+    "typescript": "6.0.3",
+    "vite": "8.3.8",
+    "vitest": "5.1.0"
+  }
+}
