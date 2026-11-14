@@ -263,35 +263,29 @@ pnpm sv upgrade --dry-run       # diff of every file the codemods would touch
 
 npm revoked classic tokens on 2025-12-09. Granular tokens now last at most 90 days and require 2FA, and OIDC trusted publishing works from GitHub-hosted Actions ([GitHub changelog](https://github.blog/changelog/2025-09-29-strengthening-npm-security-important-changes-to-authentication-and-token-management/)). **No repo holds an npm token.**
 
+How a release works (ADR-0016, refined by [ADR-0018](adr/0018-staged-npm-publishing.md)):
+
+1. A maintainer runs `changeset version` and commits `chore(release): <name>@<version>` on `main`.
+2. Each repo's canonical `release.yml` (synced from strutvane-tooling) runs the full quality gate, then `.github/scripts/publish-if-new.mjs`.
+3. The script **stages** the version with `npm stage publish --access public --provenance --tag <tag>`, unless it is already published or already staged.
+4. A maintainer **approves** the staged version on npmjs.com with 2FA. Only then is it live.
+
 ```yaml
-# strutvane/.github/.github/workflows/release.yml  (reusable)
-on: { workflow_call: {} }
-permissions: { contents: write, pull-requests: write, id-token: write }
+# .github/workflows/release.yml (excerpt; the full file lives in strutvane-tooling/canonical)
 jobs:
   release:
-    runs-on: ubuntu-latest
-    environment: npm-publish            # protected: required reviewers for `latest`
+    if: github.repository_owner == 'vishwajit-vm' && vars.RELEASE_ENABLED == 'true'
+    permissions: { contents: read, id-token: write }
     steps:
-      - uses: actions/checkout@<sha>
-      - uses: pnpm/action-setup@<sha>
-      - uses: actions/setup-node@<sha>
-        with: { node-version: 26, registry-url: https://registry.npmjs.org }
+      # checkout, pnpm, Node 24 (all actions pinned by SHA)
+      - run: npm install --global npm@11.19.0   # `npm stage` support
+      - run: node .github/scripts/check-deps.mjs  # no link:/file:/workspace: deps
       - run: pnpm install --frozen-lockfile
-      - run: pnpm build && pnpm typecheck && pnpm test
-      - uses: changesets/action@<sha>
-        with: { publish: pnpm changeset publish }
+      - run: pnpm run ci
+      - run: node .github/scripts/publish-if-new.mjs
 ```
 
-```yaml
-# strutvane/auth/.github/workflows/release.yml  (caller — the whole file)
-on: { push: { branches: [main, next] } }
-jobs:
-  release:
-    uses: strutvane/.github/.github/workflows/release.yml@v1
-    permissions: { contents: write, pull-requests: write, id-token: write }
-```
-
-- **npmjs.com setup:** each package has a **trusted publisher** bound to *its own repo*, `release.yml` and environment `npm-publish`. A compromise of one repo cannot publish another repo's package.
+- **npmjs.com setup:** each package has a **trusted publisher** bound to *its own repo* and `release.yml`, with no environment and both "Allow npm publish" and "Allow npm dist-tag" unticked, so it can only stage. A compromise of one repo cannot publish another repo's package, and no CI run can make a version live without a maintainer's 2FA approval.
 - **Provenance:** `"publishConfig": { "access": "public", "provenance": true }` is set explicitly, because automatic attachment under trusted publishing is *(unverified)*.
 - **Org settings:**
   - 2FA required

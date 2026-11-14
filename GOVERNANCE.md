@@ -62,7 +62,7 @@ The reasoning is always recorded.
 - **Semantic versioning** for every package. `0.x` may break, but only with a changeset and the RFC updated.
 - **Release train:** `contracts`, `core`, `framework`, `auth`, `ui`, `cli`, `logs` and `files` share a major version and are tested together by the integration suite before a stable release ([10](docs/10-repositories-publishing-versioning.md)).
 - **Channels:** `latest` (stable), `next` (release candidates, RFC implementations) and `canary` (per-commit snapshots).
-- **Publishing:** only through each repo's release workflow with npm **trusted publishing** (OIDC + provenance). Nobody publishes from a laptop. The one-time name reservations in 2026 were the documented exception.
+- **Publishing:** only through each repo's release workflow with npm **trusted publishing** (OIDC + provenance). CI only stages a version; a maintainer approves it on npmjs.com with 2FA before it is live ([ADR-0018](docs/adr/0018-staged-npm-publishing.md)). Nobody publishes from a laptop. The one-time name reservations in 2026 were the documented exception.
 - **Support after 1.0:** the previous major gets security fixes for 18 months after the next major ships. Every breaking change comes with a migration guide and, where possible, a codemod (`sv upgrade`).
 
 ## 6. Security
