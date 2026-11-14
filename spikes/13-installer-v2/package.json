@@ -1,0 +1,26 @@
+{
+  "name": "spike-13-installer-v2",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Spike 13: can `npm create strutvane@latest my-app` follow Laravel's flow on npm only (questions, review, install, secrets, ports, Docker DB, migrate + seed, git, resume with `npm run setup`) and stay safe on Windows?",
+  "engines": {
+    "node": ">=24.3"
+  },
+  "bin": {
+    "create-strutvane": "src/cli.ts"
+  },
+  "scripts": {
+    "test": "tsc --noEmit -p . && vitest run",
+    "typecheck": "tsc --noEmit -p .",
+    "start": "node src/cli.ts"
+  },
+  "dependencies": {
+    "@clack/prompts": "1.9.0"
+  },
+  "devDependencies": {
+    "@types/node": "24.10.1",
+    "typescript": "6.0.3",
+    "vitest": "5.1.0"
+  }
+}

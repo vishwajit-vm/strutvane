@@ -1,0 +1,296 @@
+/**
+ * The generated app's source files, in the Laravel-style MVC layout fixed on the shared design
+ * board (`app/http/controllers`, `app/models`, `app/policies`, `bootstrap/app.ts`, `routes/`,
+ * `config/`, `database/{migrations,seeders,factories}`, `resources/ui`).
+ *
+ * These are deliberately small: spike 12 owns the real app core and spike 10 the migration format.
+ * The installer spike only needs files that run, so `node strut migrate --seed` and
+ * `node strut dev` prove the setup flow end to end.
+ *
+ * @module
+ */
+import type { ProjectOptions } from '../options.ts'
+
+/** A generated file: POSIX path relative to the project root, and its text. */
+export interface GeneratedFile {
+  readonly path: string
+  readonly content: string
+}
+
+/**
+ * Every app source file for these options.
+ *
+ * @example
+ * appFiles(options).map((f) => f.path) // ['bootstrap/app.ts', 'routes/web.ts', ...]
+ */
+export function appFiles(options: ProjectOptions): GeneratedFile[] {
+  const files: GeneratedFile[] = [
+    { path: 'bootstrap/app.ts', content: BOOTSTRAP },
+    { path: 'routes/web.ts', content: webRoutes(options) },
+    { path: 'routes/api.ts', content: API_ROUTES },
+    { path: 'app/http/controllers/health-controller.ts', content: HEALTH_CONTROLLER },
+    { path: 'config/app.ts', content: CONFIG_APP },
+    { path: 'config/database.ts', content: CONFIG_DATABASE },
+    ...migrations(options),
+    { path: 'database/seeders/database-seeder.ts', content: seeder(options) },
+  ]
+  if (options.auth === 'email') {
+    files.push(
+      { path: 'app/models/user.ts', content: USER_MODEL },
+      { path: 'app/policies/user-policy.ts', content: USER_POLICY },
+      { path: 'config/auth.ts', content: CONFIG_AUTH },
+      { path: 'database/factories/user-factory.ts', content: USER_FACTORY },
+    )
+  }
+  if (options.teams) files.push({ path: 'config/tenancy.ts', content: tenancyConfig(options) })
+  if (options.ui !== undefined) files.push(...uiFiles(options))
+  if (options.testing !== 'none') files.push({ path: 'tests/feature/health.test.ts', content: HEALTH_TEST })
+  if (options.testing === 'vitest-playwright') {
+    files.push({ path: 'tests/browser/home.spec.ts', content: BROWSER_TEST })
+  }
+  return files
+}
+
+const BOOTSTRAP = `// Builds the application: routes, providers and middleware are registered here (Laravel's
+// bootstrap/app.php). \`node strut dev\` and the production server both start from this file.
+import { createApplication } from '@strutvane/framework'
+import api from '../routes/api.ts'
+import web from '../routes/web.ts'
+
+export default createApplication({ routes: { web, api } })
+`
+
+function webRoutes(options: ProjectOptions): string {
+  const page =
+    options.ui === undefined
+      ? `'<h1>${options.name}</h1><p>API only. Try <a href="/api/v1/health">/api/v1/health</a>.</p>'`
+      : `'<h1>${options.name}</h1><p>The React UI (resources/ui) is served here by Vite in development.</p>'`
+  return `// Browser routes. The React UI is mounted here in development (Vite middleware) and production.
+type Router = { get(path: string, handler: () => unknown): void }
+
+export default function web(router: Router): void {
+  router.get('/', () => ${page})
+}
+`
+}
+
+const API_ROUTES = `// API routes, served under /api/v1. Resource routes for your models are added here.
+import { HealthController } from '../app/http/controllers/health-controller.ts'
+
+type Router = { get(path: string, handler: () => unknown): void }
+
+export default function api(router: Router): void {
+  router.get('/health', HealthController.show)
+}
+`
+
+const HEALTH_CONTROLLER = `// A tiny controller: GET /api/v1/health answers whether the app is up (used by load balancers).
+export const HealthController = {
+  show(): { status: string } {
+    return { status: 'ok' }
+  },
+}
+`
+
+const CONFIG_APP = `// Application settings, read from .env. Change values in .env, not here.
+export default {
+  name: process.env['APP_NAME'] ?? 'app',
+  env: process.env['APP_ENV'] ?? 'production',
+  url: process.env['APP_URL'] ?? 'http://localhost:3000',
+  debug: process.env['APP_DEBUG'] === 'true',
+}
+`
+
+const CONFIG_DATABASE = `// Database settings, read from .env (DB_CONNECTION is mysql, postgres or sqlite).
+export default {
+  connection: process.env['DB_CONNECTION'] ?? 'mysql',
+  host: process.env['DB_HOST'] ?? '127.0.0.1',
+  port: Number(process.env['DB_PORT'] ?? 3306),
+  database: process.env['DB_DATABASE'] ?? '',
+  username: process.env['DB_USERNAME'] ?? '',
+  password: process.env['DB_PASSWORD'] ?? '',
+}
+`
+
+const CONFIG_AUTH = `// Sign-in settings, read from .env.
+export default {
+  registration: process.env['AUTH_REGISTRATION'] === 'true',
+  emailVerification: process.env['AUTH_EMAIL_VERIFICATION'] === 'true',
+  twoFactor: process.env['AUTH_TWO_FACTOR'] === 'true',
+}
+`
+
+function tenancyConfig(options: ProjectOptions): string {
+  const how =
+    options.database === 'postgres'
+      ? 'the ORM tenant scope, plus PostgreSQL row-level security as a second lock'
+      : 'the ORM tenant scope (PostgreSQL would add row-level security as a second lock)'
+  return `// Teams: each customer company sees only its own data. Isolation here: ${how}.
+export default {
+  enabled: process.env['TENANCY_ENABLED'] === 'true',
+  model: 'Team',
+}
+`
+}
+
+const USER_MODEL = `// The User model. Columns come from the users migration (database/migrations).
+export class User {
+  static table = 'users'
+}
+`
+
+const USER_POLICY = `// Who may do what with users. Deny by default: anything not allowed here is refused.
+export const UserPolicy = {
+  view(actor: { id: number }, user: { id: number }): boolean {
+    return actor.id === user.id
+  },
+}
+`
+
+const USER_FACTORY = `// Fake users for tests and seeders.
+let next = 1
+
+export function userFactory(): { name: string; email: string } {
+  const n = next++
+  return { name: \`User \${n}\`, email: \`user\${n}@example.test\` }
+}
+`
+
+/** Migrations, named like Laravel's (\`0001_01_01_000000_create_users_table\`). */
+function migrations(options: ProjectOptions): GeneratedFile[] {
+  const files: GeneratedFile[] = []
+  const add = (index: number, table: string, body: string) =>
+    files.push({
+      path: `database/migrations/0001_01_01_00000${index}_create_${table}_table.ts`,
+      content: `import { migration } from '@strutvane/framework'
+
+export default migration({
+  up(schema) {
+${body}
+  },
+  down(schema) {
+    schema.dropIfExists('${table}')
+  },
+})
+`,
+    })
+  if (options.auth === 'email') {
+    const twoFactor = options.features.includes('2fa') ? "\n      t.text('two_factor_secret').nullable()" : ''
+    add(
+      0,
+      'users',
+      `    schema.create('users', (t) => {
+      t.id()
+      t.string('name')
+      t.string('email').unique()
+      t.timestamp('email_verified_at').nullable()
+      t.string('password')
+      t.boolean('must_change_password').default(false)${twoFactor}
+      t.timestamps()
+    })`,
+    )
+    add(
+      1,
+      'sessions',
+      `    schema.create('sessions', (t) => {
+      t.string('id', 128).primary()
+      t.foreignId('user_id').nullable().constrained('users').cascadeOnDelete()
+      t.string('ip_address', 45).nullable()
+      t.timestamp('last_activity').nullable()
+    })`,
+    )
+  }
+  add(
+    2,
+    'cache',
+    `    schema.create('cache', (t) => {
+      t.string('cache_key').primary() // "key" is a reserved word in MySQL
+      t.text('value')
+      t.integer('expiration')
+    })`,
+  )
+  if (options.teams) {
+    add(
+      3,
+      'teams',
+      `    schema.create('teams', (t) => {
+      t.id()
+      t.string('name')
+      t.timestamps()
+    })
+    schema.create('team_user', (t) => {
+      t.foreignId('team_id').constrained('teams').cascadeOnDelete()
+      t.foreignId('user_id').constrained('users').cascadeOnDelete()
+      t.string('role', 50)
+    })`,
+    )
+  }
+  return files
+}
+
+function seeder(options: ProjectOptions): string {
+  if (options.auth === 'none') {
+    return `// Seeds the database. Add records here; \`node strut db:seed\` runs this file.
+import { seeder } from '@strutvane/framework'
+
+export default seeder(async () => {})
+`
+  }
+  return `// Seeds the database (development only: it refuses with APP_ENV=production or staging).
+// The first admin (SEED_ADMIN_EMAIL in .env) is created once, with a one-time password that is
+// shown once and never stored in .env; it must be changed at the first sign-in.
+// Lost it? Run: node strut user:password <email>
+import { seeder } from '@strutvane/framework'
+
+type Db = {
+  env: Record<string, string>
+  createAdminOnce(admin: { name: string; email: string }): Promise<void>
+}
+
+export default seeder(async (db: Db) => {
+  await db.createAdminOnce({ name: 'Admin', email: db.env['SEED_ADMIN_EMAIL'] ?? '' })
+})
+`
+}
+
+function uiFiles(options: ProjectOptions): GeneratedFile[] {
+  const starter = options.ui === 'admin' ? 'admin screens generated from your models' : 'a blank React app'
+  return [
+    {
+      path: 'resources/ui/index.html',
+      content: `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>${options.name}</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="./main.tsx"></script>
+  </body>
+</html>
+`,
+    },
+    {
+      path: 'resources/ui/main.tsx',
+      content: `// The React UI entry (${starter}). Vite serves it through \`node strut dev\`.
+export const starter = '${options.ui ?? 'blank'}'
+`,
+    },
+  ]
+}
+
+const HEALTH_TEST = `// A first feature test: the health controller answers "ok". Run: npm test
+import assert from 'node:assert/strict'
+import { test } from 'node:test'
+import { HealthController } from '../../app/http/controllers/health-controller.ts'
+
+test('GET /api/v1/health answers ok', () => {
+  assert.deepEqual(HealthController.show(), { status: 'ok' })
+})
+`
+
+const BROWSER_TEST = `// Browser test (Playwright). Browsers download on the first: npm run test:e2e
+export const homePage = '/'
+`
