@@ -51,3 +51,6 @@ node_modules/
 
 # Local end-to-end integration harness (generated, never committed)
 /integration-local/
+
+# Local full-app test project (Docker files live here; never committed, ADR-0006)
+/playground/
