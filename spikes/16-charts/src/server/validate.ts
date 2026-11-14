@@ -329,7 +329,8 @@ function filterCondition(field: FieldMetadata, op: FilterOperator, raw: string):
     case 'contains':
     case 'startsWith': {
       if (raw === '') return undefined
-      const escaped = raw.replace(/[\\%_]/g, (character) => `\\${character}`)
+      // '!' is the escape character (see sql.ts): MySQL refuses ESCAPE '\' in every sql_mode.
+      const escaped = raw.replace(/[!%_]/g, (character) => `!${character}`)
       return { kind: 'like', column, pattern: op === 'contains' ? `%${escaped}%` : `${escaped}%` }
     }
     case 'in': {

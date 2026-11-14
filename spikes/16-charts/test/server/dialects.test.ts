@@ -108,7 +108,7 @@ describe('MySQL SQL text (pinned; executed against MySQL 8.4 in the product CI)'
       { kind: 'compare', column: 'created_at', op: '>=', value: { type: 'timestamp', value: new Date('2026-11-02T00:00:00Z') } },
       { kind: 'distinct', column: 'status', value: { type: 'text', value: 'void' } },
       { kind: 'in', column: 'paid', values: [{ type: 'boolean', value: true }] },
-      { kind: 'like', column: 'number', pattern: '%100\\%%' },
+      { kind: 'like', column: 'number', pattern: '%100!%%' },
     ],
     softDeletes: true,
     dateField: 'created_at',
@@ -122,11 +122,22 @@ describe('MySQL SQL text (pinned; executed against MySQL 8.4 in the product CI)'
     const { text, params } = renderAggregate(plan, scope, 'mysql')
     expect(text).toBe(
       "SELECT DATE_FORMAT(DATE_SUB(DATE(t.`created_at`), INTERVAL WEEKDAY(t.`created_at`) DAY), '%Y-%m-%d') AS bucket, t.`paid` AS series, COUNT(*) AS row_count, SUM(t.`total`) AS value_sum, COUNT(t.`total`) AS value_count " +
-        "FROM `invoices` AS t WHERE t.`tenant_id` = ? AND t.`created_at` >= ? AND NOT (t.`status` <=> ?) AND t.`paid` IN (?) AND t.`number` LIKE ? ESCAPE '\\' AND t.`deleted_at` IS NULL " +
+        "FROM `invoices` AS t WHERE t.`tenant_id` = ? AND t.`created_at` >= ? AND NOT (t.`status` <=> ?) AND t.`paid` IN (?) AND t.`number` LIKE ? ESCAPE '!' AND t.`deleted_at` IS NULL " +
         "GROUP BY DATE_FORMAT(DATE_SUB(DATE(t.`created_at`), INTERVAL WEEKDAY(t.`created_at`) DAY), '%Y-%m-%d'), t.`paid`",
     )
     // DATETIME literals have no "Z" (the session time zone is pinned to +00:00); booleans are 1/0.
-    expect(params).toEqual([TENANT_A, '2026-11-02 00:00:00.000', 'void', 1, '%100\\%%'])
+    expect(params).toEqual([TENANT_A, '2026-11-02 00:00:00.000', 'void', 1, '%100!%%'])
+  })
+
+  it('LIKE escapes with "!", which MySQL accepts in every sql_mode (a backslash does not)', () => {
+    // Checked on MySQL 8.4.13 (2026-11-15): ESCAPE '\' is a syntax error with the default sql_mode
+    // and "Incorrect arguments to ESCAPE" with NO_BACKSLASH_ESCAPES (the mode the ORM pins), so
+    // every contains/startsWith filter failed there. '!' means the same on all three engines.
+    for (const dialect of ['mysql', 'postgres', 'sqlite'] as const) {
+      const { text } = renderAggregate(plan, scope, dialect)
+      expect(text).toContain("LIKE ? ESCAPE '!'".replace('?', dialect === 'postgres' ? '$5' : '?'))
+      expect(text).not.toContain('\\')
+    }
   })
 
   it('day and month buckets use DATE_FORMAT', () => {

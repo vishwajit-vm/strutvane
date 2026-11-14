@@ -228,7 +228,9 @@ function renderCondition(condition: Condition, dialect: Dialect, params: SqlPara
     case 'like':
       // Case rules differ: SQLite LIKE ignores ASCII case, PostgreSQL LIKE doesn't (ILIKE would),
       // MySQL follows the column collation (binary on identifier-like columns). See README.
-      return `${ref} LIKE ${bind(condition.pattern)} ESCAPE '\\'`
+      // The escape character is '!', not a backslash: on MySQL 8.4, ESCAPE '\' is a syntax error with
+      // the default sql_mode and "Incorrect arguments to ESCAPE" with NO_BACKSLASH_ESCAPES.
+      return `${ref} LIKE ${bind(condition.pattern)} ESCAPE '!'`
   }
 }
 

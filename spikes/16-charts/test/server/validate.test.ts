@@ -45,7 +45,10 @@ describe('accepted requests become typed plans', () => {
 
   it('escapes LIKE wildcards so "100%" means the text "100%"', () => {
     const result = validate('metric=count&filter[number][contains]=100%25_x')
-    expect(result.ok && result.plan.conditions).toEqual([{ kind: 'like', column: 'number', pattern: '%100\\%\\_x%' }])
+    expect(result.ok && result.plan.conditions).toEqual([{ kind: 'like', column: 'number', pattern: '%100!%!_x%' }])
+    // The escape character itself is escaped; a backslash is an ordinary character.
+    const literal = validate(`metric=count&filter[number][startsWith]=${encodeURIComponent('a!b\\c')}`)
+    expect(literal.ok && literal.plan.conditions).toEqual([{ kind: 'like', column: 'number', pattern: 'a!!b\\c%' }])
   })
 
   it('filter[x]=v means eq; booleans and integers are parsed', () => {

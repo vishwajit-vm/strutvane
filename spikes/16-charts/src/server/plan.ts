@@ -50,7 +50,7 @@ export type Condition =
   | { readonly kind: 'distinct'; readonly column: string; readonly value: TypedValue }
   | { readonly kind: 'in'; readonly column: string; readonly values: readonly TypedValue[] }
   | { readonly kind: 'null'; readonly column: string; readonly isNull: boolean }
-  /** `pattern` is already LIKE-escaped (`%`, `_`, `\` are literals); `\` is the escape character. */
+  /** `pattern` is already LIKE-escaped (`%`, `_`, `!` are literals); `!` is the escape character (MySQL refuses `\`). */
   | { readonly kind: 'like'; readonly column: string; readonly pattern: string }
 
 /**

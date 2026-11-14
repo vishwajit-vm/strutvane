@@ -160,6 +160,12 @@ describe.each(engines)('aggregate on $name', (engine) => {
     // INV-1 and INV-10 … INV-16.
     expect(pairs((await get('metric=count&filter[number][contains]=INV-1')).body)).toEqual([['__total__', 8]])
     expect(pairs((await get(`metric=count&filter[number][contains]=${encodeURIComponent('%')}`)).body)).toEqual([['__total__', 0]])
+    // The escape character and a backslash are plain text too: never an error, never a wildcard.
+    for (const needle of ['!', '\\', '!%', '_', 'INV!1']) {
+      const { status, body } = await get(`metric=count&filter[number][contains]=${encodeURIComponent(needle)}`)
+      expect([status, pairs(body)], needle).toEqual([200, [['__total__', 0]]])
+    }
+    expect(pairs((await get('metric=count&filter[number][startsWith]=INV-1')).body)).toEqual([['__total__', 8]])
   })
 
   it('ne is NULL-safe: rows with a NULL tax count as "not equal"', async () => {
