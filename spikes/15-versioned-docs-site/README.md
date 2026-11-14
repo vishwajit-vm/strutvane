@@ -9,7 +9,7 @@ npm run dev                      # live preview of the current version: http://l
 npm run dev -- --version 0.1.x   # live preview of another version
 npm run build                    # every version → dist/ (one Astro build per version, then merged)
 npm run preview                  # serve dist/ like GitHub Pages: http://localhost:4321/strutvane-docs/
-npm run verify                   # build + link check (all versions) + type check + 93 tests
+npm run verify                   # build + link check (all versions) + type check + 101 tests
 ```
 
 `npm run dev` shows one version with hot reload. Search, redirects and the other versions need the merged site: `npm run build && npm run preview`.
@@ -20,7 +20,7 @@ What should Strutvane's new docs site be, so that it works like Laravel's docs (
 
 ## Answer
 
-**Starlight, built once per version (per branch), merged into one static site.** The prototype builds 0.2.x (current, 105 pages, 34 of them full guides) and 0.1.x (end of life, 8 pages imported from the old site) into one GitHub Pages-ready `dist/`. Every internal link in both versions is checked (16,600+ links, 331 HTML pages, including switcher targets and redirects), and 93 tests pass, including a check that every full page follows the writing guide.
+**Starlight, built once per version (per branch), merged into one static site.** The prototype builds 0.2.x (current, 110 pages, 41 of them full guides) and 0.1.x (end of life, 8 pages imported from the old site) into one GitHub Pages-ready `dist/`. Every internal link in both versions is checked (19,000+ links, 346 HTML pages, including switcher targets and redirects), and 101 tests pass, including a check that every full page follows the writing guide.
 
 ### What Laravel's docs do (studied 2026-11-14)
 
@@ -75,11 +75,12 @@ On a custom domain, build with `DOCS_SITE=https://strutvane.dev DOCS_BASE=/` and
 
 ### Content
 
-- **0.2.x, full pages (34)**, written to [docs/WRITING-GUIDE.md](docs/WRITING-GUIDE.md) from the v2 blueprint, spikes 10–13 and the research drafts; anything not built is marked "Coming in 0.2":
-  - **Getting started and prologue:** Introduction, Installation, Configuration, Directory Structure, Your First CRUD, Migrations, Seeding, Release Notes (support table from `versions.json`), Upgrade Guide 0.1 → 0.2.
+- **0.2.x, full pages (41)**, written to [docs/WRITING-GUIDE.md](docs/WRITING-GUIDE.md) from the v2 blueprint (doc 18), ADR-0021, ADR-0022, spikes 10–14, 16, 17, 19 and 20 and the research drafts. Anything in 0.2.0 that isn't released is marked "Coming in 0.2" (saying whether a prototype proves it or it is only designed); anything the blueprint's phases put after 0.2.0 is marked "Planned after 0.2":
+  - **Getting started and prologue:** Introduction, Installation (all 37 installer questions, every flag, steps, resume, exit codes), Docker (Sail-style mode, pass-throughs, the opt-in production Dockerfile and dev container), Configuration (every `.env` key), Directory Structure, Your First CRUD, Designs (Crisp and Vivid), Migrations, Seeding, Release Notes (support table from `versions.json`), Upgrade Guide 0.1 → 0.2.
   - **ORM** (only the API proven in spike 11): Getting Started, Querying, Relationships, Scopes, Casts & Accessors, Mass Assignment, Pagination, Soft Deletes, Slugs, Transactions, Tenancy.
-  - **Application core** (only the API proven in spike 12): Request Lifecycle, Service Container, Service Providers, Helpers (no facades), Routing, Middleware, CSRF Protection, Controllers, Requests, Validation, Responses, Error Handling, Authorization, CLI Reference.
-- **0.2.x, "being written" pages:** every other menu entry, including all 28 first-party packages, each with an accurate 2–3 line summary.
+  - **Application core** (only the API proven in spike 12): Request Lifecycle, Service Container, Service Providers, Helpers (no facades), Routing, Middleware, CSRF Protection (every style), Controllers, Requests, Validation, Responses, Error Handling, Logging (channels, ADR-0022), Authorization, CLI Reference (every command, with its status).
+  - **Security and data:** Security Features (the full protections list), Authentication (spike 20), Charts (spike 16), Package Catalogue (the 100+ package approach).
+- **0.2.x, "being written" pages:** every other menu entry, including all 28 first-party packages, each with an accurate 2–3 line summary. The package pages were never committed before (the hub's `.gitignore` ignores every `packages/` folder); this folder's `.gitignore` now keeps them.
 - **0.1.x:** What is Strutvane?, Quick start, Project structure, Environment variables, Models and fields, Migrations and CLI commands, copied from `packages/docs` with links flattened, plus a short Release Notes page with the live support table.
 
 ## Design: Laravel's reading experience, Strutvane's look

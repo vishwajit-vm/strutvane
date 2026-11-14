@@ -15,6 +15,10 @@
       "items": [
         "introduction",
         "installation",
+        {
+          "slug": "docker",
+          "label": "Docker"
+        },
         "configuration",
         "structure",
         {
@@ -22,6 +26,10 @@
           "label": "Your First CRUD"
         },
         "frontend",
+        {
+          "slug": "designs",
+          "label": "Designs"
+        },
         "starter-kits",
         "ai-agents",
         "deployment"
@@ -72,6 +80,10 @@
     {
       "label": "Security",
       "items": [
+        {
+          "slug": "security",
+          "label": "Security Features"
+        },
         "authentication",
         "authorization",
         "email-verification",
@@ -129,7 +141,8 @@
         "crud-sidebar",
         "crud-customising",
         "crud-slugs",
-        "crud-search"
+        "crud-search",
+        "charts"
       ]
     },
     {
@@ -148,6 +161,10 @@
     {
       "label": "Packages",
       "items": [
+        {
+          "slug": "packages/catalogue",
+          "label": "Package Catalogue"
+        },
         "packages/framework",
         "packages/auth",
         "packages/ui",

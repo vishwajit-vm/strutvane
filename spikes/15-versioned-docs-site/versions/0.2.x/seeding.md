@@ -168,7 +168,21 @@ Factories are designed (ORM design, §7) but not built yet; the names above may 
 
 ## The first admin user
 
-New apps come with a seeder that creates your roles and the first admin user. The installer runs it for you, and the admin's password is in `.env` as `SEED_ADMIN_PASSWORD`. With Docker or without, it's the same seeder; with Docker it runs inside the app container.
+New apps come with a seeder that creates your roles and the first admin user. The installer runs it for you. With Docker or without, it's the same seeder; with Docker it runs inside the app container.
+
+- The admin's **email** is in `.env` as `SEED_ADMIN_EMAIL` (by default `admin@<your-app>.test`).
+- The admin's **password is never written to any file**: not to `.env`, not to `.env.example`, not to `strutvane.json`. The installer either generates one and shows it **once** in the terminal, or lets you type one (masked, at least 12 characters). It reaches the seeder only through an environment variable for that one run, and the account is marked "must change password at first sign-in".
+- In CI, or when you missed the one-time password, set a new one:
+
+```bash
+node strut user:password admin@my-app.test
+```
+
+The admin seeder refuses to run when `APP_ENV` is `production` or `staging`, so it can never create a known account on a live server.
+
+:::caution[Coming in 0.2]
+The admin seeder, the one-time password and the "never in a file" rule are proven in the installer prototype (spike 13), which scans every file it writes for the password. `node strut user:password` is named by the installer but not built yet.
+:::
 
 ## Common mistakes
 

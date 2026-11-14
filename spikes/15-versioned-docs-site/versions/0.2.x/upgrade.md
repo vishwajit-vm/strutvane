@@ -46,6 +46,7 @@ Click **Copy as Markdown** at the top of this page and paste the guide into your
 
 - [`upgrade` and three-way merges are retired](#upgrade-and-three-way-merges-are-retired)
 - [Packages merged into `@strutvane/framework`](#packages-merged-into-strutvaneframework)
+- [Logging uses Laravel-style channels](#logging-uses-laravel-style-channels)
 
 ---
 
@@ -193,6 +194,20 @@ node strut make:migration create_posts_table --seeder
 **Likelihood of impact: Low**
 
 `@strutvane/core`, `@strutvane/contracts`, `@strutvane/cli`, `@strutvane/devkit` and the logging pipeline from `@strutvane/logs` are now part of `@strutvane/framework`, like `laravel/framework`. The log viewer is the separate `@strutvane/log-viewer` package. If you imported from the old packages, import from `@strutvane/framework` instead.
+
+### Logging uses Laravel-style channels
+
+**Likelihood of impact: Low**
+
+**What changed.** Logging is now part of `@strutvane/framework` and works like Laravel's: you pick **channels** (`single`, `daily`, `stack`, `stderr`, `slack`, …) in `config/logging.ts` and `.env` (`LOG_CHANNEL`, `LOG_STACK`, `LOG_LEVEL`, `LOG_DAILY_DAYS`, `LOG_FORMAT`). Three things look different from 0.1:
+
+| | 0.1 (`@strutvane/logs`) | 0.2 |
+|---|---|---|
+| Level names | six pino-style names (`trace`, `debug`, `info`, `warn`, `error`, `fatal`) | the eight RFC 5424 names, as in Laravel: `emergency`, `alert`, `critical`, `error`, `warning`, `notice`, `info`, `debug` |
+| File names | `storage/logs/YYYY-MM-DD.w<id>.ndjson` | `storage/logs/strutvane-YYYY-MM-DD.log` (daily) or `strutvane.log` (single) |
+| File format | NDJSON (one JSON object per line) | readable lines by default; `LOG_FORMAT=json` keeps NDJSON |
+
+**What to do.** Usually nothing: the old names `warn`, `fatal` and `trace` still work as aliases for `warning`, `critical` and `debug`. If a log shipper reads the old `.ndjson` files, point it at the new names and set `LOG_FORMAT=json`. See [Logging](../logging/).
 
 The full list of changes in 0.2 is in the [release notes](../releases/).
 

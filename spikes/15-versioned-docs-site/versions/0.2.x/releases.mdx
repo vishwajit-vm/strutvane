@@ -151,7 +151,7 @@ Every release is built in CI with npm provenance and approved by a maintainer wi
 
 Strutvane 0.2 rebuilds the framework around **Laravel's flow**. If you used 0.1, read the [upgrade guide](../upgrade/) first.
 
-**One command to start.** `npm create strutvane@latest my-app` asks a few questions, then installs, sets up the database (MySQL by default), migrates, seeds and makes a first commit. See [Installation](../installation/).
+**One command to start.** `npm create strutvane@latest my-app` asks what you need (7 quick questions in Recommended mode, or every option in Custom mode), then installs, sets up the database (MySQL by default), migrates, seeds and makes a first commit. See [Installation](../installation/).
 
 **Migrations are the source of truth.** Columns are written in migrations with a Laravel-style Schema builder, and your TypeScript types are generated from them:
 
@@ -170,7 +170,17 @@ schema.create('posts', (t) => {
 
 **The Strutvane ORM.** Models are classes (`class Post extends Model('posts')`) with a fully typed query builder, relationships, eager loading, scopes, soft deletes and factories.
 
-**Auth built in.** Email and password sign-in, registration, email verification, password reset, two-factor authentication, API tokens and teams, configured in `config/auth.ts`.
+**Auth built in.** Email and password or email-link sign-in, email verification, password reset, two-factor authentication, passkeys, API tokens, teams and impersonation, each switched on or off in `config/auth.ts`. Public registration is off until you turn it on. See [Authentication](../authentication/).
+
+**Docker or not, your choice.** With Docker, everything runs in containers like Laravel Sail, and `node strut` forwards each command into the app container. A production `Dockerfile` and a dev container are written only if you ask for them. See [Docker](../docker/).
+
+**Pick a design.** The admin UI's look is a separate package: **Crisp** (the default) or **Vivid**, switchable later. See [Designs](../designs/).
+
+**Secure by default, in every style.** CSRF, security headers, trusted hosts and proxies, rate limits and more are on by default, and each can be adjusted per app, route, group, controller or handler. `route:list --security` shows every opt-out. See [Security Features](../security/) and [CSRF Protection](../csrf/).
+
+**Logging like Laravel.** Channels (`single`, `daily`, `stack`, `stderr`, `slack`, your own) chosen in `.env`, with secrets always redacted. See [Logging](../logging/).
+
+**Built for 100+ packages.** One catalogue drives the installer's feature list and `node strut install:<name>`. See [Package Catalogue](../packages/catalogue/).
 
 **npm only.** No pnpm or yarn needed, anywhere.
 
