@@ -111,6 +111,22 @@ export class ConfigRepository {
   }
 
   /**
+   * `true` when a value exists at the dot path. For optional settings a framework feature reads
+   * only if the app defines them (`app.previous_keys`).
+   *
+   * @example
+   * repository.has('app.previous_keys') // false for apps that don't rotate keys yet
+   */
+  has(path: string): boolean {
+    let current: unknown = this.#tree
+    for (const segment of path.split('.')) {
+      if (typeof current !== 'object' || current === null || !Object.hasOwn(current, segment)) return false
+      current = (current as Record<string, unknown>)[segment]
+    }
+    return true
+  }
+
+  /**
    * Read a value by dot path. Unknown paths are an error (not `undefined`), because a typo in a
    * config key should never silently turn a feature off.
    *

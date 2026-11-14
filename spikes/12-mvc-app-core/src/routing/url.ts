@@ -94,8 +94,13 @@ function routeValue(value: RouteParam, field: string | undefined): string | numb
   return typeof value === 'object' ? value.routeKey(field) : value
 }
 
-/** The params argument `route()` takes for a given name: optional when the route has none. */
-type RouteArguments<TName extends keyof RouteRegistry> = keyof RouteRegistry[TName] extends never
+/**
+ * The params argument `route()` takes for a given name: optional when the route has none.
+ *
+ * @example
+ * type A = RouteArguments<'posts.show'> // [params: { post: RouteParam }, options?: UrlOptions]
+ */
+export type RouteArguments<TName extends keyof RouteRegistry> = keyof RouteRegistry[TName] extends never
   ? [params?: Readonly<Record<string, RouteParam>>, options?: UrlOptions]
   : [params: RouteRegistry[TName] & Readonly<Record<string, RouteParam>>, options?: UrlOptions]
 

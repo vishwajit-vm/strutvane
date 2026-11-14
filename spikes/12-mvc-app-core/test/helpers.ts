@@ -32,8 +32,9 @@ export const NOW = new Date('2026-11-14T10:00:00.000Z')
  * @example
  * const { app, logger } = await exampleApp()
  */
-export async function exampleApp(env: Readonly<Record<string, string>> = {}): Promise<{ app: Application; logger: MemoryLogger; clock: { now: Date } }> {
+export async function exampleApp(env: Readonly<Record<string, string>> = {}, options: { readonly forceDebug?: boolean } = {}): Promise<{ app: Application; logger: MemoryLogger; clock: { now: Date } }> {
   const app = createApp({ ...testEnv, ...env })
+  if (options.forceDebug === true) app.forceDebug()
   const logger = new MemoryLogger()
   const clock = { now: NOW }
   // Bound before boot, so the core keeps them instead of its defaults.

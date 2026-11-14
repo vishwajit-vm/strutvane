@@ -13,6 +13,8 @@ import { Authorize } from './authorize.ts'
 import { csrfTokenFor, VerifyCsrfToken } from './csrf.ts'
 import type { HttpContext } from './context.ts'
 import { defineProtection, type Protection } from './protection.ts'
+import { EnsureIdempotency } from './idempotency.ts'
+import { ValidateSignature } from './signed.ts'
 import { ThrottleRequests } from './throttle.ts'
 
 /**
@@ -79,3 +81,35 @@ export const throttle: Protection = defineProtection('throttle', ThrottleRequest
  * export default withThrottle(async (ctx) => ctx.json({ sent: true }), '5', '1')
  */
 export const withThrottle = throttle.wrap
+
+/**
+ * The `signed` protection: the URL must carry a valid (and unexpired) signature.
+ *
+ * @example
+ * static readonly middleware = [signed({ only: ['download'] })]
+ */
+export const signed: Protection = defineProtection('signed', ValidateSignature)
+
+/**
+ * Wrap a handler so only signed links reach it.
+ *
+ * @example
+ * export default withSigned(async (ctx) => ctx.json({ unsubscribed: true }))
+ */
+export const withSigned = signed.wrap
+
+/**
+ * The `idempotent` protection: retries with the same `Idempotency-Key` replay the first response.
+ *
+ * @example
+ * static readonly middleware = [idempotent({ only: ['store'] })]
+ */
+export const idempotent: Protection = defineProtection('idempotent', EnsureIdempotency)
+
+/**
+ * Wrap a handler so it runs at most once per idempotency key.
+ *
+ * @example
+ * export default withIdempotency(async (ctx) => ctx.json(await charge(ctx), 201))
+ */
+export const withIdempotency = idempotent.wrap

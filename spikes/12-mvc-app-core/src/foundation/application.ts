@@ -24,6 +24,11 @@ import { isInternalResource, loadMetadata, MetadataToken } from '../database/met
 import { ExceptionHandler, ExceptionsConfig } from '../exceptions/handler.ts'
 import { HttpContext } from '../http/context.ts'
 import { Authorize } from '../http/authorize.ts'
+import { EnsureIdempotency, IdempotencyStoreToken, MemoryIdempotencyStore } from '../http/idempotency.ts'
+import { ValidateSignature } from '../http/signed.ts'
+import { Encrypter, EncrypterToken } from '../security/encrypter.ts'
+import { checkBootGuards } from '../security/boot-guards.ts'
+import { KeyringToken } from '../security/keyring.ts'
 import { VerifyCsrfToken } from '../http/csrf.ts'
 import { buildMiddleware, MiddlewareConfig, MiddlewareConfigToken, type MiddlewareReference } from '../http/middleware.ts'
 import { cspReportRoutes } from '../http/csp-report.ts'
@@ -239,6 +244,7 @@ export class Application implements ApplicationScope {
   readonly #extraStages: KernelStage[] = []
   #state: BootedState | undefined
   #booting: Promise<void> | undefined
+  #forceDebug = false
 
   constructor(blueprint: Blueprint) {
     this.#blueprint = blueprint
@@ -343,6 +349,19 @@ export class Application implements ApplicationScope {
   }
 
   /**
+   * Allow booting with APP_DEBUG=true in production (the `--force-debug` flag). Without it the
+   * boot guard refuses that combination. Call it before the app boots.
+   *
+   * @example
+   * app.forceDebug()
+   */
+  forceDebug(): this {
+    if (this.#booting !== undefined) throw new StrutvaneError('FORCE_DEBUG_AFTER_BOOT', 'forceDebug() was called after the app started booting.', 'Call it before the first request or command (node strut does it for --force-debug).')
+    this.#forceDebug = true
+    return this
+  }
+
+  /**
    * Boot once: config, providers, routes and all start-up checks. Safe to call many times.
    *
    * @example
@@ -397,6 +416,14 @@ export class Application implements ApplicationScope {
 
   async #boot(): Promise<void> {
     const config = loadConfig(this.#blueprint.config, loadEnvSource(this.basePath, this.#blueprint.env))
+    const guards = checkBootGuards({
+      environment: String(config.get('app.env')),
+      debug: config.get('app.debug') === true,
+      appKey: String(config.get('app.key')),
+      previousKeys: config.has('app.previous_keys') ? String(config.get('app.previous_keys')) : '',
+      forceDebug: this.#forceDebug,
+    })
+    this.container.instance(KeyringToken, guards.keyring)
     this.#registerCore(config)
     for (const configure of this.#blueprint.middleware) configure(this.#middleware)
     for (const configure of this.#blueprint.exceptions) configure(this.#exceptions)
@@ -415,6 +442,7 @@ export class Application implements ApplicationScope {
     const middleware = new Map(routes.map((route) => [route, resolveRouteMiddleware(route, this.#middleware)] as const))
     const stages = [trustedHostStage(security), ...this.#extraStages, corsPreflightStage(security)]
     this.#state = { config, routes, url, hono: this.#buildHono(routes, middleware), handler, middleware, security, stages }
+    for (const warning of guards.warnings) logger.warn(warning)
     if (config.get('app.debug') === true && !showDetails) logger.warn('APP_DEBUG=true is ignored outside local and testing environments; production errors stay plain.')
     await runInApplication(this, async () => {
       for (const provider of providers) await provider.boot(this)
@@ -432,6 +460,8 @@ export class Application implements ApplicationScope {
     if (!this.container.has(ClockToken)) this.container.singleton(ClockToken, () => () => new Date())
     if (!this.container.has(LoggerToken)) this.container.singleton(LoggerToken, () => new StderrLogger())
     if (!this.container.has(RateLimitStoreToken)) this.container.singleton(RateLimitStoreToken, () => new MemoryRateLimitStore())
+    if (!this.container.has(IdempotencyStoreToken)) this.container.singleton(IdempotencyStoreToken, () => new MemoryIdempotencyStore())
+    this.container.singleton(EncrypterToken, (container) => new Encrypter(container.make(KeyringToken)))
     this.container.singleton(MetadataToken, () => loadMetadata(this.basePath))
     if (Object.hasOwn(config.all, 'database')) {
       this.container.singleton(ConnectionToken, () => {
@@ -440,7 +470,7 @@ export class Application implements ApplicationScope {
         return openConnection(name, config.get(`database.connections.${name}`) as ConnectionSettings, this.basePath)
       })
     }
-    this.#middleware.alias({ auth: Authenticate, throttle: ThrottleRequests, csrf: VerifyCsrfToken, can: Authorize })
+    this.#middleware.alias({ auth: Authenticate, throttle: ThrottleRequests, csrf: VerifyCsrfToken, can: Authorize, signed: ValidateSignature, idempotent: EnsureIdempotency })
     this.#middleware.prependToGroup('web', 'csrf')
     this.#middleware.prependToGroup('api', 'csrf', 'throttle:api')
     this.#middleware.rateLimiter('api', { maxAttempts: 60, decaySeconds: 60 })

@@ -157,7 +157,7 @@ describe('F-22 and F-26: rate-limit keys and production 403s', () => {
     const development = await exampleApp()
     const dev = await client(development.app).actingAs(demoTokens.alice).deleteJson('/api/posts/hello-world')
     expect(dev.path('hint')).toBe('PostPolicy has no delete() method, so this is denied (Strutvane denies by default). Add delete(user, post) to the policy to allow it.')
-    const production = await exampleApp({ APP_ENV: 'production', APP_DEBUG: 'true' })
+    const production = await exampleApp({ APP_ENV: 'production', APP_DEBUG: 'true' }, { forceDebug: true })
     const prod = await client(production.app).actingAs(demoTokens.alice).deleteJson('/api/posts/hello-world')
     prod.assertProblem(403, 'forbidden')
     expect(prod.text).not.toContain('PostPolicy')

@@ -11,4 +11,6 @@ export default defineConfig((env) => ({
   url: env.url('APP_URL', 'http://localhost:3000'),
   /** Signs CSRF tokens (and, in the product, encrypted cookies). Required: no safe default exists. */
   key: env.string('APP_KEY'),
+  /** Retired keys, comma-separated, still accepted for decryption and signatures (`node strut key:rotate`). */
+  previous_keys: env.string('APP_PREVIOUS_KEYS', ''),
 }))

@@ -11,7 +11,7 @@ import { DatabaseSeeder, demoTokens } from '../../database/seeders/database.seed
 let app: Application
 
 beforeEach(async () => {
-  app = createApp({ APP_ENV: 'testing', APP_KEY: 'testing-key', DB_CONNECTION: 'sqlite', DB_DATABASE: ':memory:' })
+  app = createApp({ APP_ENV: 'testing', APP_KEY: 'testing-key-0123456789abcdef0123456789', DB_CONNECTION: 'sqlite', DB_DATABASE: ':memory:' })
   await refreshDatabase(app)
   await app.run(() => new DatabaseSeeder().run())
 })

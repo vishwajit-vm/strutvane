@@ -40,7 +40,9 @@ const processOutput: Output = {
 export async function runConsole(app: Application, argv: readonly string[], options: ConsoleOptions = {}): Promise<number> {
   const output = options.output ?? processOutput
   const commands = allCommands(app)
-  const [name, ...rest] = argv
+  // --force-debug is global (any command that boots), so it's taken out before parsing.
+  if (argv.includes('--force-debug')) app.forceDebug()
+  const [name, ...rest] = argv.filter((argument) => argument !== '--force-debug')
   try {
     if (name === undefined || name === 'list') return listCommands(commands, output)
     if (name === 'help' || name === '--help' || name === '-h') return helpFor(rest[0], commands, output)

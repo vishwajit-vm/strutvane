@@ -4,6 +4,7 @@
  * is in the test name, so a failure can be replayed.
  */
 import { describe, expect, it } from 'vitest'
+import { Keyring, signUrl, verifySignedUrl } from '#strutvane/security'
 import { JsonLimitError, measureJson, parseJsonSafely } from '../src/security/safe-json.ts'
 
 /** mulberry32: a tiny, fast, seeded PRNG (good enough for fuzzing, never for secrets). */
@@ -78,5 +79,42 @@ describe('fuzz: the JSON limit parser', () => {
       expect(() => parseJsonSafely(`{"a":[${nested},{"${key}":{"polluted":true}}]}`)).toThrow(/__proto__/)
     }
     expect(({} as Record<string, unknown>)['polluted']).toBeUndefined()
+  })
+})
+
+describe('fuzz: the signed-URL verifier', () => {
+  const keyring = Keyring.from(`base64:${Buffer.alloc(32, 7).toString('base64')}`)
+  const now = new Date('2026-11-15T10:00:00Z')
+  const URL_CHARS = ['a', 'b', 'Z', '0', '9', '-', '_', '.', '~', '%', '2', 'F', '/', '?', '&', '=', '#', '+', ' ', 'é']
+
+  /** What a URL *means* to the app: its path and its parameters (sorted), signature excluded. */
+  function meaning(url: string): string {
+    const parsed = new URL(url, 'http://x.invalid')
+    const params = [...parsed.searchParams].filter(([key]) => key !== 'signature').sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+    return `${parsed.pathname}?${JSON.stringify(params)}#${parsed.searchParams.getAll('signature').join(',')}`
+  }
+
+  it.each([11, 12, 13])('a one-character change is valid only if it changes nothing (seed %i, 3,000 links)', (seed) => {
+    const random = prng(seed)
+    const pick = (): string => URL_CHARS[Math.floor(random() * URL_CHARS.length)] ?? 'a'
+    for (let round = 0; round < 3000; round++) {
+      const segments = Array.from({ length: 1 + Math.floor(random() * 3) }, () => encodeURIComponent(randomString(random, 6)) || 'x')
+      const params = new URLSearchParams(Array.from({ length: Math.floor(random() * 3) }, (_, index): [string, string] => [`p${index}`, randomString(random, 5)]))
+      const expires = random() < 0.5 ? new Date(now.getTime() + 3_600_000) : undefined
+      const url = signUrl(`/${segments.join('/')}${params.size > 0 ? `?${params.toString()}` : ''}`, keyring, expires)
+      expect(verifySignedUrl(url, keyring, now)).toBe('valid')
+      const position = Math.floor(random() * url.length)
+      const mutated = `${url.slice(0, position)}${pick()}${url.slice(position + 1)}`
+      const verdict = verifySignedUrl(mutated, keyring, now)
+      if (verdict === 'valid') expect(meaning(mutated), `${url} -> ${mutated}`).toBe(meaning(url))
+    }
+  })
+
+  it('never throws on arbitrary input (seed 14, 5,000 strings)', () => {
+    const random = prng(14)
+    for (let round = 0; round < 5000; round++) {
+      const text = `/${randomString(random, 30)}?signature=${randomString(random, 43)}&expires=${randomString(random, 4)}`
+      expect(['valid', 'invalid', 'expired']).toContain(verifySignedUrl(text, keyring, now))
+    }
   })
 })

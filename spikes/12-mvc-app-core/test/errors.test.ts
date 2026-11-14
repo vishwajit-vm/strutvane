@@ -42,7 +42,8 @@ describe('debug mode (APP_DEBUG=true, APP_ENV=testing)', () => {
 
 describe('production (APP_ENV=production): plain errors whatever APP_DEBUG says', () => {
   it('shows only a reference id, logs the details under that id, and warns that APP_DEBUG is ignored', async () => {
-    const { app, logger } = await exampleApp({ APP_ENV: 'production', APP_DEBUG: 'true' })
+    // APP_DEBUG=true in production is refused at boot (see boot-guards.test.ts); forced, it stays plain.
+    const { app, logger } = await exampleApp({ APP_ENV: 'production', APP_DEBUG: 'true' }, { forceDebug: true })
     const page = await client(app).get('/_diagnostics/boom')
     page.assertStatus(500)
     expect(page.text).not.toContain('TypeError')
