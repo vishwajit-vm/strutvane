@@ -1,0 +1,201 @@
+/*
+ * Crisp (design direction C, "Minimal Enterprise"): every colour, shadow and motion value used by the UI.
+ *
+ * Why one file: components never name a colour, they name a ROLE (`bg-surface`, `text-fg-muted`,
+ * `bg-accent`). Dark mode, a different accent or a customer brand is therefore a change here
+ * only, and `test/contrast.test.ts` re-checks every text/background pair of both themes from
+ * this very file. `test/tokens.test.ts` fails if a colour literal appears anywhere else in `src/`.
+ *
+ * Format rule (the contrast test parses it): one `--token: value;` per line, light values in the
+ * `:root` block, dark values in the `.dark` block.
+ */
+
+:root {
+  color-scheme: light;
+
+  /* Surfaces, back to front. The canvas sits behind the inset content panel and the sidebar. */
+  --bg: #f7f7f8;
+  --surface: #ffffff;
+  --surface-subtle: #f4f4f5;
+  --surface-muted: #ebebed;
+  --overlay: rgb(9 9 11 / 0.32);
+
+  /* Text: primary, secondary (labels, meta), tertiary (placeholders, timestamps). All AA on every surface. */
+  --fg: #0b0b0f;
+  --fg-muted: #52525b;
+  --fg-subtle: #66666f;
+
+  /* Hairlines. Borders carry the structure in this direction; shadows are reserved for floating layers. */
+  --border: #e6e6e9;
+  --border-strong: #d4d4d8;
+  --input: #d4d4d8;
+
+  /* The one confident accent: cobalt. Primary buttons, focus, selection, links, the main chart series. */
+  --accent: #4353e8;
+  --accent-hover: #3746d6;
+  --accent-fg: #ffffff;
+  --accent-subtle: #eef0fd;
+  --accent-text: #3a4bdb;
+  --ring: #4353e8;
+
+  /* Inverted chips (bulk-action bar, tooltips): the darkest surface, readable in both themes. */
+  --inverse: #18181b;
+  --inverse-fg: #fafafa;
+  --inverse-muted: #a1a1aa;
+
+  /* Status: a dot (graphic), a quiet fill and a text colour. Status is never conveyed by colour alone. */
+  --success: #1f9d55;
+  --success-subtle: #e9f6ef;
+  --success-text: #157046;
+  --warning: #d98b00;
+  --warning-subtle: #fdf4e3;
+  --warning-text: #8a5300;
+  --danger: #c9372c;
+  --danger-hover: #b22d23;
+  --danger-fg: #ffffff;
+  --danger-subtle: #fdeceb;
+  --danger-text: #b42318;
+  --info: #4353e8;
+  --neutral: #a1a1aa;
+
+  /* Charts: the accent first, then quiet neutrals so one series always leads. */
+  --chart-1: #4353e8;
+  --chart-2: #a5aef6;
+  --chart-3: #a1a1aa;
+  --chart-4: #d4d4d8;
+  --chart-grid: #ececef;
+
+  /* Avatar tints: desaturated so a row of faces never becomes the loudest thing on screen. */
+  --avatar-1: #e7e9fb;
+  --avatar-2: #e6f2ec;
+  --avatar-3: #f6ece0;
+  --avatar-4: #efe7f6;
+  --avatar-5: #e8eef3;
+  --avatar-fg: #2b2b33;
+
+  /* Elevation: only popovers, menus, dialogs and the bulk bar float. */
+  --shadow-xs: 0 1px 2px rgb(16 16 24 / 0.05);
+  --shadow-sm: 0 1px 2px rgb(16 16 24 / 0.06), 0 1px 1px rgb(16 16 24 / 0.03);
+  --shadow-pop: 0 0 0 1px rgb(16 16 24 / 0.04), 0 4px 8px -2px rgb(16 16 24 / 0.08), 0 16px 32px -8px rgb(16 16 24 / 0.14);
+  --highlight: inset 0 1px 0 rgb(255 255 255 / 0.12);
+}
+
+.dark {
+  color-scheme: dark;
+
+  --bg: #09090b;
+  --surface: #111113;
+  --surface-subtle: #18181b;
+  --surface-muted: #222226;
+  --overlay: rgb(0 0 0 / 0.6);
+
+  --fg: #ededef;
+  --fg-muted: #a1a1aa;
+  --fg-subtle: #8e8e97;
+
+  --border: #232327;
+  --border-strong: #303036;
+  --input: #3a3a41;
+
+  --accent: #5664f0;
+  --accent-hover: #4a57e3;
+  --accent-fg: #ffffff;
+  --accent-subtle: #1b1e3a;
+  --accent-text: #9aa4ff;
+  --ring: #7c8aff;
+
+  --inverse: #fafafa;
+  --inverse-fg: #18181b;
+  --inverse-muted: #52525b;
+
+  --success: #30a46c;
+  --success-subtle: #0f2419;
+  --success-text: #4cc38a;
+  --warning: #e5a000;
+  --warning-subtle: #2a1f0b;
+  --warning-text: #f2b84b;
+  --danger: #d4392e;
+  --danger-hover: #bd3128;
+  --danger-fg: #ffffff;
+  --danger-subtle: #2c1313;
+  --danger-text: #ff8a80;
+  --info: #7c8aff;
+  --neutral: #71717a;
+
+  --chart-1: #7c8aff;
+  --chart-2: #3d4594;
+  --chart-3: #71717a;
+  --chart-4: #3a3a41;
+  --chart-grid: #1f1f23;
+
+  --avatar-1: #23264a;
+  --avatar-2: #17301f;
+  --avatar-3: #3a2c19;
+  --avatar-4: #2e2240;
+  --avatar-5: #1e2a33;
+  --avatar-fg: #e4e4e7;
+
+  --shadow-xs: 0 1px 2px rgb(0 0 0 / 0.4);
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.5);
+  --shadow-pop: 0 0 0 1px rgb(255 255 255 / 0.06), 0 8px 16px -4px rgb(0 0 0 / 0.5), 0 24px 48px -12px rgb(0 0 0 / 0.6);
+  --highlight: inset 0 1px 0 rgb(255 255 255 / 0.1);
+}
+
+/*
+ * Theme-independent tokens: shape, type, density, layout and motion. They live here (not in
+ * app.css) so a design package can ship ONE file that defines the whole look; app.css only maps
+ * these variables onto Tailwind utilities (`rounded-md`, `text-sm`, `h-control-md`, `w-sidebar`).
+ * Kept after the colour blocks on purpose: the contrast test reads the first `:root` block.
+ */
+:root {
+  /* Fonts */
+  --font-ui: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-numeric: 'Geist Mono', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+  --font-features: 'cv11', 'ss03';
+  --tracking-display: -0.035em;
+  --tracking-title: -0.015em;
+
+  /* Type scale (size / line height) */
+  --size-2xs: 11px;
+  --leading-2xs: 16px;
+  --size-xs: 12px;
+  --leading-xs: 16px;
+  --size-sm: 13px;
+  --leading-sm: 20px;
+  --size-base: 14px;
+  --leading-base: 20px;
+  --size-lg: 16px;
+  --leading-lg: 24px;
+  --size-xl: 20px;
+  --leading-xl: 28px;
+  --size-2xl: 24px;
+  --leading-2xl: 32px;
+  --size-3xl: 30px;
+  --leading-3xl: 36px;
+
+  /* Shape */
+  --shape-xs: 3px;
+  --shape-sm: 4px;
+  --shape-md: 6px;
+  --shape-lg: 8px;
+  --shape-xl: 12px;
+
+  /* Density: control and row heights */
+  --control-sm: 28px;
+  --control-md: 32px;
+  --control-lg: 36px;
+  --row-compact: 32px;
+  --row-default: 40px;
+  --row-comfortable: 48px;
+
+  /* Shell layout */
+  --sidebar-width: 240px;
+  --topbar-height: 48px;
+
+  /* Motion */
+  --ease-out-quick: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-in-out-quick: cubic-bezier(0.65, 0, 0.35, 1);
+  --duration-fast: 140ms;
+  --duration-base: 160ms;
+  --duration-slow: 220ms;
+}

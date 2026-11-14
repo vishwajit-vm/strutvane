@@ -1,0 +1,262 @@
+/*
+ * Tailwind 4 entry. It maps the tokens in tokens.css onto Tailwind's theme so components can
+ * write `bg-surface text-fg border-border` and nothing else. Tailwind's built-in colour palette,
+ * font sizes and radii are reset first, so a stray default palette or size class from muscle memory
+ * simply does not exist here: only the Crisp scales below do.
+ */
+@import 'tailwindcss';
+@import '@fontsource-variable/inter/wght.css';
+@import '@fontsource/geist-mono/400.css';
+@import '@fontsource/geist-mono/500.css';
+@import './tokens.css';
+
+/* `dark:` follows the `.dark` class on <html>, which the theme provider (and the pre-paint
+   script in index.html) sets from the remembered choice or the OS setting. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Reset Tailwind's own scales so only the Crisp ones exist. */
+@theme {
+  --color-*: initial;
+  --text-*: initial;
+  --radius-*: initial;
+  --shadow-*: initial;
+  --font-*: initial;
+  --ease-*: initial;
+  --animate-*: initial;
+}
+
+/* Every scale below points at a variable from tokens.css (`inline` keeps the var() reference),
+   so a design package can restyle the whole UI by shipping a different tokens.css. */
+@theme inline {
+  --font-sans: var(--font-ui);
+  --font-mono: var(--font-numeric);
+
+  --text-2xs: var(--size-2xs);
+  --text-2xs--line-height: var(--leading-2xs);
+  --text-xs: var(--size-xs);
+  --text-xs--line-height: var(--leading-xs);
+  --text-sm: var(--size-sm);
+  --text-sm--line-height: var(--leading-sm);
+  --text-base: var(--size-base);
+  --text-base--line-height: var(--leading-base);
+  --text-lg: var(--size-lg);
+  --text-lg--line-height: var(--leading-lg);
+  --text-xl: var(--size-xl);
+  --text-xl--line-height: var(--leading-xl);
+  --text-2xl: var(--size-2xl);
+  --text-2xl--line-height: var(--leading-2xl);
+  --text-3xl: var(--size-3xl);
+  --text-3xl--line-height: var(--leading-3xl);
+
+  --radius-xs: var(--shape-xs);
+  --radius-sm: var(--shape-sm);
+  --radius-md: var(--shape-md);
+  --radius-lg: var(--shape-lg);
+  --radius-xl: var(--shape-xl);
+
+  /* Named sizes: `h-control-md`, `h-row-default`, `w-sidebar`, `h-topbar`. */
+  --spacing-control-sm: var(--control-sm);
+  --spacing-control-md: var(--control-md);
+  --spacing-control-lg: var(--control-lg);
+  --spacing-row-compact: var(--row-compact);
+  --spacing-row-default: var(--row-default);
+  --spacing-row-comfortable: var(--row-comfortable);
+  --spacing-sidebar: var(--sidebar-width);
+  --spacing-topbar: var(--topbar-height);
+
+  --ease-out: var(--ease-out-quick);
+  --ease-in-out: var(--ease-in-out-quick);
+
+  --animate-pop-in: pop-in var(--duration-fast) var(--ease-out-quick);
+  --animate-fade-in: fade-in var(--duration-base) var(--ease-out-quick);
+  --animate-drawer-in: drawer-in var(--duration-slow) var(--ease-out-quick);
+  --animate-rise-in: rise-in var(--duration-slow) var(--ease-out-quick);
+  --animate-shimmer: shimmer 1.6s ease-in-out infinite;
+}
+
+/* Colours point at the runtime variables (`inline`), so swapping `.dark` re-themes instantly. */
+@theme inline {
+  --color-transparent: transparent;
+  --color-current: currentColor;
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-subtle: var(--surface-subtle);
+  --color-muted: var(--surface-muted);
+  --color-overlay: var(--overlay);
+  --color-fg: var(--fg);
+  --color-fg-muted: var(--fg-muted);
+  --color-fg-subtle: var(--fg-subtle);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-input: var(--input);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-fg: var(--accent-fg);
+  --color-accent-subtle: var(--accent-subtle);
+  --color-accent-text: var(--accent-text);
+  --color-ring: var(--ring);
+  --color-inverse: var(--inverse);
+  --color-inverse-fg: var(--inverse-fg);
+  --color-inverse-muted: var(--inverse-muted);
+  --color-success: var(--success);
+  --color-success-subtle: var(--success-subtle);
+  --color-success-text: var(--success-text);
+  --color-warning: var(--warning);
+  --color-warning-subtle: var(--warning-subtle);
+  --color-warning-text: var(--warning-text);
+  --color-danger: var(--danger);
+  --color-danger-hover: var(--danger-hover);
+  --color-danger-fg: var(--danger-fg);
+  --color-danger-subtle: var(--danger-subtle);
+  --color-danger-text: var(--danger-text);
+  --color-info: var(--info);
+  --color-neutral: var(--neutral);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-avatar-1: var(--avatar-1);
+  --color-avatar-2: var(--avatar-2);
+  --color-avatar-3: var(--avatar-3);
+  --color-avatar-4: var(--avatar-4);
+  --color-avatar-5: var(--avatar-5);
+  --color-avatar-fg: var(--avatar-fg);
+
+  --shadow-xs: var(--shadow-xs);
+  --shadow-sm: var(--shadow-sm);
+  --shadow-pop: var(--shadow-pop);
+  --shadow-highlight: var(--highlight);
+}
+
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(-2px) scale(0.98);
+  }
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes drawer-in {
+  from {
+    transform: translateX(16px);
+    opacity: 0;
+  }
+}
+@keyframes rise-in {
+  from {
+    transform: translateY(8px);
+    opacity: 0;
+  }
+}
+@keyframes shimmer {
+  50% {
+    opacity: 0.55;
+  }
+}
+
+@layer base {
+  html {
+    font-family: var(--font-ui);
+    /* Crisp: cv11 is Inter's single-storey "a" and ss03 its rounded quotes, calmer at 13 px. */
+    font-feature-settings: var(--font-features);
+    font-size: var(--size-base);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    background: var(--bg);
+    color: var(--fg);
+  }
+  body {
+    min-height: 100dvh;
+    background: var(--bg);
+    color: var(--fg);
+    font-size: var(--size-base);
+    line-height: var(--leading-base);
+  }
+  /* Never let a wide child scroll the whole page sideways: wide content scrolls inside itself. */
+  html,
+  body {
+    overflow-x: clip;
+  }
+  ::selection {
+    background: var(--accent-subtle);
+    color: var(--fg);
+  }
+  /* One focus treatment everywhere: a 2px accent ring with a 2px gap, keyboard only. */
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+  *,
+  ::before,
+  ::after {
+    border-color: var(--border);
+  }
+  input::placeholder,
+  textarea::placeholder {
+    color: var(--fg-subtle);
+  }
+  /* The native date picker icon follows the theme through `color-scheme` (set per theme). */
+  input[type='date']::-webkit-calendar-picker-indicator {
+    opacity: 0.6;
+    cursor: pointer;
+  }
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+}
+
+@layer utilities {
+  /* Numbers that must line up in columns (amounts, ids, counts). */
+  .num {
+    font-family: var(--font-numeric);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+  }
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+  /* Display numbers (KPIs, totals): Inter with tabular figures and tight tracking. Large mono
+     digits read as code; proportional-width Inter with tnum reads as a figure in a report. */
+  .figure {
+    font-family: var(--font-ui);
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum', 'cv11', 'ss01';
+    letter-spacing: var(--tracking-display);
+    line-height: 1.1;
+  }
+  /* Scroll containers keep a thin, quiet scrollbar that matches the theme. */
+  .scroll-quiet {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-strong) transparent;
+  }
+  /* Sign-in backdrop: a 24 px dot grid in the border colour, faded out by a radial mask so
+     only the area around the card carries texture. Pure CSS, no image. */
+  .auth-backdrop::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background-image: radial-gradient(var(--border-strong) 1px, transparent 1px);
+    background-size: 24px 24px;
+    mask-image: radial-gradient(ellipse 60% 55% at 50% 38%, black 20%, transparent 75%);
+  }
+  .auth-backdrop > * {
+    position: relative;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+  }
+}
