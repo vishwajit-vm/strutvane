@@ -1,0 +1,172 @@
+/**
+ * Models: create/update/delete, mass assignment, casts, timestamps, soft deletes, slugs, keys
+ * and serialization, on MySQL, PostgreSQL and SQLite.
+ */
+import { describe, expect, test } from 'vitest'
+import { CastError, MassAssignmentError, ModelNotFoundError, OrmUsageError, runWithTenant } from '#orm'
+import { Post } from '#app/models/post'
+import { Project } from '#app/models/project'
+import { User } from '#app/models/user'
+import { engines, engineTitle, useEngine } from './support/engines.ts'
+import { makePost, makeUser } from './support/seed.ts'
+
+const TENANT = '0193a0b2-7c1e-7d4f-8a9b-0c1d2e3f4a5b'
+
+/** What a JS caller (or a cast in TS) does: hand unvalidated input straight to create(). */
+function asCreateInput(body: object): { name: string; email: string } {
+  return body as { name: string; email: string }
+}
+
+describe.each(engines)('models on $name', (engine) => {
+  describe.skipIf(engine.skipped !== undefined)(engineTitle(engine), () => {
+    useEngine(engine)
+
+    test('create fills database defaults, keys and timestamps, and reads them back', async () => {
+      const ada = await makeUser('Ada')
+      expect(ada.id).toBeTypeOf('number')
+      expect(ada.is_admin).toBe(false) // database default, cast from 0 on MySQL/SQLite
+      expect(ada.created_at).toBeInstanceOf(Date)
+      expect(ada.updated_at?.getTime()).toBe(ada.created_at?.getTime())
+      expect(ada.isPersisted()).toBe(true)
+    })
+
+    test('a custom cast (mutator) normalises on write', async () => {
+      const user = await User.create({ name: 'Grace', email: '  Grace@Example.TEST ' })
+      expect(user.email).toBe('grace@example.test')
+    })
+
+    test('update writes only dirty columns and bumps updated_at', async () => {
+      const ada = await makeUser('Ada')
+      const post = await makePost(ada, 'First')
+      const before = post.updated_at?.getTime() ?? 0
+      await new Promise((resolve) => setTimeout(resolve, 5))
+      post.title = 'First, edited'
+      expect(post.getDirty()).toEqual({ title: 'First, edited' })
+      await post.save()
+      expect(post.isDirty()).toBe(false)
+      expect(post.updated_at?.getTime()).toBeGreaterThan(before)
+      expect((await Post.findOrFail(post.id)).title).toBe('First, edited')
+    })
+
+    test('casts round-trip: boolean, enum, date, json, timestamp, decimal', async () => {
+      const ada = await makeUser('Ada')
+      const post = await makePost(ada, 'Typed')
+      post.fill({ status: 'published', published_on: '2026-11-14', meta: { tags: ['orm'], pinned: true } })
+      await post.save()
+      const fresh = await Post.findOrFail(post.id)
+      expect(fresh.status).toBe('published')
+      expect(fresh.published_on).toBe('2026-11-14')
+      expect(fresh.meta).toEqual({ tags: ['orm'], pinned: true })
+      expect(fresh.created_at).toBeInstanceOf(Date)
+      await runWithTenant(TENANT, async () => {
+        const project = await Project.create({ name: 'Budgeted', budget: 10.5 })
+        expect(project.budget).toBe('10.50') // exact decimal string on every engine
+      })
+    })
+
+    test('enum and length violations fail the same way on every engine', async () => {
+      const ada = await makeUser('Ada')
+      const post = await makePost(ada, 'Strict')
+      // A JS caller (no types) sending a value outside the enum:
+      expect(() => post.fill(JSON.parse('{"status":"archived"}'))).not.toThrow()
+      await expect(post.save()).rejects.toBeInstanceOf(CastError)
+      // SQLite ignores VARCHAR(200); the cast enforces it so all engines agree.
+      const long = Post.make()
+      long.fill({ title: 'x'.repeat(201) })
+      await expect(long.save()).rejects.toThrow(/longer than 200 characters/)
+    })
+
+    test('mass assignment refuses unknown, guarded and system columns, with friendly messages', async () => {
+      // Request bodies as they arrive: parsed JSON, untyped. JSON.parse makes "__proto__" an own key.
+      const attempts: readonly [string, RegExp][] = [
+        ['"is_admin": true', /can't be mass-assigned on "users"/],
+        ['"nmae": "typo"', /Did you mean "name"\?/],
+        ['"id": 99', /managed by Strutvane/],
+        ['"__proto__": {"is_admin": true}', /has no column "__proto__"/],
+      ]
+      for (const [extra, message] of attempts) {
+        const body: object = JSON.parse(`{"name": "Eve", "email": "eve@example.test", ${extra}}`)
+        await expect(User.create(asCreateInput(body))).rejects.toThrow(message)
+      }
+      await expect(User.create(asCreateInput(JSON.parse('{"name": "Eve", "email": "e@example.test", "is_admin": true}')))).rejects.toBeInstanceOf(MassAssignmentError)
+      expect(await User.query().count()).toBe(0)
+    })
+
+    test('forceCreate is for trusted code: any real column, still never system columns', async () => {
+      const ada = await makeUser('Ada')
+      const post = await Post.forceCreate({ title: 'Seeded', author_id: ada.id, view_count: 7 })
+      expect(post.view_count).toBe(7)
+      await expect(Post.forceCreate(Object.assign({ title: 'x', author_id: ada.id }, JSON.parse('{"deleted_at": null}')))).rejects.toThrow(/managed by Strutvane/)
+    })
+
+    test('soft deletes hide rows; withTrashed, onlyTrashed, restore and forceDelete work', async () => {
+      const ada = await makeUser('Ada')
+      const post = await makePost(ada, 'Ephemeral')
+      await post.delete()
+      expect(post.trashed()).toBe(true)
+      expect(await Post.find(post.id)).toBeUndefined()
+      expect(await Post.withTrashed().find(post.id)).toBeDefined()
+      expect((await Post.onlyTrashed().get()).map((row) => row.id)).toEqual([post.id])
+      await post.restore()
+      expect(await Post.find(post.id)).toBeDefined()
+      await post.forceDelete()
+      expect(await Post.withTrashed().find(post.id)).toBeUndefined()
+    })
+
+    test('slugs are generated from the source column and kept unique', async () => {
+      const ada = await makeUser('Ada')
+      const first = await makePost(ada, 'Crème Brûlée: 100% Better!')
+      const second = await makePost(ada, 'Crème brûlée 100% better')
+      const third = await makePost(ada, 'Crème Brûlée — 100% better')
+      expect(first.slug).toBe('creme-brulee-100-better')
+      // Collisions get a random suffix, not -2/-3: a counter would reveal how many hidden rows share the title (F-14).
+      expect(second.slug).toMatch(/^creme-brulee-100-better-[a-z2-9]{4}$/)
+      expect(third.slug).toMatch(/^creme-brulee-100-better-[a-z2-9]{4}$/)
+      expect(new Set([first.slug, second.slug, third.slug]).size).toBe(3)
+      // "%" and "_" in titles must not act as LIKE wildcards when looking for taken slugs.
+      const underscore = await makePost(ada, 'a_b')
+      const lookalike = await makePost(ada, 'axb')
+      expect([underscore.slug, lookalike.slug]).toEqual(['a-b', 'axb'])
+    })
+
+    test('slugs are unique per tenant when the unique index includes tenant_id', async () => {
+      const other = '0193a0b2-7c1e-7d4f-8a9b-000000000002'
+      const a = await runWithTenant(TENANT, () => Project.create({ name: 'Launch' }))
+      const b = await runWithTenant(other, () => Project.create({ name: 'Launch' }))
+      const c = await runWithTenant(TENANT, () => Project.create({ name: 'Launch' }))
+      // Tenant B gets "launch" too: another tenant's slug is invisible and never changes yours.
+      expect([a.slug, b.slug]).toEqual(['launch', 'launch'])
+      expect(c.slug).toMatch(/^launch-[a-z2-9]{4}$/)
+    })
+
+    test('UUID keys are generated as UUIDv7 and are time-ordered', async () => {
+      const projects = await runWithTenant(TENANT, async () => [await Project.create({ name: 'One' }), await Project.create({ name: 'Two' })])
+      for (const project of projects) expect(project.id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/)
+      const [one, two] = projects
+      expect(one !== undefined && two !== undefined && one.id < two.id).toBe(true)
+    })
+
+    test('toJSON leaves hidden columns out and writes dates as ISO strings', async () => {
+      const ada = await makeUser('Ada')
+      const json = ada.toJSON()
+      expect(json).not.toHaveProperty('password')
+      expect(json.created_at).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/)
+      expect(JSON.parse(JSON.stringify(ada))).not.toHaveProperty('password')
+    })
+
+    test('findOrFail and saving a vanished row are "not found", not crashes', async () => {
+      await expect(Post.findOrFail(424242)).rejects.toBeInstanceOf(ModelNotFoundError)
+      const ada = await makeUser('Ada')
+      const post = await makePost(ada, 'Gone')
+      await Post.query().findOrFail(post.id).then((copy) => copy.forceDelete())
+      post.title = 'Too late'
+      await expect(post.save()).rejects.toBeInstanceOf(ModelNotFoundError)
+    })
+
+    test('a model whose primary key changes is refused', async () => {
+      const ada = await makeUser('Ada')
+      ada.id = ada.id + 1000
+      await expect(ada.save()).rejects.toBeInstanceOf(OrmUsageError)
+    })
+  })
+})

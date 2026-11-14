@@ -1,0 +1,29 @@
+{
+  "name": "spike-11-orm-prototype",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Spike 11: can Strutvane own an Eloquent-style, fully typed active-record ORM on top of the migration-first schema snapshot, on SQLite and Postgres, with no N+1, tenant scoping and no SQL injection by construction?",
+  "engines": {
+    "node": ">=24"
+  },
+  "imports": {
+    "#orm": "./src/index.ts",
+    "#orm/*": "./src/*.ts",
+    "#app/*": "./fixtures/app/*.ts"
+  },
+  "scripts": {
+    "test": "tsc --noEmit -p . && vitest run",
+    "typecheck": "tsc --noEmit -p .",
+    "bench": "node scripts/bench.ts"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "0.5.16",
+    "mysql2": "3.24.6"
+  },
+  "devDependencies": {
+    "@types/node": "24.10.1",
+    "typescript": "6.0.3",
+    "vitest": "5.1.0"
+  }
+}
