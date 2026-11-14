@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { harness, PASSWORD, rejectsWith, STORES } from './helpers/harness.ts'
+import { APP_KEY, harness, PASSWORD, rejectsWith, STORES } from './helpers/harness.ts'
 
 const config = { features: { impersonation: true, tokens: true, twoFactor: true } }
 
@@ -75,6 +75,34 @@ describe.each(STORES)('impersonation (%s store)', (store) => {
       await h.auth.state(browser.req)
     }
     expect(await h.auth.state(browser.req)).toBeNull()
+  })
+
+  it('attack: an impersonation ends at once when the admin loses the role or the target becomes an admin', async () => {
+    for (const revoke of ['demote', 'promote-target'] as const) {
+      const { h, admin, member, browser } = await setup(store)
+      await h.auth.passwords.confirm(browser.req, { password: PASSWORD })
+      await h.auth.impersonation.start(browser.req, { userId: member.id })
+      expect((await h.auth.state(browser.req))?.user.id).toBe(member.id)
+      if (revoke === 'demote') await h.store.setUserRoles(admin.id, [])
+      if (revoke === 'promote-target') await h.store.setUserRoles(member.id, ['admin'])
+      expect(await h.auth.state(browser.req)).toBeNull()
+      // The session row is gone, not just hidden: a replayed cookie gets nothing either.
+      expect((await h.store.listUserSessions(member.id)).filter((s) => s.impersonatorId !== null)).toHaveLength(0)
+    }
+  })
+
+  it('attack: turning the feature off ends impersonation sessions already running', async () => {
+    const { h, member, browser } = await setup(store)
+    await h.auth.passwords.confirm(browser.req, { password: PASSWORD })
+    await h.auth.impersonation.start(browser.req, { userId: member.id })
+    const off = harness({ store, config: { features: { tokens: true, twoFactor: true } } })
+    // Same store and keys, feature switched off at the next boot.
+    const rebooted = await import('../src/auth.ts').then(({ createAuth }) => createAuth({
+      config: off.auth.config, store: h.store, counters: h.counters, clock: h.clock, appKey: APP_KEY,
+      mailer: { send: async () => undefined }, events: { emit: () => undefined },
+    }))
+    expect(await rebooted.state(browser.req)).toBeNull()
+    expect(await rebooted.passwords.change(browser.req, { current: PASSWORD, password: 'admin picks this one' }).catch((e: { code?: string }) => e.code)).toBe('UNAUTHENTICATED')
   })
 
   it('feature off: start and stop are NOT_FOUND even for admins', async () => {

@@ -10,16 +10,25 @@
  * - While impersonating, the target's credentials, second factors, tokens and sessions cannot be
  *   changed (`assertNotImpersonating` in every such service).
  * - One-click leave: `stop()` ends the impersonation session and starts a fresh admin session.
+ * - Re-checked on every request (`activeSession`): turning the feature off, removing the admin's
+ *   role or making the target an admin ends a running impersonation at once.
  *
  * @module
  */
 import { AuthError } from '../errors.ts'
 import type { AuthRequest } from '../ports/cookies.ts'
 import { type AuthDeps, emit, requireFeature } from '../core/deps.ts'
-import { endSession, readSession, requireActive, requireRecentConfirmation, startSession } from '../core/sessions.ts'
+import {
+  endSession,
+  IMPERSONATOR_ROLE,
+  readSession,
+  requireActive,
+  requireRecentConfirmation,
+  startSession,
+} from '../core/sessions.ts'
 
 /** The role allowed to impersonate (and protected from being impersonated). */
-export const ADMIN_ROLE = 'admin'
+export const ADMIN_ROLE = IMPERSONATOR_ROLE
 
 const IMPERSONATION_MS = 60 * 60_000
 

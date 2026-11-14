@@ -28,6 +28,23 @@ export function sessionCookie(deps: AuthDeps): string {
   return cookieName(deps, 'sv_session')
 }
 
+/** The global role allowed to impersonate (and protected from being impersonated). */
+export const IMPERSONATOR_ROLE = 'admin'
+
+/**
+ * Is an impersonation session still allowed RIGHT NOW? Re-checked on every request, because the
+ * conditions checked at `start()` can stop holding while the session runs: the feature is switched
+ * off, the admin loses the role (or is deleted), or the target becomes an admin. Without this, a
+ * demoted admin keeps acting as the user until the hour runs out.
+ */
+async function impersonationStillAllowed(deps: AuthDeps, session: SessionRecord): Promise<boolean> {
+  if (session.impersonatorId === null) return true
+  if (!deps.config.features.impersonation) return false
+  const admin = await deps.store.findUserById(session.impersonatorId)
+  if (!admin || !(await deps.store.listUserRoles(admin.id)).includes(IMPERSONATOR_ROLE)) return false
+  return !(await deps.store.listUserRoles(session.userId)).includes(IMPERSONATOR_ROLE)
+}
+
 /** A session that passed every check, with its user. */
 export interface ActiveSession {
   readonly session: SessionRecord
@@ -130,8 +147,10 @@ export async function activeSession(deps: AuthDeps, req: AuthRequest): Promise<A
   const session = await readSession(deps, req)
   if (!session || session.state !== 'active') return undefined
   const user = await deps.store.findUserById(session.userId)
-  if (!user) {
+  if (!user || !(await impersonationStillAllowed(deps, session))) {
+    // Fail closed: the row is deleted, so a replayed copy of the cookie gets nothing either.
     await deps.store.deleteSession(session.digest)
+    req.cookies.clear(sessionCookie(deps))
     return undefined
   }
   const now = deps.clock.now()
