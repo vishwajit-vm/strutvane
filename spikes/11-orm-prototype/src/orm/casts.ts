@@ -98,8 +98,10 @@ export function fromDatabase(column: ColumnDef, raw: unknown, dialect: Dialect):
       // PGlite returns DATE as a Date at UTC midnight; SQLite returns the text we stored.
       return raw instanceof Date ? raw.toISOString().slice(0, 10) : String(raw).slice(0, 10)
     case 'json':
-      // PostgreSQL drivers parse jsonb; SQLite stores text; mysql2 usually parses JSON but not always.
-      return dialect !== 'postgres' && typeof raw === 'string' ? JSON.parse(raw) : raw
+      // Only SQLite hands back JSON *text*. PGlite parses jsonb and mysql2 parses JSON columns, so a
+      // string from them is already the value: parsing it again crashed on a stored JSON string
+      // ("hello") and turned "123" into 123 (MySQL 8.4, found by the round-trip test).
+      return dialect === 'sqlite' && typeof raw === 'string' ? JSON.parse(raw) : raw
     case 'decimal':
       return canonicalDecimal(raw, column.scale ?? 2)
     case 'id':

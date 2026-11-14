@@ -3,7 +3,7 @@
  * and serialization, on MySQL, PostgreSQL and SQLite.
  */
 import { describe, expect, test } from 'vitest'
-import { CastError, MassAssignmentError, ModelNotFoundError, OrmUsageError, runWithTenant } from '#orm'
+import { CastError, MassAssignmentError, Model, ModelNotFoundError, OrmUsageError, runWithTenant } from '#orm'
 import { Post } from '#app/models/post'
 import { Project } from '#app/models/project'
 import { User } from '#app/models/user'
@@ -11,6 +11,9 @@ import { engines, engineTitle, useEngine } from './support/engines.ts'
 import { makePost, makeUser } from './support/seed.ts'
 
 const TENANT = '0193a0b2-7c1e-7d4f-8a9b-0c1d2e3f4a5b'
+
+/** The posts table without a model cast on `meta`: any JSON value may be stored there. */
+class LoosePost extends Model('posts', { fillable: ['title', 'meta'] }) {}
 
 /** What a JS caller (or a cast in TS) does: hand unvalidated input straight to create(). */
 function asCreateInput(body: object): { name: string; email: string } {
@@ -62,6 +65,18 @@ describe.each(engines)('models on $name', (engine) => {
         const project = await Project.create({ name: 'Budgeted', budget: 10.5 })
         expect(project.budget).toBe('10.50') // exact decimal string on every engine
       })
+    })
+
+    test('a JSON column round-trips every JSON value, top-level strings included', async () => {
+      const ada = await makeUser('Ada')
+      // mysql2 already parses JSON columns, so a stored JSON string arrives as a plain JS string;
+      // parsing it again crashed ("hello") or changed its type ("123" became 123) on MySQL only.
+      for (const meta of ['hello', '123', 'null', '', 42, true, [1, 'a'], { a: 'x' }]) {
+        const post = await LoosePost.forceCreate({ title: `json ${JSON.stringify(meta)}`, author_id: ada.id, meta })
+        const fresh = await LoosePost.findOrFail(post.id)
+        expect(fresh.meta, JSON.stringify(meta)).toEqual(meta)
+      }
+      expect((await LoosePost.query().get()).length).toBe(8) // a list read never trips over one row
     })
 
     test('enum and length violations fail the same way on every engine', async () => {
