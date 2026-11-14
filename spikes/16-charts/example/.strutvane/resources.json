@@ -1,0 +1,1110 @@
+{
+  "version": 1,
+  "resources": [
+    {
+      "table": "users",
+      "model": "User",
+      "route": "users",
+      "label": {
+        "singular": "User",
+        "plural": "Users"
+      },
+      "primaryKey": "id",
+      "titleField": "name",
+      "timestamps": true,
+      "softDeletes": false,
+      "defaultSort": "-created_at",
+      "perPage": 15,
+      "fields": [
+        {
+          "name": "id",
+          "label": "Id",
+          "kind": "id",
+          "cast": "integer",
+          "nullable": false,
+          "required": false,
+          "fillable": false,
+          "unique": false,
+          "hidden": false,
+          "searchable": false,
+          "sortable": true,
+          "listed": true,
+          "input": "none",
+          "filterOperators": [
+            "eq",
+            "ne",
+            "in",
+            "gt",
+            "gte",
+            "lt",
+            "lte"
+          ]
+        },
+        {
+          "name": "name",
+          "label": "Name",
+          "kind": "string",
+          "cast": "string",
+          "nullable": false,
+          "required": false,
+          "fillable": true,
+          "unique": false,
+          "hidden": false,
+          "searchable": false,
+          "sortable": true,
+          "listed": true,
+          "input": "none",
+          "filterOperators": [
+            "eq",
+            "ne",
+            "in",
+            "contains",
+            "startsWith"
+          ],
+          "maxLength": 255
+        },
+        {
+          "name": "email",
+          "label": "Email",
+          "kind": "string",
+          "cast": "string",
+          "nullable": false,
+          "required": false,
+          "fillable": true,
+          "unique": true,
+          "hidden": false,
+          "searchable": false,
+          "sortable": true,
+          "listed": true,
+          "input": "none",
+          "filterOperators": [
+            "eq",
+            "ne",
+            "in",
+            "contains",
+            "startsWith"
+          ],
+          "maxLength": 255
+        },
+        {
+          "name": "password",
+          "label": "Password",
+          "kind": "string",
+          "cast": "string",
+          "nullable": true,
+          "required": false,
+          "fillable": true,
+          "unique": false,
+          "hidden": true,
+          "searchable": false,
+          "sortable": true,
+          "listed": false,
+          "input": "none",
+          "filterOperators": []
+        },
+        {
+          "name": "created_at",
+          "label": "Created at",
+          "kind": "timestamp",
+          "cast": "datetime",
+          "nullable": true,
+          "required": false,
+          "fillable": false,
+          "unique": false,
+          "hidden": false,
+          "searchable": false,
+          "sortable": true,
+          "listed": true,
+          "input": "none",
+          "filterOperators": [
+            "eq",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "null"
+          ]
+        },
+        {
+          "name": "updated_at",
+          "label": "Updated at",
+          "kind": "timestamp",
+          "cast": "datetime",
+          "nullable": true,
+          "required": false,
+          "fillable": false,
+          "unique": false,
+          "hidden": false,
+          "searchable": false,
+          "sortable": true,
+          "listed": false,
+          "input": "none",
+          "filterOperators": [
+            "eq",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "null"
+          ]
+        }
+      ],
+      "relations": [],
+      "sidebar": {
+        "order": 9,
+        "hidden": false
+      },
+      "global": true
+    },
+    {
+      "table": "customers",
+      "model": "Customer",
+      "route": "customers",
+      "label": {
+        "singular": "Customer",
+        "plural": "Customers"
+      },
+      "primaryKey": "id",
+      "titleField": "name",
+      "timestamps": true,
+      "softDeletes": false,
+      "defaultSort": "-created_at",
+      "perPage": 15,
+      "fields": [
+        {
+          "name": "id",
+          "label": "Id",
+          "kind": "id",
+          "cast": "integer",
+          "nullable": false,
+          "required": false,
+          "fillable": false,
+          "unique": false,
+          "hidden": false,
+          "searchable": false,
+          "sortable": true,
+          "listed": true,
+          "input": "none",
+          "filterOperators": [
+            "eq",
+            "ne",
+            "in",
+            "gt",
+            "gte",
+            "lt",
+            "lte"
+          ]
+        },
+        {
+          "name": "tenant_id",
+          "label": "Tenant",
+          "kind": "uuid",
+          "cast": "string",
+          "nullable": false,
+          "required": false,
+          "fillable": false,
+          "unique": false,
+          "hidden": false,
+          "searchable": false,
+          "sortable": true,
+          "listed": false,
+          "input": "none",
+          "filterOperators": []
+        },
+        {
+          "name": "name",
+          "label": "Name",
+          "kind": "string",
+          "cast": "string",
+          "nullable": false,
+          "required": false,
+          "fillable": true,
+          "unique": false,
+          "hidden": false,
+          "searchable": false,
+          "sortable": true,
+          "listed": true,
+          "input": "none",
+          "filterOperators": [
+            "eq",
+            "ne",
+            "in",
+            "contains",
+            "startsWith"
+          ],
+          "maxLength": 200
+        },
+        {
+          "name": "country",
+          "label": "Country",
+          "kind": "enum",
+          "cast": "string",
+          "nullable": false,
+          "required": false,
+          "fillable": true,
+          "unique": false,
+          "hidden": false,
+          "searchable": false,
+          "sortable": true,
+          "listed": true,
+          "input": "none",
+          "filterOperators": [
+            "eq",
+            "ne",
+            "in"
+          ],
+          "options": [
+            "IN",
+            "US",
+            "DE",
+            "GB",
+            "FR",
+            "JP",
+            "BR"
+          ]
+        },
+        {
+          "name": "tier",
+          "label": "Tier",
+          "kind": "enum",
+          "cast": "string",
+          "nullable": false,
+          "required": false,
+          "fillable": true,
+          "unique": false,
+          "hidden": false,
+          "searchable": false,
+          "sortable": true,
+          "listed": true,
+          "input": "none",
+          "filterOperators": [
+            "eq",
+            "ne",
+            "in"
+          ],
+          "options": [
+            "free",
+            "pro",
+            "enterprise"
+          ],
+          "default": "free"
+        },
+        {
+          "name": "api_key",
+          "label": "Api key",
+          "kind": "string",
+          "cast": "string",
+          "nullable": false,
+          "required": false,
+          "fillable": true,
+          "unique": false,
+          "hidden": false,
+          "searchable": false,
+          "sortable": true,
+          "listed": false,
+          "input": "none",
+          "filterOperators": [
+            "eq",
+            "ne",
+            "in",
+            "contains",
+            "startsWith"
+          ],
+          "maxLength": 64
+        },
+        {
+          "name": "created_at",
+          "label": "Created at",
+          "kind": "timestamp",
+          "cast": "datetime",
+          "nullable": true,
+          "required": false,
+          "fillable": false,
+          "unique": false,
+          "hidden": false,
+          "searchable": false,
+          "sortable": true,
+          "listed": true,
+          "input": "none",
+          "filterOperators": [
+            "eq",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "null"
+          ]
+        },
+        {
+          "name": "updated_at",
+          "label": "Updated at",
+          "kind": "timestamp",
+          "cast": "datetime",
+          "nullable": true,
+          "required": false,
+          "fillable": false,
+          "unique": false,
+          "hidden": false,
+          "searchable": false,
+          "sortable": true,
+          "listed": false,
+          "input": "none",
+          "filterOperators": [
+            "eq",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "null"
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "name": "invoices",
+          "kind": "hasMany",
+          "resource": "invoices",
+          "foreignKey": "customer_id",
+          "ownerKey": "id"
+        }
+      ],
+      "sidebar": {
+        "order": 1,
+        "hidden": false
+      }
+    },
+    {
+      "table": "invoices",
+      "model": "Invoice",
+      "route": "invoices",
+      "label": {
+        "singular": "Invoice",
+        "plural": "Invoices"
+      },
+      "primaryKey": "id",
+      "titleField": "number",
+      "timestamps": true,
+      "softDeletes": true,
+      "defaultSort": "-created_at",
+      "perPage": 15,
+      "fields": [
+        {
+          "name": "id",
+          "label": "Id",
+          "kind": "id",
+          "cast": "integer",
+          "nullable": false,
+          "required": false,
+          "fillable": false,
+          "unique": false,
+          "hidden": false,
+          "searchable": false,
+          "sortable": true,
+          "listed": true,
+          "input": "none",
+          "filterOperators": [
+            "eq",
+            "ne",
+            "in",
+            "gt",
+            "gte",
+            "lt",
+            "lte"
+          ]
+        },
+        {
+          "name": "tenant_id",
+          "label": "Tenant",
+          "kind": "uuid",
+          "cast": "string",
+          "nullable": false,
+          "required": false,
+          "fillable": false,
+          "unique": false,
+          "hidden": false,
+          "searchable": false,
+          "sortable": true,
+          "listed": false,
+          "input": "none",
+          "filterOperators": []
+        },
+        {
+          "name": "number",
+          "label": "Number",
+          "kind": "string",
+          "cast": "string",
+          "nullable": false,
+          "required": false,
+          "fillable": true,
+          "unique": false,
+          "hidden": false,
+          "searchable": false,
+          "sortable": true,
+          "listed": true,
+          "input": "none",
+          "filterOperators": [
+            "eq",
+            "ne",
+            "in",
+            "contains",
+            "startsWith"
+          ],
+          "maxLength": 32
+        },
+        {
+          "name": "customer_id",
+          "label": "Customer",
+          "kind": "foreignId",
+          "cast": "integer",
+          "nullable": false,
+          "required": false,
+          "fillable": true,
+          "unique": false,
+          "hidden": false,
+          "searchable": false,
+          "sortable": true,
+          "listed": true,
+          "input": "none",
+          "filterOperators": [
+            "eq",
+            "ne",
+            "in"
+          ],
+          "references": "customers"
+        },
+        {
+          "name": "status",
+          "label": "Status",
+          "kind": "enum",
+          "cast": "string",
+          "nullable": false,
+          "required": false,
+          "fillable": true,
+          "unique": false,
+          "hidden": false,
+          "searchable": false,
+          "sortable": true,
+          "listed": true,
+          "input": "none",
+          "filterOperators": [
+            "eq",
+            "ne",
+            "in"
+          ],
+          "options": [
+            "draft",
+            "sent",
+            "paid",
+            "void"
+          ],
+          "default": "draft"
+        },
+        {
+          "name": "total",
+          "label": "Total",
+          "kind": "decimal",
+          "cast": "decimal",
+          "nullable": false,
+          "required": false,
+          "fillable": true,
+          "unique": false,
+          "hidden": false,
+          "searchable": false,
+          "sortable": true,
+          "listed": true,
+          "input": "none",
+          "filterOperators": [
+            "eq",
+            "ne",
+            "in",
+            "gt",
+            "gte",
+            "lt",
+            "lte"
+          ],
+          "precision": 12,
+          "scale": 2,
+          "default": 0
+        },
+        {
+          "name": "tax",
+          "label": "Tax",
+          "kind": "decimal",
+          "cast": "decimal",
+          "nullable": true,
+          "required": false,
+          "fillable": true,
+          "unique": false,
+          "hidden": false,
+          "searchable": false,
+          "sortable": true,
+          "listed": true,
+          "input": "none",
+          "filterOperators": [
+            "eq",
+            "ne",
+            "in",
+            "gt",
+            "gte",
+            "lt",
+            "lte"
+          ],
+          "precision": 12,
+          "scale": 2
+        },
+        {
+          "name": "paid",
+          "label": "Paid",
+          "kind": "boolean",
+          "cast": "boolean",
+          "nullable": false,
+          "required": false,
+          "fillable": true,
+          "unique": false,
+          "hidden": false,
+          "searchable": false,
+          "sortable": true,
+          "listed": true,
+          "input": "none",
+          "filterOperators": [
+            "eq"
+          ],
+          "default": false
+        },
+        {
+          "name": "issued_on",
+          "label": "Issued on",
+          "kind": "date",
+          "cast": "date",
+          "nullable": true,
+          "required": false,
+          "fillable": true,
+          "unique": false,
+          "hidden": false,
+          "searchable": false,
+          "sortable": true,
+          "listed": true,
+          "input": "none",
+          "filterOperators": [
+            "eq",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "null"
+          ]
+        },
+        {
+          "name": "created_at",
+          "label": "Created at",
+          "kind": "timestamp",
+          "cast": "datetime",
+          "nullable": true,
+          "required": false,
+          "fillable": false,
+          "unique": false,
+          "hidden": false,
+          "searchable": false,
+          "sortable": true,
+          "listed": true,
+          "input": "none",
+          "filterOperators": [
+            "eq",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "null"
+          ]
+        },
+        {
+          "name": "updated_at",
+          "label": "Updated at",
+          "kind": "timestamp",
+          "cast": "datetime",
+          "nullable": true,
+          "required": false,
+          "fillable": false,
+          "unique": false,
+          "hidden": false,
+          "searchable": false,
+          "sortable": true,
+          "listed": false,
+          "input": "none",
+          "filterOperators": [
+            "eq",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "null"
+          ]
+        },
+        {
+          "name": "deleted_at",
+          "label": "Deleted at",
+          "kind": "timestamp",
+          "cast": "datetime",
+          "nullable": true,
+          "required": false,
+          "fillable": false,
+          "unique": false,
+          "hidden": false,
+          "searchable": false,
+          "sortable": true,
+          "listed": false,
+          "input": "none",
+          "filterOperators": [
+            "eq",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "null"
+          ]
+        }
+      ],
+      "relations": [
+        {
+          "name": "customer",
+          "kind": "belongsTo",
+          "resource": "customers",
+          "foreignKey": "customer_id",
+          "ownerKey": "id"
+        }
+      ],
+      "sidebar": {
+        "order": 2,
+        "hidden": false
+      }
+    },
+    {
+      "table": "employees",
+      "model": "Employee",
+      "route": "employees",
+      "label": {
+        "singular": "Employee",
+        "plural": "Employees"
+      },
+      "primaryKey": "id",
+      "titleField": "name",
+      "timestamps": true,
+      "softDeletes": false,
+      "defaultSort": "-created_at",
+      "perPage": 15,
+      "fields": [
+        {
+          "name": "id",
+          "label": "Id",
+          "kind": "id",
+          "cast": "integer",
+          "nullable": false,
+          "required": false,
+          "fillable": false,
+          "unique": false,
+          "hidden": false,
+          "searchable": false,
+          "sortable": true,
+          "listed": true,
+          "input": "none",
+          "filterOperators": [
+            "eq",
+            "ne",
+            "in",
+            "gt",
+            "gte",
+            "lt",
+            "lte"
+          ]
+        },
+        {
+          "name": "tenant_id",
+          "label": "Tenant",
+          "kind": "uuid",
+          "cast": "string",
+          "nullable": false,
+          "required": false,
+          "fillable": false,
+          "unique": false,
+          "hidden": false,
+          "searchable": false,
+          "sortable": true,
+          "listed": false,
+          "input": "none",
+          "filterOperators": []
+        },
+        {
+          "name": "name",
+          "label": "Name",
+          "kind": "string",
+          "cast": "string",
+          "nullable": false,
+          "required": false,
+          "fillable": true,
+          "unique": false,
+          "hidden": false,
+          "searchable": false,
+          "sortable": true,
+          "listed": true,
+          "input": "none",
+          "filterOperators": [
+            "eq",
+            "ne",
+            "in",
+            "contains",
+            "startsWith"
+          ],
+          "maxLength": 200
+        },
+        {
+          "name": "department",
+          "label": "Department",
+          "kind": "enum",
+          "cast": "string",
+          "nullable": false,
+          "required": false,
+          "fillable": true,
+          "unique": false,
+          "hidden": false,
+          "searchable": false,
+          "sortable": true,
+          "listed": true,
+          "input": "none",
+          "filterOperators": [
+            "eq",
+            "ne",
+            "in"
+          ],
+          "options": [
+            "engineering",
+            "sales",
+            "support",
+            "finance",
+            "legal"
+          ]
+        },
+        {
+          "name": "salary",
+          "label": "Salary",
+          "kind": "decimal",
+          "cast": "decimal",
+          "nullable": false,
+          "required": false,
+          "fillable": true,
+          "unique": false,
+          "hidden": false,
+          "searchable": false,
+          "sortable": true,
+          "listed": true,
+          "input": "none",
+          "filterOperators": [
+            "eq",
+            "ne",
+            "in",
+            "gt",
+            "gte",
+            "lt",
+            "lte"
+          ],
+          "precision": 12,
+          "scale": 2
+        },
+        {
+          "name": "remote",
+          "label": "Remote",
+          "kind": "boolean",
+          "cast": "boolean",
+          "nullable": false,
+          "required": false,
+          "fillable": true,
+          "unique": false,
+          "hidden": false,
+          "searchable": false,
+          "sortable": true,
+          "listed": true,
+          "input": "none",
+          "filterOperators": [
+            "eq"
+          ],
+          "default": false
+        },
+        {
+          "name": "hired_on",
+          "label": "Hired on",
+          "kind": "date",
+          "cast": "date",
+          "nullable": true,
+          "required": false,
+          "fillable": true,
+          "unique": false,
+          "hidden": false,
+          "searchable": false,
+          "sortable": true,
+          "listed": true,
+          "input": "none",
+          "filterOperators": [
+            "eq",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "null"
+          ]
+        },
+        {
+          "name": "created_at",
+          "label": "Created at",
+          "kind": "timestamp",
+          "cast": "datetime",
+          "nullable": true,
+          "required": false,
+          "fillable": false,
+          "unique": false,
+          "hidden": false,
+          "searchable": false,
+          "sortable": true,
+          "listed": true,
+          "input": "none",
+          "filterOperators": [
+            "eq",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "null"
+          ]
+        },
+        {
+          "name": "updated_at",
+          "label": "Updated at",
+          "kind": "timestamp",
+          "cast": "datetime",
+          "nullable": true,
+          "required": false,
+          "fillable": false,
+          "unique": false,
+          "hidden": false,
+          "searchable": false,
+          "sortable": true,
+          "listed": false,
+          "input": "none",
+          "filterOperators": [
+            "eq",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "null"
+          ]
+        }
+      ],
+      "relations": [],
+      "sidebar": {
+        "order": 3,
+        "hidden": false
+      }
+    },
+    {
+      "table": "sessions",
+      "model": "Session",
+      "route": "sessions",
+      "label": {
+        "singular": "Session",
+        "plural": "Sessions"
+      },
+      "primaryKey": "id",
+      "titleField": "id",
+      "timestamps": false,
+      "softDeletes": false,
+      "defaultSort": "-created_at",
+      "perPage": 15,
+      "fields": [
+        {
+          "name": "id",
+          "label": "Id",
+          "kind": "id",
+          "cast": "integer",
+          "nullable": false,
+          "required": false,
+          "fillable": false,
+          "unique": false,
+          "hidden": false,
+          "searchable": false,
+          "sortable": true,
+          "listed": true,
+          "input": "none",
+          "filterOperators": [
+            "eq",
+            "ne",
+            "in",
+            "gt",
+            "gte",
+            "lt",
+            "lte"
+          ]
+        },
+        {
+          "name": "user_id",
+          "label": "User",
+          "kind": "foreignId",
+          "cast": "integer",
+          "nullable": false,
+          "required": false,
+          "fillable": true,
+          "unique": false,
+          "hidden": false,
+          "searchable": false,
+          "sortable": true,
+          "listed": true,
+          "input": "none",
+          "filterOperators": [
+            "eq",
+            "ne",
+            "in"
+          ],
+          "references": "users"
+        },
+        {
+          "name": "payload",
+          "label": "Payload",
+          "kind": "text",
+          "cast": "string",
+          "nullable": false,
+          "required": false,
+          "fillable": true,
+          "unique": false,
+          "hidden": false,
+          "searchable": false,
+          "sortable": true,
+          "listed": true,
+          "input": "none",
+          "filterOperators": []
+        },
+        {
+          "name": "last_activity",
+          "label": "Last activity",
+          "kind": "integer",
+          "cast": "integer",
+          "nullable": false,
+          "required": false,
+          "fillable": true,
+          "unique": false,
+          "hidden": false,
+          "searchable": false,
+          "sortable": true,
+          "listed": true,
+          "input": "none",
+          "filterOperators": [
+            "eq",
+            "ne",
+            "in",
+            "gt",
+            "gte",
+            "lt",
+            "lte"
+          ]
+        }
+      ],
+      "relations": [],
+      "sidebar": {
+        "order": 10,
+        "hidden": false
+      },
+      "internal": true
+    },
+    {
+      "table": "tags",
+      "model": "Tag",
+      "route": "tags",
+      "label": {
+        "singular": "Tag",
+        "plural": "Tags"
+      },
+      "primaryKey": "id",
+      "titleField": "name",
+      "timestamps": false,
+      "softDeletes": false,
+      "defaultSort": "-created_at",
+      "perPage": 15,
+      "fields": [
+        {
+          "name": "id",
+          "label": "Id",
+          "kind": "id",
+          "cast": "integer",
+          "nullable": false,
+          "required": false,
+          "fillable": false,
+          "unique": false,
+          "hidden": false,
+          "searchable": false,
+          "sortable": true,
+          "listed": true,
+          "input": "none",
+          "filterOperators": [
+            "eq",
+            "ne",
+            "in",
+            "gt",
+            "gte",
+            "lt",
+            "lte"
+          ]
+        },
+        {
+          "name": "name",
+          "label": "Name",
+          "kind": "string",
+          "cast": "string",
+          "nullable": false,
+          "required": false,
+          "fillable": true,
+          "unique": false,
+          "hidden": false,
+          "searchable": false,
+          "sortable": true,
+          "listed": true,
+          "input": "none",
+          "filterOperators": [
+            "eq",
+            "ne",
+            "in",
+            "contains",
+            "startsWith"
+          ],
+          "maxLength": 50
+        },
+        {
+          "name": "position",
+          "label": "Position",
+          "kind": "integer",
+          "cast": "integer",
+          "nullable": false,
+          "required": false,
+          "fillable": true,
+          "unique": false,
+          "hidden": false,
+          "searchable": false,
+          "sortable": true,
+          "listed": true,
+          "input": "none",
+          "filterOperators": [
+            "eq",
+            "ne",
+            "in",
+            "gt",
+            "gte",
+            "lt",
+            "lte"
+          ],
+          "default": 0
+        }
+      ],
+      "relations": [],
+      "sidebar": {
+        "order": 4,
+        "hidden": false
+      }
+    }
+  ]
+}

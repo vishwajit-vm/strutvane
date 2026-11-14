@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "suggestions": {
+    "customers": [
+      "customers.new",
+      "customers.per-period",
+      "customers.by-country",
+      "customers.by-tier",
+      "customers.per-period-by-country"
+    ],
+    "employees": [
+      "employees.new",
+      "employees.per-period",
+      "employees.by-department",
+      "employees.by-remote",
+      "employees.per-period-by-department",
+      "employees.sum-salary",
+      "employees.avg-salary"
+    ],
+    "invoices": [
+      "invoices.new",
+      "invoices.per-period",
+      "invoices.by-status",
+      "invoices.by-paid",
+      "invoices.per-period-by-status",
+      "invoices.sum-total",
+      "invoices.avg-total",
+      "invoices.sum-tax",
+      "invoices.avg-tax",
+      "invoices.top-customer"
+    ],
+    "tags": [],
+    "users": [
+      "users.new",
+      "users.per-period"
+    ]
+  }
+}
