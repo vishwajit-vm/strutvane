@@ -66,6 +66,33 @@ describe.each(STORES)('impersonation (%s store)', (store) => {
     expect(await h.store.listTokens(member.id)).toHaveLength(0)
   })
 
+  it('attack: an impersonating admin cannot grant team access that outlives the impersonation', async () => {
+    const h = harness({ store, config: { features: { impersonation: true, teams: true } } })
+    const admin = await h.user('root@acme.test', { roles: ['admin'] })
+    const vic = await h.user('vic@acme.test')
+    const colleague = await h.user('col@acme.test')
+    const vicBrowser = await h.signedIn(vic.email)
+    const team = await h.auth.teams.current(vicBrowser.req)
+    const teamId = team?.id ?? ''
+    await h.auth.teams.invite(vicBrowser.req, { teamId, email: colleague.email, role: 'member' })
+    await h.auth.teams.accept((await h.signedIn(colleague.email)).req, { token: await h.mailedToken('team-invitation', colleague.email) })
+    await h.auth.teams.invite(vicBrowser.req, { teamId, email: 'later@acme.test', role: 'member' })
+    const pendingToken = await h.mailedToken('team-invitation', 'later@acme.test')
+
+    const browser = await h.signedIn(admin.email)
+    await h.auth.passwords.confirm(browser.req, { password: PASSWORD })
+    await h.auth.impersonation.start(browser.req, { userId: vic.id })
+    // Inviting yourself (or anyone), promoting a member, or accepting for the user would all
+    // survive "leave impersonation".
+    await rejectsWith(() => h.auth.teams.invite(browser.req, { teamId, email: admin.email, role: 'admin' }), 'FORBIDDEN')
+    await rejectsWith(() => h.auth.teams.changeRole(browser.req, { teamId, userId: colleague.id, role: 'admin' }), 'FORBIDDEN')
+    await rejectsWith(() => h.auth.teams.accept(browser.req, { token: pendingToken }), 'FORBIDDEN')
+    expect((await h.store.listInvitations(teamId)).map((i) => i.email)).toEqual(['later@acme.test'])
+    expect((await h.store.findMember(teamId, colleague.id))?.role).toBe('member')
+    // Reading is still fine: support can look.
+    expect(await h.auth.teams.members(browser.req, { teamId })).toHaveLength(2)
+  })
+
   it('the impersonation session expires after one hour', async () => {
     const { h, member, browser } = await setup(store)
     await h.auth.passwords.confirm(browser.req, { password: PASSWORD })

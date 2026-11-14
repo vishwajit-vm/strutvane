@@ -12,6 +12,8 @@
  *   are bound to the invited EMAIL: only a signed-in user with exactly that (normalised, and, when
  *   verification is on, verified) address can accept. A forwarded invitation is useless.
  * - **Switching** teams is a privilege change, so the session id rotates.
+ * - **No grants while impersonating:** invite, role changes and accepting are refused, so an
+ *   impersonating admin cannot leave with access to the user's teams.
  * - Teams a user is not in answer `NOT_FOUND`, never `FORBIDDEN`: ids do not confirm existence.
  *
  * @module
@@ -23,7 +25,7 @@ import type { AuthRequest } from '../ports/cookies.ts'
 import type { MemberRecord, TeamRecord, UserRecord } from '../ports/store.ts'
 import { parseSecret } from '../tokens/formats.ts'
 import { type AuthDeps, emit, requireFeature, sendMail } from '../core/deps.ts'
-import { type ActiveSession, requireActive, rotateSession } from '../core/sessions.ts'
+import { type ActiveSession, assertNotImpersonating, requireActive, rotateSession } from '../core/sessions.ts'
 
 /** The current team as the framework sees it (the tenant for this request). */
 export interface CurrentTeam {
@@ -100,6 +102,17 @@ export function teamService(deps: AuthDeps): TeamService {
     return requireActive(deps, req)
   }
 
+  /**
+   * For operations that GRANT access (invite, change a role, accept): refused while an admin
+   * impersonates, because the grant would outlive the impersonation (inviting yourself into the
+   * user's team, promoting a colleague). Same reasoning as tokens being refused.
+   */
+  const grantingAs = async (req: AuthRequest): Promise<ActiveSession> => {
+    const active = await signedIn(req)
+    assertNotImpersonating(active)
+    return active
+  }
+
   /** The caller's membership of `teamId`; NOT_FOUND when they are not a member (or it is not an id). */
   const membership = async (active: ActiveSession, teamId: unknown): Promise<{ team: TeamRecord; member: MemberRecord }> => {
     if (typeof teamId !== 'string') throw new AuthError('NOT_FOUND')
@@ -170,7 +183,7 @@ export function teamService(deps: AuthDeps): TeamService {
     },
 
     async invite(req, input) {
-      const active = await signedIn(req)
+      const active = await grantingAs(req)
       const { team } = await adminOf(active, input.teamId)
       const email = parseEmail(input.email)
       if (email === undefined) throw new AuthError('VALIDATION_FAILED', { issues: [{ field: 'email', code: 'invalid' }] })
@@ -210,7 +223,7 @@ export function teamService(deps: AuthDeps): TeamService {
     },
 
     async accept(req, input) {
-      const active = await signedIn(req)
+      const active = await grantingAs(req)
       const token = parseSecret(input.token)
       if (token === undefined) throw new AuthError('INVALID_TOKEN')
       const invitation = await deps.store.findInvitationByDigest(deps.keys.digest('team-invitation', token))
@@ -238,7 +251,7 @@ export function teamService(deps: AuthDeps): TeamService {
     },
 
     async changeRole(req, input) {
-      const active = await signedIn(req)
+      const active = await grantingAs(req)
       const { team } = await adminOf(active, input.teamId)
       const role = parseRole(input.role)
       if (typeof input.userId !== 'string') throw new AuthError('NOT_FOUND')
