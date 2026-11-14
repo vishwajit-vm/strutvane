@@ -16,29 +16,109 @@ import type { CommandResult, CommandSpec, Spawner } from '../../src/spawn.ts'
 export type Script = object
 
 /**
- * A prompter that answers from a script keyed by question id and records what was asked.
- * An unexpected question fails the test with a clear message.
+ * Answers for every Recommended-mode (★) question. Spread first in a script so a test only states
+ * what it cares about; answers for questions that are never asked are simply unused.
+ */
+export const RECOMMENDED_ANSWERS = Object.freeze({
+  mode: 'recommended',
+  stack: 'full',
+  design: 'crisp',
+  auth: 'email',
+  teams: false,
+  database: 'mysql',
+  docker: 'docker',
+  agents: true,
+})
+
+/** An answer for every question Custom mode can ask (the prompter ignores unused ones). */
+export const CUSTOM_ANSWERS = Object.freeze({
+  ...RECOMMENDED_ANSWERS,
+  name: 'my-app',
+  mode: 'custom',
+  ui: 'admin',
+  security: ['2fa', 'verification'],
+  social: [],
+  sso: false,
+  apiAccess: 'tokens',
+  roles: 'basic',
+  tenantResolver: 'switcher',
+  adminEmail: '',
+  adminPasswordMode: 'generate',
+  sampleData: true,
+  cache: 'database',
+  storage: 'local',
+  mailer: 'later',
+  locale: '',
+  timezone: 'UTC',
+  currency: '',
+  features: ['log-viewer'],
+  featuresSearch: false,
+  testing: 'vitest',
+  git: true,
+  ci: true,
+  securityProfile: 'standard',
+  activityLog: false,
+  ai: false,
+  mcpServer: false,
+  uiLanguages: ['en'],
+  appearance: 'system',
+  pwa: false,
+  liveUpdates: false,
+  monitoring: 'none',
+  deploy: 'later',
+  editor: true,
+  devContainer: false,
+})
+
+/** Question ids whose answer is a list (an array in the script is the answer, not a queue). */
+const LIST_ANSWERS = new Set(['features', 'featuresMore', 'security', 'social', 'uiLanguages'])
+
+/**
+ * A prompter that answers from a script keyed by question id and records what was asked (ids and
+ * the exact wording, so tests can check that nothing ever asks for a secret).
+ * An unexpected question fails the test with a clear message. For list questions an array is the
+ * answer; for every other id an array is a queue of answers (e.g. review: ['change', 'create']).
  *
  * @example
  * const { prompter, asked } = scriptedPrompter({ name: 'my-app', review: 'create' })
  */
 export function scriptedPrompter(script: Script) {
   const queues = new Map<string, unknown[]>(
-    Object.entries(script).map(([id, value]) => [id, Array.isArray(value) && id !== 'features' ? [...value] : [value]]),
+    Object.entries(script).map(([id, value]) => [id, Array.isArray(value) && !LIST_ANSWERS.has(id) ? [...value] : [value]]),
   )
   const asked: string[] = []
+  const messages: string[] = []
+  /** What kind of prompt each question was (free text and passwords are where a secret could be typed). */
+  const prompts: { id: string; kind: string; message: string }[] = []
   const notes: { title: string; lines: readonly string[] }[] = []
   const infos: string[] = []
-  const next = (id: string): unknown => {
+  const next = (id: string, message: string, kind = 'choice'): unknown => {
     asked.push(id)
+    messages.push(message)
+    prompts.push({ id, kind, message })
     const queue = queues.get(id)
     if (queue === undefined || queue.length === 0) throw new Error(`Unexpected question "${id}" (asked so far: ${asked.join(', ')})`)
     // Keep the last answer for repeated questions (e.g. review shown twice).
     return queue.length > 1 ? queue.shift() : queue[0]
   }
+  /** Every choice label must fit an 80-column terminal (74 characters, the Laravel Prompts rule). */
+  const checkLabels = (id: string, options: readonly { label?: string }[]) => {
+    for (const option of options) {
+      if ((option.label ?? '').length > 74) throw new Error(`Label longer than 74 characters in ${id}: ${option.label ?? ''}`)
+    }
+  }
+  const pick = <T extends string>(id: string, value: unknown, options: readonly { value: T; label?: string }[]): T[] | Cancel => {
+    checkLabels(id, options)
+    if (value === CANCEL) return CANCEL
+    const wanted: unknown[] = Array.isArray(value) ? value : []
+    for (const item of wanted) {
+      if (!options.some((option) => option.value === item)) throw new Error(`"${String(item)}" is not an option of ${id}`)
+    }
+    return options.filter((option) => wanted.includes(option.value)).map((option) => option.value)
+  }
   const prompter: Prompter = {
     text: async (q) => {
-      const value = next(q.id)
+      const value = next(q.id, q.message, 'text')
       if (value === CANCEL) return CANCEL
       const text = String(value)
       const problem = q.validate(text)
@@ -46,30 +126,34 @@ export function scriptedPrompter(script: Script) {
       return text
     },
     password: async (q) => {
-      const value = next(q.id)
+      const value = next(q.id, q.message, 'password')
       return value === CANCEL ? CANCEL : String(value)
     },
-    select: async <T extends string>(q: { id: string; options: readonly { value: T }[] }) => {
-      const value = next(q.id)
+    select: async <T extends string>(q: { id: string; message: string; options: readonly { value: T; label?: string }[] }) => {
+      checkLabels(q.id, q.options)
+      const value = next(q.id, q.message)
       if (value === CANCEL) return CANCEL
       const match = q.options.find((option) => option.value === value)
       if (match === undefined) throw new Error(`"${String(value)}" is not an option of ${q.id}`)
       return match.value
     },
-    multiselect: async <T extends string>(q: { id: string; options: readonly { value: T }[] }): Promise<T[] | Cancel> => {
-      const value = next(q.id)
-      if (value === CANCEL) return CANCEL
-      const wanted = Array.isArray(value) ? value : []
-      return q.options.filter((option) => wanted.includes(option.value)).map((option) => option.value)
-    },
+    multiselect: async <T extends string>(q: { id: string; message: string; options: readonly { value: T }[] }): Promise<T[] | Cancel> =>
+      pick(q.id, next(q.id, q.message), q.options),
+    groupMultiselect: async <T extends string>(q: {
+      id: string
+      message: string
+      groups: ReadonlyMap<string, readonly { value: T }[]>
+    }): Promise<T[] | Cancel> => pick(q.id, next(q.id, q.message), [...q.groups.values()].flat()),
+    search: async <T extends string>(q: { id: string; message: string; options: readonly { value: T }[] }): Promise<T[] | Cancel> =>
+      pick(q.id, next(q.id, q.message), q.options),
     confirm: async (q) => {
-      const value = next(q.id)
+      const value = next(q.id, q.message)
       return value === CANCEL ? CANCEL : value === true
     },
     note: (title, lines) => notes.push({ title, lines }),
     info: (message) => infos.push(message),
   }
-  return { prompter, asked, notes, infos }
+  return { prompter, asked, messages, prompts, notes, infos }
 }
 
 /** A fake program's answer. */

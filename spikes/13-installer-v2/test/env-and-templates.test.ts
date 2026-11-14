@@ -230,9 +230,14 @@ describe('Docker mode files (everything in containers, like Sail)', () => {
         if (path.startsWith('node_modules/') && !path.startsWith('node_modules/@strutvane/')) expect(entry.integrity, path).toMatch(/^sha512-/)
       }
     }
+    // SQLite needs no driver: only the Strutvane packages the default answers bring (local stubs).
     expect(JSON.parse(file(renderProject(options({ database: 'sqlite' })), 'package.json')).dependencies).toEqual({
       '@strutvane/framework': 'file:stubs/strutvane-framework',
+      '@strutvane/agent-tools': 'file:stubs/strutvane-agent-tools',
+      '@strutvane/auth': 'file:stubs/strutvane-auth',
       '@strutvane/design-crisp': 'file:stubs/strutvane-design-crisp',
+      '@strutvane/logs': 'file:stubs/strutvane-logs',
+      '@strutvane/ui': 'file:stubs/strutvane-ui',
     })
   })
 

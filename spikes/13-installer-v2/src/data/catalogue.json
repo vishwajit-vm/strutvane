@@ -1,0 +1,442 @@
+{
+  "version": 1,
+  "note": "Spike 13 fixture of the catalogue index that hub CI builds from published package manifests (blueprint section 3.3). Not real packages.",
+  "categories": [
+    {
+      "id": "operations",
+      "name": "Operations"
+    },
+    {
+      "id": "data",
+      "name": "Data"
+    },
+    {
+      "id": "back-office",
+      "name": "Back office"
+    },
+    {
+      "id": "integrations",
+      "name": "Integrations"
+    },
+    {
+      "id": "money",
+      "name": "Money"
+    },
+    {
+      "id": "ai",
+      "name": "AI"
+    },
+    {
+      "id": "content",
+      "name": "Content"
+    }
+  ],
+  "entries": [
+    {
+      "id": "log-viewer",
+      "name": "Log viewer",
+      "description": "Browse and search app logs at /_strutvane/logs",
+      "category": "operations",
+      "popular": true,
+      "published": true,
+      "frameworkRange": "^0.1",
+      "package": "@strutvane/logs"
+    },
+    {
+      "id": "queue-dashboard",
+      "name": "Queue dashboard",
+      "description": "Watch jobs, retries and failures live",
+      "category": "operations",
+      "popular": true,
+      "published": true,
+      "frameworkRange": "^0.1",
+      "package": "@strutvane/queue-dashboard"
+    },
+    {
+      "id": "inspector",
+      "name": "Request inspector",
+      "description": "See requests, queries and mail while you develop",
+      "category": "operations",
+      "popular": true,
+      "published": true,
+      "frameworkRange": "^0.1",
+      "package": "@strutvane/inspector"
+    },
+    {
+      "id": "health",
+      "name": "Health checks",
+      "description": "Status page and checks for load balancers",
+      "category": "operations",
+      "popular": true,
+      "published": true,
+      "frameworkRange": "^0.1",
+      "package": "@strutvane/health"
+    },
+    {
+      "id": "charts",
+      "name": "Charts and dashboards",
+      "description": "Dashboard widgets and charts from your models",
+      "category": "data",
+      "popular": true,
+      "published": true,
+      "frameworkRange": "^0.1",
+      "package": "@strutvane/charts"
+    },
+    {
+      "id": "search",
+      "name": "Search",
+      "description": "Full-text search across your models",
+      "category": "data",
+      "popular": true,
+      "published": true,
+      "frameworkRange": "^0.1",
+      "package": "@strutvane/search",
+      "followUps": [
+        {
+          "id": "engine",
+          "label": "Search: which search engine?",
+          "default": "database",
+          "choices": [
+            {
+              "value": "database",
+              "label": "Your database (no extra service)"
+            },
+            {
+              "value": "meilisearch",
+              "label": "Meilisearch"
+            },
+            {
+              "value": "typesense",
+              "label": "Typesense"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "import-export",
+      "name": "Import and export",
+      "description": "CSV and Excel import/export for any model",
+      "category": "data",
+      "popular": true,
+      "published": true,
+      "frameworkRange": "^0.1",
+      "package": "@strutvane/import-export"
+    },
+    {
+      "id": "api-explorer",
+      "name": "API explorer",
+      "description": "Try your API in the browser (OpenAPI)",
+      "category": "data",
+      "popular": true,
+      "published": true,
+      "frameworkRange": "^0.1",
+      "package": "@strutvane/api-explorer"
+    },
+    {
+      "id": "activity-log",
+      "name": "Activity log",
+      "description": "Who changed what, and when",
+      "category": "back-office",
+      "popular": true,
+      "published": true,
+      "frameworkRange": "^0.1",
+      "package": "@strutvane/activity-log"
+    },
+    {
+      "id": "settings",
+      "name": "Settings",
+      "description": "App and team settings screens",
+      "category": "back-office",
+      "popular": true,
+      "published": true,
+      "frameworkRange": "^0.1",
+      "package": "@strutvane/settings"
+    },
+    {
+      "id": "media-library",
+      "name": "Media library",
+      "description": "Uploads, images and files attached to records",
+      "category": "back-office",
+      "popular": true,
+      "published": true,
+      "frameworkRange": "^0.1",
+      "package": "@strutvane/media-library"
+    },
+    {
+      "id": "pdf",
+      "name": "PDF",
+      "description": "Generate PDFs from your screens and templates",
+      "category": "back-office",
+      "popular": true,
+      "published": true,
+      "frameworkRange": "^0.1",
+      "package": "@strutvane/pdf"
+    },
+    {
+      "id": "privacy",
+      "name": "Privacy tools",
+      "description": "Personal data export and erasure (GDPR)",
+      "category": "back-office",
+      "popular": true,
+      "published": true,
+      "frameworkRange": "^0.1",
+      "package": "@strutvane/privacy"
+    },
+    {
+      "id": "backups",
+      "name": "Backups",
+      "description": "Scheduled database and file backups",
+      "category": "back-office",
+      "popular": true,
+      "published": true,
+      "frameworkRange": "^0.1",
+      "package": "@strutvane/backups"
+    },
+    {
+      "id": "feature-flags",
+      "name": "Feature flags",
+      "description": "Turn features on per user, team or percentage",
+      "category": "integrations",
+      "popular": true,
+      "published": true,
+      "frameworkRange": "^0.1",
+      "package": "@strutvane/feature-flags"
+    },
+    {
+      "id": "webhooks",
+      "name": "Webhooks",
+      "description": "Send and receive signed webhooks",
+      "category": "integrations",
+      "popular": true,
+      "published": true,
+      "frameworkRange": "^0.1",
+      "package": "@strutvane/webhooks"
+    },
+    {
+      "id": "graphql",
+      "name": "GraphQL",
+      "description": "A GraphQL API next to the REST API",
+      "category": "integrations",
+      "popular": true,
+      "published": true,
+      "frameworkRange": "^0.1",
+      "package": "@strutvane/graphql"
+    },
+    {
+      "id": "realtime",
+      "name": "Realtime",
+      "description": "Live updates in the UI when data changes",
+      "category": "integrations",
+      "popular": true,
+      "published": true,
+      "frameworkRange": "^0.1",
+      "package": "@strutvane/realtime",
+      "followUps": [
+        {
+          "id": "transport",
+          "label": "Realtime: how should updates reach the browser?",
+          "default": "sse",
+          "choices": [
+            {
+              "value": "sse",
+              "label": "Server-sent events (no extra service)"
+            },
+            {
+              "value": "websockets",
+              "label": "WebSockets"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "notification-channels",
+      "name": "Notification channels",
+      "description": "Slack, SMS and push next to email",
+      "category": "integrations",
+      "popular": true,
+      "published": true,
+      "frameworkRange": "^0.1",
+      "package": "@strutvane/notification-channels"
+    },
+    {
+      "id": "billing",
+      "name": "Billing",
+      "description": "Subscriptions, plans and a customer portal",
+      "category": "money",
+      "popular": true,
+      "published": true,
+      "frameworkRange": "^0.1",
+      "package": "@strutvane/billing",
+      "followUps": [
+        {
+          "id": "provider",
+          "label": "Billing: which payment provider?",
+          "default": "stripe",
+          "choices": [
+            {
+              "value": "stripe",
+              "label": "Stripe"
+            },
+            {
+              "value": "paddle",
+              "label": "Paddle (merchant of record)"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "invoicing",
+      "name": "Invoicing",
+      "description": "Numbered invoices, credit notes and PDFs",
+      "category": "money",
+      "popular": true,
+      "published": true,
+      "frameworkRange": "^0.1",
+      "package": "@strutvane/invoicing"
+    },
+    {
+      "id": "ai-sdk",
+      "name": "AI SDK",
+      "description": "Call AI models from your app, with streaming",
+      "category": "ai",
+      "popular": true,
+      "published": true,
+      "frameworkRange": "^0.1",
+      "package": "@strutvane/ai",
+      "followUps": [
+        {
+          "id": "provider",
+          "label": "AI SDK: which model provider first?",
+          "default": "later",
+          "choices": [
+            {
+              "value": "later",
+              "label": "Decide later"
+            },
+            {
+              "value": "anthropic",
+              "label": "Anthropic"
+            },
+            {
+              "value": "openai",
+              "label": "OpenAI"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "mcp-server",
+      "name": "MCP server",
+      "description": "Let AI assistants use your app through MCP",
+      "category": "ai",
+      "popular": true,
+      "published": true,
+      "frameworkRange": "^0.1",
+      "package": "@strutvane/mcp-server"
+    },
+    {
+      "id": "tags",
+      "name": "Tags",
+      "description": "Tag any record and filter by tags",
+      "category": "content",
+      "popular": false,
+      "published": true,
+      "frameworkRange": "^0.1",
+      "package": "@strutvane/tags"
+    },
+    {
+      "id": "comments",
+      "name": "Comments",
+      "description": "Comment threads on any record",
+      "category": "content",
+      "popular": false,
+      "published": true,
+      "frameworkRange": "^0.1",
+      "package": "@strutvane/comments"
+    },
+    {
+      "id": "translations",
+      "name": "Translations",
+      "description": "Translate record fields into many languages",
+      "category": "content",
+      "popular": false,
+      "published": true,
+      "frameworkRange": "^0.1",
+      "package": "@strutvane/translations"
+    },
+    {
+      "id": "sitemap",
+      "name": "Sitemap and SEO",
+      "description": "sitemap.xml and meta tags for public pages",
+      "category": "content",
+      "popular": false,
+      "published": true,
+      "frameworkRange": "^0.1",
+      "package": "@strutvane/sitemap"
+    },
+    {
+      "id": "geocoder",
+      "name": "Geocoder",
+      "description": "Addresses to map coordinates and back",
+      "category": "integrations",
+      "popular": false,
+      "published": true,
+      "frameworkRange": "^0.1",
+      "package": "@strutvane/geocoder"
+    },
+    {
+      "id": "virus-scanner",
+      "name": "Virus scanner",
+      "description": "Scan uploads before they are stored",
+      "category": "back-office",
+      "popular": false,
+      "published": true,
+      "frameworkRange": "^0.1",
+      "package": "@strutvane/virus-scanner"
+    },
+    {
+      "id": "calendar",
+      "name": "Calendar view",
+      "description": "Show any model with dates as a calendar",
+      "category": "data",
+      "popular": false,
+      "published": true,
+      "frameworkRange": "^0.1",
+      "package": "@strutvane/calendar"
+    },
+    {
+      "id": "workflows",
+      "name": "Workflows",
+      "description": "Approval flows and state machines",
+      "category": "back-office",
+      "popular": true,
+      "published": false,
+      "frameworkRange": "^0.1",
+      "package": "@strutvane/workflows"
+    },
+    {
+      "id": "legacy-exports",
+      "name": "Legacy exports",
+      "description": "Old export format (framework 0.0 only)",
+      "category": "data",
+      "popular": false,
+      "published": true,
+      "frameworkRange": "^0.0.9",
+      "package": "@strutvane/legacy-exports"
+    },
+    {
+      "id": "spreadsheets",
+      "name": "Spreadsheets",
+      "description": "Editable spreadsheet view (framework 0.2+)",
+      "category": "data",
+      "popular": true,
+      "published": true,
+      "frameworkRange": ">=0.2.0",
+      "package": "@strutvane/spreadsheets"
+    }
+  ]
+}

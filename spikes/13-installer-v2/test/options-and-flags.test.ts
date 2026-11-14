@@ -16,7 +16,9 @@ describe('defaults (user decisions 2026-11-14 + security review)', () => {
       stack: 'full',
       ui: 'admin',
       auth: 'email',
-      features: [],
+      // 2FA and email verification on; public registration OFF (security review F-02).
+      security: ['2fa', 'verification'],
+      features: ['log-viewer'],
       teams: false,
       database: 'mysql',
       docker: true,
@@ -42,12 +44,12 @@ describe('defaults (user decisions 2026-11-14 + security review)', () => {
 
   it('reports every conflicting choice at once, in plain words', () => {
     try {
-      resolveOptions({ name: 'My App', stack: 'api', ui: 'admin', auth: 'none', features: ['2fa'], teams: true, docker: true, dbHost: 'x' }, '/c')
+      resolveOptions({ name: 'My App', stack: 'api', ui: 'admin', auth: 'none', security: ['2fa'], teams: true, docker: true, dbHost: 'x' }, '/c')
       expect.unreachable()
     } catch (error) {
       expect(error).toBeInstanceOf(OptionsError)
       const problems = (error as OptionsError).problems
-      expect(problems).toHaveLength(6) // name: 2, ui, features, teams, docker
+      expect(problems).toHaveLength(6) // name: 2, ui, security, teams, docker
       expect(problems.join('\n')).toMatch(/lowercase/)
       expect(problems.join('\n')).toMatch(/drop --ui/)
       expect(problems.join('\n')).toMatch(/teams need sign-in/)
@@ -96,7 +98,7 @@ describe('flags: one for every question (CI mode)', () => {
   it('parses every question flag', () => {
     const parsed = parseCommandLine([
       'my-app',
-      '--stack', 'full', '--ui', 'blank', '--auth', 'email', '--features', 'registration,2fa',
+      '--stack', 'full', '--ui', 'blank', '--auth', 'email', '--security', 'registration,2fa',
       '--teams', '--db', 'postgres', '--no-docker', '--testing', 'vitest-playwright', '--no-git', '--yes', '--no-dev',
     ])
     expect(parsed.command).toBe('create')
@@ -107,7 +109,7 @@ describe('flags: one for every question (CI mode)', () => {
       stack: 'full',
       ui: 'blank',
       auth: 'email',
-      features: ['registration', '2fa'],
+      security: ['registration', '2fa'],
       teams: true,
       database: 'postgres',
       docker: false,
@@ -119,20 +121,21 @@ describe('flags: one for every question (CI mode)', () => {
   it('keeps "not given" apart from a value, so only missing answers are asked', () => {
     expect(parseCommandLine(['my-app']).answers).toEqual({ name: 'my-app' })
     expect(parseCommandLine(['-y']).yes).toBe(true)
+    expect(parseCommandLine(['x', '--security', 'none']).answers.security).toEqual([])
     expect(parseCommandLine(['x', '--features', 'none']).answers.features).toEqual([])
   })
 
   it('explains unknown flags and bad values, listing the allowed choices', () => {
     expect(() => parseCommandLine(['--databse', 'mysql'])).toThrow(/Unknown option '--databse'.*--help/)
     try {
-      parseCommandLine(['x', '--db', 'oracle', '--stack', 'mobile', '--features', 'sso'])
+      parseCommandLine(['x', '--db', 'oracle', '--stack', 'mobile', '--security', 'sso'])
       expect.unreachable()
     } catch (error) {
       expect(error).toBeInstanceOf(ArgsError)
       const problems = (error as ArgsError).problems
       expect(problems).toEqual([
         '--stack "mobile" is not a choice. Use one of: full, api',
-        '--features "sso" is not a choice. Use a comma list of: registration, verification, 2fa, or none',
+        '--security "sso" is not a choice. Use a comma list of: 2fa, verification, passkeys, registration, or none',
         '--db "oracle" is not a choice. Use one of: mysql, postgres, sqlite',
       ])
     }

@@ -7,7 +7,7 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { checkNodeVersion, main } from '../src/main.ts'
 import { CANCEL } from '../src/prompter.ts'
-import { FAKE_NODE, FAKE_NPM_CLI, describeCall, fakeEnvironment, scriptedPrompter, tempFolder } from './helpers/fakes.ts'
+import { FAKE_NODE, FAKE_NPM_CLI, RECOMMENDED_ANSWERS, describeCall, fakeEnvironment, scriptedPrompter, tempFolder } from './helpers/fakes.ts'
 import { fakePrograms } from './helpers/programs.ts'
 
 const NPM_AGENT = 'npm/11.19.0 node/v24.21.0 win32 x64 workspaces/false'
@@ -50,7 +50,8 @@ describe('CI mode (--yes and flags)', () => {
     expect(migrate?.redact).toEqual(['Abcd-Efgh-Jkmn-Pqrs'])
     expect(output()).not.toContain('Abcd-Efgh-Jkmn-Pqrs')
     expect(output()).toContain('not shown here. Set one with: node strut user:password admin@acme.test')
-    expect(output()).toContain('npm create strutvane@latest acme -- --stack full --ui admin --design crisp --auth email --features none --no-teams --db mysql --docker --testing vitest --git --yes')
+    // The same project without questions: every question's flag, from the registry.
+    expect(output()).toMatch(/npm create strutvane@latest acme -- --stack full --design crisp --ui admin --auth email --security 2fa,verification .* --no-teams --db mysql --docker .*--features log-viewer --testing vitest --agents --git --ci .*--deploy later --editor --no-dev-container --yes/)
     expect(output()).toMatch(/Mail inbox\s+http:\/\/localhost:8025/)
     const state: unknown = JSON.parse(readFileSync(join(cwd, 'acme', '.strutvane', 'setup.json'), 'utf8'))
     expect(JSON.stringify(state)).not.toMatch(/secret-0|Abcd-Efgh/) // no secret ever in setup.json
@@ -164,12 +165,12 @@ describe('interactive mode', () => {
   it('asks, reviews, creates, shows the one-time password once, and offers npm run dev', async () => {
     const cwd = tempFolder()
     const { prompter, asked, notes } = scriptedPrompter({
+      ...RECOMMENDED_ANSWERS,
       name: 'acme',
       stack: 'full',
       ui: 'admin',
       design: 'vivid',
       auth: 'email',
-      features: ['2fa'],
       teams: false,
       database: 'sqlite',
       docker: 'host',
@@ -189,7 +190,7 @@ describe('interactive mode', () => {
 
   it('exits 130 and writes nothing when cancelled', async () => {
     const cwd = tempFolder()
-    const { prompter } = scriptedPrompter({ name: 'acme', stack: CANCEL })
+    const { prompter } = scriptedPrompter({ name: 'acme', mode: 'recommended', stack: CANCEL })
     const { environment } = fakeEnvironment({ cwd, argv: [], interactiveTerminal: true, prompter })
     expect(await main(environment)).toBe(130)
     expect(existsSync(join(cwd, 'acme'))).toBe(false)

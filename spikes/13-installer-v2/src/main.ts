@@ -13,6 +13,7 @@ import { ArgsError, helpText, type ParsedArgs, parseCommandLine } from './args.t
 import { EXIT, type ExitCode } from './exit-codes.ts'
 import { readyLines, unfinishedLines } from './finish.ts'
 import { type Answers, OptionsError, type ProjectOptions, resolveOptions } from './options.ts'
+import { QUESTIONS } from './question-registry.ts'
 import type { PortProbe } from './ports.ts'
 import { CancelledError, type Prompter } from './prompter.ts'
 import { askMissing, review } from './questions.ts'
@@ -37,8 +38,10 @@ import type { TypedSecrets } from './templates/env.ts'
 import { renderProject } from './templates/project.ts'
 import { type FileWriter, targetProblem, writeProjectFiles } from './write-files.ts'
 
-/** The installer's version (a spike: never published). */
-export const VERSION = '0.0.0-spike.13'
+import { VERSION } from './version.ts'
+
+/** The installer's version (a spike: never published). Kept in version.ts so templates can use it. */
+export { VERSION }
 
 /** The oldest Node that works: 24.3 fixed npm.ps1's argument passing (npm/cli#7375). */
 export const MINIMUM_NODE = Object.freeze({ major: 24, minor: 3 } as const)
@@ -168,6 +171,9 @@ async function create(parsed: ParsedArgs, environment: InstallerEnvironment): Pr
     }
   }
 
+  // Secrets that were not typed come from their environment variables (CI): STRUT_DB_PASSWORD,
+  // STRUT_ADMIN_PASSWORD. Never flags, never files other than .env, never the screen.
+  answers = secretsFromEnvironment(answers, environment.env)
   let options: ProjectOptions
   try {
     options = resolveOptions(answers, environment.cwd)
@@ -176,14 +182,30 @@ async function create(parsed: ParsedArgs, environment: InstallerEnvironment): Pr
     reporter.error(listProblems('These choices do not work together:', error.problems))
     return EXIT.failed
   }
+  if (options.adminPasswordMode === 'type' && answers.adminPassword === undefined) {
+    reporter.error(
+      'You chose to type the first admin password, but there is no terminal to type it in. Set it in the STRUT_ADMIN_PASSWORD environment variable, or use --admin-password generate.',
+    )
+    return EXIT.failed
+  }
 
-  // A password for the user's own database server: typed, or from STRUT_DB_PASSWORD in CI. It goes
-  // into .env only (never setup.json, never a flag, never the screen).
-  const dbPassword = answers.dbPassword ?? environment.env['STRUT_DB_PASSWORD']
-  const written = await writeFiles(options, dbPassword === undefined ? {} : { dbPassword }, environment, reporter)
+  const written = await writeFiles(options, answers.dbPassword === undefined ? {} : { dbPassword: answers.dbPassword }, environment, reporter)
   if (written === undefined) return EXIT.failed
-  const result = await setUp(written, options, interactive, environment, reporter)
+  const result = await setUp(written, options, interactive, environment, reporter, answers.adminPassword)
   return finish(result, options, { interactive, parsed, environment, reporter })
+}
+
+/**
+ * Fill unanswered secret questions from their environment variables (the registry names them).
+ * Only questions that apply are filled, so an unrelated variable is ignored.
+ */
+function secretsFromEnvironment(answers: Answers, env: NodeJS.ProcessEnv): Answers {
+  let filled = answers
+  for (const question of QUESTIONS) {
+    const value = question.secretEnv === undefined ? undefined : env[question.secretEnv]
+    if (value !== undefined && question.when(filled) && !question.answered(filled)) filled = { ...filled, [question.id]: value }
+  }
+  return filled
 }
 
 /**
@@ -237,6 +259,7 @@ function setUp(
   interactive: boolean,
   environment: InstallerEnvironment,
   reporter: Reporter,
+  typedAdminPassword?: string,
 ): Promise<RunResult> {
   const directory = options.directory
   const stamp = environment.now().toISOString().replace(/[:.]/g, '-')
@@ -260,6 +283,7 @@ function setUp(
       reporter,
       generateSecret: environment.generateSecret,
       generatePassword: environment.generatePassword,
+      typedAdminPassword,
       hostUser: environment.hostUser,
     }),
   })

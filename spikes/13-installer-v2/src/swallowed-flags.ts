@@ -10,6 +10,7 @@
  *
  * @module
  */
+import { QUESTIONS } from './question-registry.ts'
 
 /** One of our flags, found in npm's environment instead of our arguments. */
 export interface SwallowedFlag {
@@ -19,32 +20,46 @@ export interface SwallowedFlag {
   readonly value: string
 }
 
+/** One question flag to look for in npm's environment. */
+interface Watched {
+  readonly flag: string
+  readonly keys: readonly string[]
+  /** Would the installer accept this value for the flag? */
+  readonly accepts: (value: string) => boolean
+}
+
 /**
- * Where npm stores each of our flags. Most are `npm_config_<flag>`; `--auth` is expanded by npm
- * to its own `auth-type` config, so we look there too.
+ * Where npm stores each question flag: `npm_config_<flag>` (dashes become underscores), plus any
+ * alias from the registry (`--auth` is expanded by npm to its own `auth-type` config).
  *
- * Not listed on purpose: `--yes` (npm's own "skip the install prompt" flag, which people pass
+ * Why only values the installer would accept: npm sets some of these variables itself (for example
+ * `npm_config_git`, a path to git, from `.npmrc`). Counting only valid choices (`--db sqlite`,
+ * `true`/`false` for yes/no flags) keeps those from looking like a swallowed flag.
+ *
+ * Not watched on purpose: `--yes` (npm's own "skip the install prompt" flag, which people pass
  * legitimately), `--dev` (npm turns it into `--include=dev` and leaves no variable), `--help` and
- * `--version` (npm answers them itself).
+ * `--version` (npm answers them itself). Derived from the registry, so every new question flag is
+ * watched automatically.
  */
-const NPM_KEYS: Readonly<Record<string, readonly string[]>> = Object.freeze({
-  name: ['npm_config_name'],
-  stack: ['npm_config_stack'],
-  ui: ['npm_config_ui'],
-  // Not checked against a real npm yet: npm has no config that `design` abbreviates, so it should
-  // land in npm_config_design like --ui does.
-  design: ['npm_config_design'],
-  auth: ['npm_config_auth', 'npm_config_auth_type'],
-  features: ['npm_config_features'],
-  teams: ['npm_config_teams'],
-  db: ['npm_config_db'],
-  docker: ['npm_config_docker'],
-  testing: ['npm_config_testing'],
-  git: ['npm_config_git'],
+const WATCHED: readonly Watched[] = QUESTIONS.flatMap((question) => {
+  const flag = question.flag
+  if (flag === undefined) return []
+  return [
+    {
+      flag: flag.name,
+      keys: [`npm_config_${flag.name.replaceAll('-', '_')}`, ...(flag.npmAliases ?? [])],
+      accepts: (value: string) => {
+        if (flag.type === 'boolean') return ['true', 'false', ''].includes(value)
+        const problems: string[] = []
+        question.read(flag.multiple === true ? [value] : value, problems)
+        return problems.length === 0
+      },
+    },
+  ]
 })
 
 /** Boolean flags: npm stores `true`, or `false`/`''` for the `--no-` form. */
-const BOOLEAN_FLAGS: ReadonlySet<string> = new Set(['teams', 'docker', 'git'])
+const BOOLEAN_FLAGS: ReadonlySet<string> = new Set(QUESTIONS.flatMap((q) => (q.flag?.type === 'boolean' ? [q.flag.name] : [])))
 
 /**
  * Was this process started by npm (`npm create`, `npm exec`, `npm run`)?
@@ -69,11 +84,10 @@ export function startedByNpm(env: NodeJS.ProcessEnv): boolean {
 export function findSwallowedFlags(env: NodeJS.ProcessEnv): SwallowedFlag[] {
   if (!startedByNpm(env)) return []
   const found: SwallowedFlag[] = []
-  for (const [flag, keys] of Object.entries(NPM_KEYS)) {
+  for (const { flag, keys, accepts } of WATCHED) {
     for (const key of keys) {
       const value = env[key]
-      if (value === undefined) continue
-      if (BOOLEAN_FLAGS.has(flag) && !['true', 'false', ''].includes(value)) continue
+      if (value === undefined || !accepts(value)) continue
       found.push({ flag, value })
       break
     }

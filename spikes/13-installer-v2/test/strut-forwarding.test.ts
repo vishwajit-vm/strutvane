@@ -18,6 +18,7 @@ const { appendFileSync } = require('node:fs')
 const args = process.argv.slice(2)
 appendFileSync(process.env.FAKE_LOG, JSON.stringify(args) + '\\n')
 if (args.includes('ps') && args.includes('--services')) process.stdout.write(process.env.FAKE_RUNNING ?? '')
+if (args.includes('exec')) process.exitCode = Number(process.env.FAKE_EXIT ?? 0)
 `
 
 let directory = ''
@@ -95,5 +96,59 @@ describe('strut.js in Docker mode', () => {
     } finally {
       writeFileSync(envJson, before)
     }
+  })
+})
+
+/** Arguments a shell would interpret. They must arrive untouched: there is no shell anywhere. */
+const TRICKY = ['a&b', '$(touch pwned)', '; rm -rf /', '"quoted"', "it's", '%PATH%', '^caret', '|pipe', '`tick`']
+
+describe('Sail-style pass-throughs: node strut npm|npx|node|shell', () => {
+  it('npm run dev is node strut dev, and it is forwarded into the app container', () => {
+    const manifest = JSON.parse(readFileSync(join(directory, 'package.json'), 'utf8')) as { scripts: Record<string, string> }
+    expect(manifest.scripts['dev']).toBe('node strut dev')
+    expect(strut(['dev']).calls[1]?.slice(-5)).toEqual(['exec', '-T', 'app', 'node', 'strut', 'dev'].slice(-5))
+  })
+
+  it('Docker mode: npm, npx and node run inside the app container with their arguments verbatim', () => {
+    expect(strut(['npm', 'install', 'left-pad']).calls[1]?.slice(-5)).toEqual(['-T', 'app', 'npm', 'install', 'left-pad'])
+    expect(strut(['npx', 'vitest', 'run']).calls[1]?.slice(-5)).toEqual(['-T', 'app', 'npx', 'vitest', 'run'])
+    const tricky = strut(['node', '-e', 'x', ...TRICKY])
+    expect(tricky.calls[1]?.slice(-(TRICKY.length + 4))).toEqual(['app', 'node', '-e', 'x', ...TRICKY])
+  })
+
+  it('Docker mode: shell opens bash, or sh when the image has no bash (a fixed script, no user input)', () => {
+    const exec = strut(['shell', 'ignored; rm -rf /']).calls[1] ?? []
+    expect(exec.slice(-4)).toEqual(['app', 'sh', '-c', 'if command -v bash >/dev/null 2>&1; then exec bash; else exec sh; fi'])
+    expect(exec.join(' ')).not.toContain('ignored')
+  })
+
+  it('Docker mode: the exit code comes back', () => {
+    expect(strut(['npm', 'test'], { FAKE_EXIT: '7' }).code).toBe(7)
+    expect(strut(['migrate'], { FAKE_EXIT: '3' }).code).toBe(3)
+  })
+
+  it('host mode: npm, npx and node run here (never in Docker), arguments verbatim, exit code passed through', () => {
+    const envJson = join(directory, '.strutvane', 'env.json')
+    const before = readFileSync(envJson, 'utf8')
+    writeFileSync(envJson, JSON.stringify({ mode: 'host' }))
+    try {
+      const echo = strut(['node', '-e', 'process.stdout.write(JSON.stringify(process.argv.slice(1)))', ...TRICKY])
+      expect(echo.calls).toHaveLength(0)
+      expect(echo.code).toBe(0)
+      expect(JSON.parse(echo.output) as string[]).toEqual(TRICKY)
+      expect(strut(['node', '-e', 'process.exit(7)']).code).toBe(7)
+      const npm = strut(['npm', '--version'])
+      expect(npm.code, npm.output).toBe(0)
+      expect(npm.output.trim()).toMatch(/^\d+\.\d+\.\d+/)
+      expect(npm.calls).toHaveLength(0)
+    } finally {
+      writeFileSync(envJson, before)
+    }
+  })
+
+  it('inside the container the pass-throughs run right there (no forwarding loop)', () => {
+    const result = strut(['node', '-e', 'process.stdout.write("inside")'], { STRUTVANE_IN_CONTAINER: '1' })
+    expect(result.calls).toHaveLength(0)
+    expect(result.output).toBe('inside')
   })
 })

@@ -9,7 +9,7 @@ design names has a recovery and an exit code, and `npm run setup` continues from
 unfinished step. Verified on Windows 11 / PowerShell 5.1 / Node 24.21.0 / npm 11.19.0 /
 Docker 29.8.2 on 2026-11-14.
 
-**Evidence:** 124 tests (+1 placeholder skipped when Docker is missing), `npm test` green:
+**Evidence:** 308 tests (+1 placeholder skipped when Docker is missing), `npm test` green:
 - question flows with a scripted prompter, flags/CI mode, npm's swallowed flags;
 - the step runner with a fake spawner: success, every failure, recovery choices, resume;
 - Windows argument safety with a real child process;
@@ -55,29 +55,85 @@ exit code: 0
 (Plain output because there is no terminal: the "… step" start lines are omitted here. In a real
 terminal the same steps show clack spinners, and the admin's one-time password is shown once.)
 
-**Since the design prompt (2026-11-15)** the same run writes 4 more files (`config/ui.ts`,
-`resources/ui/theme.css` and the design stub's two files) and the Ready box gains two lines (from
-the in-process tests, not a re-recorded Docker run):
+**Since 2026-11-15** (design prompt, the full blueprint §2.1 question list, ADR-0021, Docker
+pass-throughs) the same `--yes` run asks nothing more, but writes more files (the packages the
+default answers bring as stubs, `strutvane.json`, `config/*` per answer, the CI workflow, editor
+settings) and the Ready box gains a Design and a Restyle line, and a longer "same project" command
+(one flag per question, built from the registry). Not re-recorded with Docker; see the tests.
+
+Try it: `node src/cli.ts my-app --db sqlite --yes`, or answer everything:
+`node src/cli.ts my-app --mode custom`. A full non-interactive example:
 
 ```text
-   Design       crisp (@strutvane/design-crisp)
-   Restyle:     resources/ui/theme.css, or switch: node strut design:use vivid
-   npm create strutvane@latest acme-portal -- --stack full --ui admin --design crisp --auth email ...
+npm create strutvane@latest acme -- --stack full --design vivid --auth magic-link --security passkeys \
+  --teams --tenant subdomain --db postgres --docker --features billing,search \
+  --feature-option billing.provider=paddle --ai --ai-provider anthropic --deploy docker \
+  --dev-container --yes
 ```
-
-Try a design: `node src/cli.ts my-app --design vivid --db sqlite --yes`.
 
 ## What it does
 
-**Questions** (each has a flag; `--yes`, `CI` or no TTY = defaults): name · stack (full / api) ·
-React UI starter (admin / blank) · **design** (`--design crisp|vivid`, **Crisp** default; full
-stack only, `--design` with `--stack api` is refused like `--ui`) · sign-in (email / none) · features (registration,
-verification, 2fa; **none by default**) · teams · database (**MySQL** default; **PostgreSQL
-pre-selected with teams**; SQLite) · **"Set up with Docker or without Docker?"** (Docker
-pre-selected for MySQL/PostgreSQL) · without Docker and a server DB: host, port, name, user,
-password (masked; `STRUT_DB_PASSWORD` in CI) · tests · git · **review** (Create / Change an
-answer / Cancel; a change re-asks only what it affects). Teams on MySQL/SQLite print a note:
-isolation by the ORM tenant scope; PostgreSQL adds RLS.
+**Questions: one data-driven registry** (`src/question-registry.ts`). One array holds every
+question of blueprint §2.1 (rows 1–36; row 37 "start the dev server?" is asked after setup):
+id, group, title, choices (with the packages each choice brings), default, flag, `when` rule and
+★ (Recommended). The engine, flags, `--help`, review, "Change an answer", the "same project
+without questions" command, `setup.json` resume, swallowed-flag detection and the package list
+all loop over that array; there is no per-question switch.
+
+- **Opener:** "How do you want to set up acme?" Recommended (the 7 ★ questions: stack, design,
+  sign-in, teams, database, Docker, AI assistants) or Custom (about 35, grouped). `--mode`.
+- **Every question has a flag**; `--yes`, `CI` or no TTY take the defaults. Secrets are never
+  flags: `STRUT_DB_PASSWORD`, `STRUT_ADMIN_PASSWORD`.
+- **Asked whenever they apply, in both modes:** your own server's connection details, a typed
+  admin password, and the follow-up questions of picked packages (they follow from a choice and
+  have no safe default).
+- A later answer can switch on an earlier question (teams, row 11, enables SSO, row 8): the
+  engine asks newly applying questions in another pass.
+
+| Group | Flags (default) |
+|---|---|
+| App | `--stack full\|api` (full) · `--design crisp\|vivid` (crisp) · `--ui admin\|blank` (admin) |
+| Sign-in | `--auth email\|magic-link\|none` (email) · `--security 2fa,verification,passkeys,registration` (2fa,verification; registration OFF, F-02) · `--social google,...` (none) · `--sso` (no; needs teams) · `--api tokens\|oauth\|none` (tokens; forced to tokens without sign-in) · `--roles basic\|extended` |
+| Teams | `--teams` (no) · `--tenant switcher\|subdomain` |
+| Data | `--db mysql\|postgres\|sqlite` (mysql; postgres with teams) · `--docker` (yes for server DBs) · `--db-host/--db-port/--db-name/--db-user` · `--admin-email` (admin@&lt;name&gt;.test) · `--admin-password generate\|type` · `--sample-data` (yes for the admin starter) |
+| Infra | `--cache-store database\|redis` · `--storage local\|s3` · `--mailer later\|smtp\|resend\|postmark\|ses` · `--locale en` · `--timezone` (this computer) · `--currency USD` |
+| Features | `--features <catalogue ids>\|none` (log-viewer) · `--feature-option <id>.<question>=<value>` |
+| Quality / Workflow | `--testing vitest\|vitest-playwright\|none` · `--agents` (yes) · `--git` · `--ci` · `--editor` (yes) · `--dev-container` (no) |
+| Security / AI / UI / Ops | `--security-profile standard\|strict` · `--activity-log` (yes with teams) · `--ai` · `--ai-provider anthropic\|openai\|google\|ollama` · `--mcp-server` · `--ui-languages en,...` · `--appearance system\|light\|dark` · `--pwa` · `--live-updates` · `--monitoring none\|otel` · `--deploy later\|node\|docker` |
+
+**Question 22 (extra features)** reads a catalogue index (`src/data/catalogue.json`, a 33-entry
+fixture of what hub CI would publish): only **published** entries whose `frameworkRange`
+includes the framework being installed (0.1.0) are offered; the popular ones grouped by
+category first, then type-to-search over the rest; picked packages' **declarative** follow-up
+questions (billing: Stripe or Paddle?) come after. The index is untrusted: bad entries are
+skipped (strict package-name pattern, so no path tricks; follow-ups that mention a key, secret,
+token or password are refused).
+
+**Generated from the answers:** `package.json` dependencies (every package as a `file:` stub
+plus its lockfile link), `strutvane.json` (every answer incl. defaults, the packages, versions;
+never a secret), `config/{app,api,auth,cache,filesystems,mail,security,monitoring,permissions,
+tenancy,ai,ui}.ts`, `.env` keys (AI provider key written **empty**; the installer never asks for
+it), `.github/workflows/ci.yml`, `.vscode/`, `AGENTS.md` (only with AI assistants), the sample-data
+seeder, `deploy/README.md` + the public `/up` route for a deploy target.
+
+**Containers (ADR-0021):** `--deploy docker` writes a committed multi-stage `Dockerfile`
+(pinned `node:24-bookworm-slim`, `npm ci`, only `build/` + production deps, `USER node`,
+`HEALTHCHECK` on `/up`, nothing secret copied) and a `.dockerignore` (`.env*`, `.git`,
+`node_modules`, `storage/`, tests); `node strut docker:prod` is the documented later path.
+`--dev-container` writes a committed `.devcontainer/` (app container only; `../.env` read at
+runtime, optional). The local Sail-style `docker/compose.yaml` stays git-ignored (ADR-0006).
+
+**Security rules:** no sign-in makes `config/api.ts` require API tokens (deny by default);
+public registration is off; the first admin's password is generated with `crypto` and shown once
+(interactive only), or typed masked (≥ 12 characters, `STRUT_ADMIN_PASSWORD` in CI) and then
+passed to the seeder through the environment only: never in `.env`, `.env.example`,
+`strutvane.json` or `setup.json` (tested by scanning every written file).
+
+**Docker mode runs everything in the app container:** `npm run dev` (= `node strut dev`),
+migrate and every `node strut` command, plus Sail-style pass-throughs `node strut shell` (bash,
+or sh), `node strut npm|npx|node <args>`. Forwarded in Docker mode, run locally in host mode or
+inside the container; arguments verbatim (no shell; tested with `a&b`, `$(...)`, `%PATH%`), exit
+codes passed through.
 
 **Steps** (state in `.strutvane/setup.json`, saved after every step): files (all-or-nothing) →
 secrets → ports → database (Docker: `compose up -d --wait`) → install → migrate + seed → git.
@@ -164,11 +220,21 @@ inside the container), Host allowlist · F-20 owner/app PostgreSQL roles, every 
 - The installer depends on `@clack/prompts`; F-12 wants create-strutvane bundled with zero
   runtime dependencies.
 - Redis/Valkey service: not added (the brief says "later").
-- **Design packages** (`@strutvane/design-crisp|vivid`) are local `file:` stubs, pinned like the
-  stub framework; `node strut design:use <name>` is named in the generated files but not
-  implemented in the stub CLI. The generated package.json has no `@strutvane/ui` dependency yet
-  (the spike never generated one). That npm leaves a swallowed `--design` in `npm_config_design`
-  is assumed from `--ui`, not re-verified with a real npm.
+- **Every package is a local `file:` stub** (design, ui, auth, logs, agent-tools, ...): the
+  answers drive package.json, the lockfile and the config files only; the packages themselves are
+  not built. Commands the generated files mention but the stub CLI lacks: `design:use`,
+  `token:create`, `docker:prod`, `install:<name>`, `add`.
+- **The Dockerfile and the dev container were not built or run** (content tested only); the
+  build/runtime stages reference `stubs/`, which a release drops. The dev container has no
+  database service (SQLite works; server databases need your own DB_* settings).
+- **The clack `groupMultiselect` / `autocompleteMultiselect` pickers** (question 22) were not
+  driven in a real terminal; the flows are proven with the scripted prompter only.
+- **Swallowed new flags** (`--design`, `--security`, `--cache-store`, ...) are detected from
+  `npm_config_<flag>` by analogy with the verified ones; not re-checked with a real npm. `--cache`
+  was avoided on purpose: npm owns `npm_config_cache`.
+- A typed admin password is memory-only, so a **resumed** setup (`npm run setup`) generates one
+  instead and shows it once.
+- CI action versions (`actions/checkout@v4`, `setup-node@v4`) are *(unverified)* for 2026.
 - The stub framework (`stubs/strutvane-framework`) stands in for spike 12's `node strut`
   registry and spike 10's schema builder; only what the installer calls is implemented.
 

@@ -9,19 +9,8 @@
  */
 import { existsSync, readFileSync, renameSync, writeFileSync, mkdirSync } from 'node:fs'
 import { dirname, join } from 'node:path'
-import {
-  AUTH_FEATURES,
-  AUTH_MODES,
-  type Answers,
-  type AuthFeature,
-  DATABASES,
-  DESIGN_NAMES,
-  type ProjectOptions,
-  resolveOptions,
-  STACKS,
-  TEST_SETUPS,
-  UI_STARTERS,
-} from './options.ts'
+import { type Answers, type ProjectOptions, resolveOptions } from './options.ts'
+import { QUESTIONS } from './question-registry.ts'
 
 /** The setup steps, in the order they run. */
 export const STEP_IDS = ['files', 'secrets', 'ports', 'database', 'install', 'migrate', 'git'] as const
@@ -184,39 +173,24 @@ function stepRecord(value: unknown): StepRecord {
   return typeof note === 'string' ? { status: match ?? 'pending', note } : { status: match ?? 'pending' }
 }
 
-/** Rebuild typed answers from stored JSON, keeping only valid values. */
+/**
+ * Rebuild typed answers from stored JSON through the question registry: every question reads its
+ * own stored value with the same check as its flag. A value that fails the check is dropped (the
+ * question's default applies), and resolveOptions then re-applies every rule.
+ */
 function answersFrom(options: Record<string, unknown>): Answers {
-  const pick = <T extends string>(value: unknown, allowed: readonly T[]): T | undefined =>
-    allowed.find((choice) => choice === value)
-  const bool = (value: unknown): boolean | undefined => (typeof value === 'boolean' ? value : undefined)
-  const features = Array.isArray(options['features'])
-    ? options['features']
-        .map((f) => pick(f, AUTH_FEATURES))
-        .filter((f): f is AuthFeature => f !== undefined)
-    : undefined
-  const answers: { -readonly [K in keyof Answers]: Answers[K] } = {}
-  const set = <K extends keyof Answers>(key: K, value: Answers[K] | undefined) => {
-    if (value !== undefined) answers[key] = value
-  }
-  set('name', typeof options['name'] === 'string' ? options['name'] : undefined)
-  set('stack', pick(options['stack'], STACKS))
-  set('ui', pick(options['ui'], UI_STARTERS))
-  // Older setup.json files have no design: resolveOptions then falls back to the default.
-  set('design', pick(options['design'], DESIGN_NAMES))
-  set('auth', pick(options['auth'], AUTH_MODES))
-  set('features', features)
-  set('teams', bool(options['teams']))
-  set('database', pick(options['database'], DATABASES))
-  set('docker', bool(options['docker']))
   const connection = options['connection']
-  if (isRecord(connection)) {
-    set('dbHost', typeof connection['host'] === 'string' ? connection['host'] : undefined)
-    set('dbPort', typeof connection['port'] === 'number' ? connection['port'] : undefined)
-    set('dbName', typeof connection['database'] === 'string' ? connection['database'] : undefined)
-    set('dbUser', typeof connection['username'] === 'string' ? connection['username'] : undefined)
+  const flat: Record<string, unknown> = isRecord(connection)
+    ? { ...options, dbHost: connection['host'], dbPort: connection['port'], dbName: connection['database'], dbUser: connection['username'] }
+    : options
+  let answers: Answers = {}
+  for (const question of QUESTIONS) {
+    const stored = flat[question.id]
+    // Older setup.json files lack newer questions: those simply take their defaults.
+    if (stored === undefined || stored === null) continue
+    const ignored: string[] = []
+    answers = { ...answers, ...question.read(stored, ignored) }
   }
-  set('testing', pick(options['testing'], TEST_SETUPS))
-  set('git', bool(options['git']))
   return answers
 }
 

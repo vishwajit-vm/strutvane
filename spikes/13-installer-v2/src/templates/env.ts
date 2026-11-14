@@ -15,7 +15,7 @@
  */
 import { formatEnvValue } from '../env-file.ts'
 import { postgresRoles, sqlIdentifier, testDatabaseName, composeProjectName } from '../names.ts'
-import { DEFAULT_DATABASE_PORTS, type ProjectOptions } from '../options.ts'
+import { aiProviderInfo, DEFAULT_DATABASE_PORTS, type ProjectOptions } from '../options.ts'
 
 /** One variable. */
 export interface EnvVar {
@@ -70,6 +70,7 @@ export function buildEnvSections(options: ProjectOptions, typed: TypedSecrets = 
     docker(options),
     auth(options),
     teams(options),
+    ai(options),
   ]
   return sections.filter((section): section is EnvSection => section !== undefined)
 }
@@ -184,16 +185,35 @@ function docker(options: ProjectOptions): EnvSection | undefined {
 
 function auth(options: ProjectOptions): EnvSection | undefined {
   if (options.auth === 'none') return undefined
-  const has = (feature: string) => String(options.features.some((f) => f === feature))
+  const has = (feature: string) => String(options.security.some((f) => f === feature))
   return {
     title: 'Auth',
     vars: [
       { key: 'AUTH_SECRET', value: '', secret: true },
+      { key: 'AUTH_MODE', value: options.auth },
       { key: 'AUTH_REGISTRATION', value: has('registration') },
       { key: 'AUTH_EMAIL_VERIFICATION', value: has('verification') },
       { key: 'AUTH_TWO_FACTOR', value: has('2fa') },
-      // The first admin's address. Its one-time password is never stored here (security review F-18).
-      { key: 'SEED_ADMIN_EMAIL', value: `admin@${options.name}.test` },
+      { key: 'AUTH_PASSKEYS', value: has('passkeys') },
+      // The first admin's address. Its password is never stored here (security review F-18).
+      { key: 'SEED_ADMIN_EMAIL', value: options.adminEmail ?? `admin@${options.name}.test` },
+    ],
+  }
+}
+
+/**
+ * AI provider settings. The API key line is written EMPTY in both files and is not a generated
+ * secret: the installer never asks for a key (it would land in shell history or CI logs); the
+ * developer pastes it into `.env` later.
+ */
+function ai(options: ProjectOptions): EnvSection | undefined {
+  if (options.aiProvider === undefined) return undefined
+  const provider = aiProviderInfo(options.aiProvider)
+  return {
+    title: 'AI (paste your key here yourself; never commit it)',
+    vars: [
+      { key: 'AI_PROVIDER', value: provider.value },
+      { key: provider.envKey, value: provider.envExample ?? '', example: provider.envExample ?? '' },
     ],
   }
 }

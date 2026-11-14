@@ -29,20 +29,23 @@ export function appFiles(options: ProjectOptions): GeneratedFile[] {
     { path: 'routes/web.ts', content: webRoutes(options) },
     { path: 'routes/api.ts', content: API_ROUTES },
     { path: 'app/http/controllers/health-controller.ts', content: HEALTH_CONTROLLER },
-    { path: 'config/app.ts', content: CONFIG_APP },
+    { path: 'config/app.ts', content: configApp(options) },
     { path: 'config/database.ts', content: CONFIG_DATABASE },
+    ...answerConfigFiles(options),
     ...migrations(options),
     { path: 'database/seeders/database-seeder.ts', content: seeder(options) },
   ]
-  if (options.auth === 'email') {
+  // Email link sign-in has users too; only "no sign-in" has none.
+  if (options.auth !== 'none') {
     files.push(
       { path: 'app/models/user.ts', content: USER_MODEL },
       { path: 'app/policies/user-policy.ts', content: USER_POLICY },
-      { path: 'config/auth.ts', content: CONFIG_AUTH },
+      { path: 'config/auth.ts', content: configAuth(options) },
       { path: 'database/factories/user-factory.ts', content: USER_FACTORY },
     )
   }
   if (options.teams) files.push({ path: 'config/tenancy.ts', content: tenancyConfig(options) })
+  if (options.sampleData) files.push({ path: 'database/seeders/sample-data-seeder.ts', content: SAMPLE_DATA_SEEDER })
   if (options.ui !== undefined) files.push(...uiFiles(options))
   if (options.testing !== 'none') files.push({ path: 'tests/feature/health.test.ts', content: HEALTH_TEST })
   if (options.testing === 'vitest-playwright') {
@@ -69,9 +72,89 @@ function webRoutes(options: ProjectOptions): string {
 type Router = { get(path: string, handler: () => unknown): void }
 
 export default function web(router: Router): void {
-  router.get('/', () => ${page})
+  router.get('/', () => ${page})${upRoute(options)}
 }
 `
+}
+
+/**
+ * The \`/up\` health route (Laravel 11's name), written when a deploy target is chosen: hosts,
+ * load balancers and the Dockerfile's HEALTHCHECK call it. It says only "up": no versions, no
+ * internals, so it is safe to leave public.
+ */
+function upRoute(options: ProjectOptions): string {
+  if (options.deploy === 'later') return ''
+  return `
+  // Health check for your host / load balancer / Docker HEALTHCHECK. Public, and says nothing else.
+  router.get('/up', () => 'up')`
+}
+
+/**
+ * A config file whose values are plain data. JSON is valid TypeScript, and every value was
+ * checked by resolveOptions, so nothing typed by the user can break out of the literal.
+ */
+function dataConfig(path: string, comment: string, data: Readonly<Record<string, unknown>>): GeneratedFile {
+  return { path, content: `${comment.trim()}\nexport default ${JSON.stringify(data, null, 2)}\n` }
+}
+
+/**
+ * The config files that only record installer answers (the packages they name read them).
+ * One small file per concern, like Laravel's config folder.
+ */
+function answerConfigFiles(options: ProjectOptions): GeneratedFile[] {
+  const files = [
+    dataConfig(
+      'config/api.ts',
+      `// The API (/api/v1). Deny by default: without sign-in every request needs an API token
+// (create one with: node strut token:create); a route opts out only explicitly, one by one.`,
+      {
+        requireToken: options.auth === 'none',
+        access: options.apiAccess,
+        publicRoutes: ['/api/v1/health'],
+      },
+    ),
+    dataConfig('config/cache.ts', '// Cache, queue and sessions. "database" needs no extra service; "redis" needs REDIS_URL in .env.', {
+      store: options.cache,
+      queue: options.cache,
+      sessions: options.cache,
+    }),
+    dataConfig('config/filesystems.ts', '// Where uploaded files go. "s3" reads its bucket and keys from .env (never from this file).', {
+      default: options.storage,
+    }),
+    dataConfig('config/mail.ts', '// Mail. Development always uses Mailpit (Docker) or the log; this is the production mailer.', {
+      production: options.mailer,
+    }),
+    dataConfig(
+      'config/security.ts',
+      `// Security profile. "strict": 2FA required for admins, breached-password check, 8-hour sessions,
+// strict Content-Security-Policy and HSTS preload. "standard" keeps the safe defaults.`,
+      { profile: options.securityProfile, activityHistory: options.activityLog },
+    ),
+    dataConfig('config/monitoring.ts', '// Monitoring. "otel" exports traces and metrics with OpenTelemetry (endpoint from .env).', {
+      exporter: options.monitoring,
+      healthPage: options.monitoring === 'otel',
+    }),
+  ]
+  if (options.roles !== undefined) {
+    files.push(
+      dataConfig('config/permissions.ts', '// The roles new apps start with. Change them here; policies decide what each role may do.', {
+        roles: options.roles === 'extended' ? ['admin', 'manager', 'member', 'viewer'] : ['admin', 'member'],
+      }),
+    )
+  }
+  if (options.aiProvider !== undefined) {
+    files.push(
+      dataConfig(
+        'config/ai.ts',
+        `// AI features. The provider's API key lives only in .env (the installer never asks for it).
+// MCP: lets AI agents use the app under your policies and teams.`,
+        { provider: options.aiProvider, mcpServer: options.mcpServer },
+      ),
+    )
+  } else if (options.mcpServer) {
+    files.push(dataConfig('config/ai.ts', '// MCP: lets AI agents use the app under your policies and teams.', { mcpServer: true }))
+  }
+  return files
 }
 
 const API_ROUTES = `// API routes, served under /api/v1. Resource routes for your models are added here.
@@ -92,14 +175,20 @@ export const HealthController = {
 }
 `
 
-const CONFIG_APP = `// Application settings, read from .env. Change values in .env, not here.
+/** Application settings: per-machine values from .env, the regional defaults from the installer. */
+function configApp(options: ProjectOptions): string {
+  return `// Application settings. Per-machine values come from .env; change the regional defaults here.
 export default {
   name: process.env['APP_NAME'] ?? 'app',
   env: process.env['APP_ENV'] ?? 'production',
   url: process.env['APP_URL'] ?? 'http://localhost:3000',
   debug: process.env['APP_DEBUG'] === 'true',
+  locale: ${JSON.stringify(options.locale)},
+  timezone: ${JSON.stringify(options.timezone)},
+  currency: ${JSON.stringify(options.currency)},
 }
 `
+}
 
 const CONFIG_DATABASE = `// Database settings, read from .env (DB_CONNECTION is mysql, postgres or sqlite).
 export default {
@@ -112,13 +201,25 @@ export default {
 }
 `
 
-const CONFIG_AUTH = `// Sign-in settings, read from .env.
+/**
+ * Sign-in settings: the switches come from .env (so each environment can differ), the shape of
+ * sign-in (mode, social providers, SSO) from the installer answers.
+ */
+function configAuth(options: ProjectOptions): string {
+  return `// Sign-in settings. Feature switches are read from .env; password reset is always on.
+// Mode "${options.auth}"${options.auth === 'magic-link' ? ': single-use links, valid 15 minutes, bound to the browser that asked' : ''}.
 export default {
+  mode: ${JSON.stringify(options.auth)},
   registration: process.env['AUTH_REGISTRATION'] === 'true',
   emailVerification: process.env['AUTH_EMAIL_VERIFICATION'] === 'true',
   twoFactor: process.env['AUTH_TWO_FACTOR'] === 'true',
+  passkeys: process.env['AUTH_PASSKEYS'] === 'true',
+  // Client ids and secrets for these come from .env, never from this file.
+  social: ${JSON.stringify(options.social)},
+  enterpriseSso: ${JSON.stringify(options.sso)},
 }
 `
+}
 
 function tenancyConfig(options: ProjectOptions): string {
   const how =
@@ -126,12 +227,21 @@ function tenancyConfig(options: ProjectOptions): string {
       ? 'the ORM tenant scope, plus PostgreSQL row-level security as a second lock'
       : 'the ORM tenant scope (PostgreSQL would add row-level security as a second lock)'
   return `// Teams: each customer company sees only its own data. Isolation here: ${how}.
+// "resolver": how a request picks its team (the in-app team switcher, or the subdomain).
 export default {
   enabled: process.env['TENANCY_ENABLED'] === 'true',
   model: 'Team',
+  resolver: ${JSON.stringify(options.tenantResolver ?? 'switcher')},
 }
 `
 }
+
+const SAMPLE_DATA_SEEDER = `// Sample records so the generated screens are not empty on day one. Add a factory call per
+// model here as you create models (node strut make:model Post -f). Development only.
+import { seeder } from '@strutvane/framework'
+
+export default seeder(async () => {})
+`
 
 const USER_MODEL = `// The User model. Columns come from the users migration (database/migrations).
 export class User {
@@ -174,8 +284,10 @@ ${body}
 })
 `,
     })
-  if (options.auth === 'email') {
-    const twoFactor = options.features.includes('2fa') ? "\n      t.text('two_factor_secret').nullable()" : ''
+  if (options.auth !== 'none') {
+    const twoFactor = options.security.includes('2fa') ? "\n      t.text('two_factor_secret').nullable()" : ''
+    // Email-link sign-in has no passwords; the column stays (nullable) so switching later is one setting.
+    const passwordColumn = options.auth === 'magic-link' ? "t.string('password').nullable()" : "t.string('password')"
     add(
       0,
       'users',
@@ -184,7 +296,7 @@ ${body}
       t.string('name')
       t.string('email').unique()
       t.timestamp('email_verified_at').nullable()
-      t.string('password')
+      ${passwordColumn}
       t.boolean('must_change_password').default(false)${twoFactor}
       t.timestamps()
     })`,
@@ -248,7 +360,12 @@ type Db = {
 }
 
 export default seeder(async (db: Db) => {
-  await db.createAdminOnce({ name: 'Admin', email: db.env['SEED_ADMIN_EMAIL'] ?? '' })
+  await db.createAdminOnce({ name: 'Admin', email: db.env['SEED_ADMIN_EMAIL'] ?? '' })${
+    options.sampleData
+      ? `
+  // Sample data (chosen in the installer): see database/seeders/sample-data-seeder.ts.`
+      : ''
+  }
 })
 `
 }
@@ -311,6 +428,14 @@ ${switchHint}//
 // in resources/ui/theme.css. That file is yours, so it stays when you switch or upgrade the design.
 export default {
   design: '${options.design}',
+  // Light, dark, or follow the system setting (each user can still switch in the app).
+  appearance: ${JSON.stringify(options.appearance ?? 'system')},
+  // UI languages; add more any time (translations live in resources/ui/lang).
+  languages: ${JSON.stringify(options.uiLanguages ?? ['en'])},
+  // Installable app (PWA): home-screen icon and an offline page.
+  pwa: ${JSON.stringify(options.pwa ?? false)},
+  // Live updates: tables refresh when someone else changes the data.
+  liveUpdates: ${JSON.stringify(options.liveUpdates ?? false)},
 }
 `,
     },

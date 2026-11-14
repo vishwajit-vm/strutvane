@@ -8,10 +8,14 @@
  * @module
  */
 import { readFileSync } from 'node:fs'
-import { type Design, designInfo, otherDesign, type ProjectOptions } from '../options.ts'
+import { INSTALLED_FRAMEWORK_VERSION } from '../catalogue.ts'
+import { answersOf, designInfo, otherDesign, type ProjectOptions, SECRET_ANSWERS } from '../options.ts'
+import { projectPackages } from '../question-registry.ts'
+import { VERSION } from '../version.ts'
 import { appFiles, type GeneratedFile } from './app-files.ts'
 import { dockerFiles } from './compose.ts'
 import { buildEnvSections, renderEnv, type TypedSecrets } from './env.ts'
+import { workflowFiles } from './workflow-files.ts'
 
 /** Where the static template files (strut.js, the stub framework) live. */
 const FILES = new URL('./files/', import.meta.url)
@@ -43,10 +47,12 @@ export function renderProject(options: ProjectOptions, typed: TypedSecrets = {})
     { path: '.env.example', content: renderEnv(sections, { example: true }) },
     { path: '.gitignore', content: GITIGNORE },
     { path: 'README.md', content: readme(options) },
-    { path: 'AGENTS.md', content: agents(options) },
-    ...stubFramework(),
-    ...stubDesign(options),
+    // Every answer (never a secret), so `node strut install:<name>` later knows what was picked.
+    { path: 'strutvane.json', content: strutvaneJson(options) },
+    ...(options.agents ? [{ path: 'AGENTS.md', content: agents(options) }] : []),
+    ...stubPackages(options),
     ...appFiles(options),
+    ...workflowFiles(options),
     ...dockerFiles(options),
   ]
   return files.sort((a, b) => a.path.localeCompare(b.path))
@@ -86,26 +92,58 @@ export function driverDependency(options: ProjectOptions): { readonly name: stri
 }
 
 /**
- * Where the spike's stand-in for a design package lives. The design is pinned the same way as
- * `@strutvane/framework` (a local `file:` stub), so `npm ci` keeps working offline; a release pins
- * the real package exactly, like the database drivers.
+ * Where the spike's stand-in for a package lives: `@strutvane/design-crisp` →
+ * `stubs/strutvane-design-crisp`. Every package is pinned the same way (a local `file:` stub), so
+ * `npm ci` keeps working offline; a release pins the real packages exactly, like the drivers.
+ *
+ * Why the strict check: the name becomes a folder. Registry names are fixed and catalogue names
+ * are checked when the index is read, but a path must never be built from an unchecked string.
  *
  * @example
- * designStubFolder('crisp') // 'stubs/strutvane-design-crisp'
+ * stubFolder('@strutvane/design-crisp') // 'stubs/strutvane-design-crisp'
  */
-export function designStubFolder(design: Design): string {
-  return `stubs/strutvane-design-${design}`
+export function stubFolder(packageName: string): string {
+  if (!/^(@strutvane\/[a-z0-9][a-z0-9-]{0,49}|strutvane-[a-z0-9][a-z0-9-]{0,49})$/.test(packageName)) {
+    throw new Error(`Refusing an unexpected package name: ${packageName}`)
+  }
+  return `stubs/${packageName.replace(/^@/, '').replace('/', '-')}`
 }
 
-/** The app's dependencies: the framework and the design (local stubs in the spike), and the driver. */
+/**
+ * Every package the answers bring (read from the question registry's data, never a hard-coded
+ * list), the framework first.
+ */
+export function packagesFor(options: ProjectOptions): string[] {
+  return projectPackages(answersOf(options))
+}
+
+/** The app's dependencies: every Strutvane package (local stubs in the spike), and the driver. */
 function dependencies(options: ProjectOptions): Record<string, string> {
-  const result: Record<string, string> = { '@strutvane/framework': 'file:stubs/strutvane-framework' }
-  if (options.design !== undefined) {
-    result[designInfo(options.design).packageName] = `file:${designStubFolder(options.design)}`
-  }
+  const result: Record<string, string> = {}
+  for (const name of packagesFor(options)) result[name] = `file:${stubFolder(name)}`
   const driver = driverDependency(options)
   if (driver !== undefined) result[driver.name] = driver.version
   return result
+}
+
+/**
+ * `strutvane.json`: the installer's answers, committed with the app. `node strut install:<name>`
+ * and `node strut add` read it to know what was picked. Built from the resolved options, which
+ * never hold a secret; the typed passwords are removed again anyway, so a future option can
+ * never leak one here by accident.
+ */
+function strutvaneJson(options: ProjectOptions): string {
+  const { directory: _directory, ...rest } = options
+  const answers: Record<string, unknown> = { ...answersOf(rest) }
+  for (const key of SECRET_ANSWERS) delete answers[key]
+  const manifest = {
+    version: 1,
+    createdWith: `create-strutvane ${VERSION}`,
+    framework: INSTALLED_FRAMEWORK_VERSION,
+    answers,
+    packages: packagesFor(options),
+  }
+  return `${JSON.stringify(manifest, null, 2)}\n`
 }
 
 /**
@@ -134,24 +172,21 @@ function lockfile(options: ProjectOptions): string {
         dependencies: dependencies(options),
         engines: { node: '>=24.3' },
       },
-      'node_modules/@strutvane/framework': { resolved: 'stubs/strutvane-framework', link: true },
-      ...designPackages(options),
+      ...stubLockEntries(options),
       ...driverPackages(options),
-      'stubs/strutvane-framework': { name: '@strutvane/framework', version: STUB_VERSION },
     },
   }
   return `${JSON.stringify(lock, null, 2)}\n`
 }
 
-/** The design's lock entries: a link to its local stub folder, exactly like the framework's. */
-function designPackages(options: ProjectOptions): Record<string, LockEntry> {
-  if (options.design === undefined) return {}
-  const { packageName } = designInfo(options.design)
-  const folder = designStubFolder(options.design)
-  return {
-    [`node_modules/${packageName}`]: { resolved: folder, link: true },
-    [folder]: { name: packageName, version: STUB_VERSION },
+/** Each stub's lock entries: a link from node_modules to its local folder, and the folder itself. */
+function stubLockEntries(options: ProjectOptions): Record<string, LockEntry> {
+  const entries: Record<string, LockEntry> = {}
+  for (const name of packagesFor(options)) {
+    entries[`node_modules/${name}`] = { resolved: stubFolder(name), link: true }
+    entries[stubFolder(name)] = { name, version: STUB_VERSION }
   }
+  return entries
 }
 
 /** The locked packages of the chosen driver (resolved URLs and integrity hashes from npm). */
@@ -178,55 +213,33 @@ This is a Strutvane app (TypeScript, MVC, npm only). Read this before changing c
 }
 
 /**
- * The spike's stand-in for `@strutvane/framework`, installed from a local folder (`file:`), so
- * `npm install` really runs but downloads nothing. The real package replaces it.
+ * The spike's stand-ins for the Strutvane packages, installed from local folders (`file:`), so
+ * `npm install` really runs but downloads nothing. `@strutvane/framework` carries the working stub
+ * (migrations, seeders, `node strut`); every other package only names itself, which is enough to
+ * prove the dependency list installs. The real packages replace these folders.
  */
-function stubFramework(): GeneratedFile[] {
-  return [
-    {
-      path: 'stubs/strutvane-framework/package.json',
-      content: `${JSON.stringify(
-        {
-          name: '@strutvane/framework',
-          version: STUB_VERSION,
-          private: true,
-          type: 'module',
-          exports: { '.': './index.js', './cli': './cli.js' },
-        },
-        null,
-        2,
-      )}\n`,
-    },
-    { path: 'stubs/strutvane-framework/index.js', content: staticFile('stub-framework/index.js') },
-    { path: 'stubs/strutvane-framework/cli.js', content: staticFile('stub-framework/cli.js') },
-  ]
-}
-
-/**
- * The spike's stand-in for the chosen design package (none for an API-only project). The real
- * package brings tokens, fonts, the shell and component skins; the stub only names itself, which
- * is enough to prove the dependency installs.
- */
-function stubDesign(options: ProjectOptions): GeneratedFile[] {
-  if (options.design === undefined) return []
-  const { value, packageName } = designInfo(options.design)
-  const folder = designStubFolder(options.design)
-  return [
-    {
-      path: `${folder}/package.json`,
-      content: `${JSON.stringify(
-        { name: packageName, version: STUB_VERSION, private: true, type: 'module', exports: { '.': './index.js' } },
-        null,
-        2,
-      )}\n`,
-    },
-    {
-      path: `${folder}/index.js`,
-      content: `// SPIKE STUB of ${packageName} (spike 13). The real package replaces this folder.
-export const design = { name: '${value}' }
-`,
-    },
-  ]
+function stubPackages(options: ProjectOptions): GeneratedFile[] {
+  return packagesFor(options).flatMap((name): GeneratedFile[] => {
+    const folder = stubFolder(name)
+    const framework = name === '@strutvane/framework'
+    const manifest = {
+      name,
+      version: STUB_VERSION,
+      private: true,
+      type: 'module',
+      exports: framework ? { '.': './index.js', './cli': './cli.js' } : { '.': './index.js' },
+    }
+    const files: GeneratedFile[] = [{ path: `${folder}/package.json`, content: `${JSON.stringify(manifest, null, 2)}\n` }]
+    if (framework) {
+      files.push(
+        { path: `${folder}/index.js`, content: staticFile('stub-framework/index.js') },
+        { path: `${folder}/cli.js`, content: staticFile('stub-framework/cli.js') },
+      )
+    } else {
+      files.push({ path: `${folder}/index.js`, content: `// SPIKE STUB of ${name} (spike 13). The real package replaces this folder.\nexport const stub = ${JSON.stringify(name)}\n` })
+    }
+    return files
+  })
 }
 
 /** package.json with the scripts from the design (§3.6): everything goes through `node strut`. */
@@ -268,7 +281,8 @@ build/
 .env*
 !.env.example
 
-# Local Docker services (ADR-0006: never committed)
+# Local Sail-style Docker services (ADR-0006: git-ignored). A production Dockerfile or a
+# .devcontainer/ is different: committed when you choose it (ADR-0021).
 docker/
 
 # Local data and installer state (SQLite -wal/-shm/-journal files hold data too)
@@ -286,10 +300,18 @@ function readme(options: ProjectOptions): string {
         '',
         'Everything runs in containers (like Laravel Sail): the app on node:24, the database and Mailpit',
         '(inbox: http://localhost:8025). `node strut <command>` on your computer runs the command inside the',
-        'app container, so the three commands above work the same. The containers keep running in the',
-        'background: `node strut services:down` stops them (your data stays), `node strut services:up`',
-        'starts them again. `docker/compose.yaml` is git-ignored (Docker is local-only). On Windows, keep',
-        'the project inside WSL2 for fast file watching.',
+        'app container, so the three commands above work the same: `npm run dev` (API, UI dev server, queue',
+        'worker, scheduler), `migrate` and every other command run in the container.',
+        '',
+        '```text',
+        'node strut shell            a shell inside the app container (bash, or sh when there is none)',
+        'node strut npm install x    npm inside the container (also: node strut npx ..., node strut node ...)',
+        'node strut services:down    stop the containers (your data stays); services:up starts them',
+        '```',
+        '',
+        'Arguments are passed as they are (no shell in between) and the exit code comes back to you.',
+        '`docker/compose.yaml` is local only and git-ignored (ADR-0006). On Windows, keep the project inside',
+        'WSL2 for fast file watching.',
         '',
       ].join('\n')
     : ''
@@ -311,7 +333,31 @@ ${docker}
 - \`routes/web.ts\`, \`routes/api.ts\`: routes
 - \`database/\`: migrations, seeders, factories
 - \`config/\`: settings (values come from \`.env\`)
-${options.ui !== undefined ? '- `resources/ui/`: the React UI\n' : ''}${designSection(options)}`
+${options.ui !== undefined ? '- `resources/ui/`: the React UI\n' : ''}- \`strutvane.json\`: what you picked in the installer (read by \`node strut install:<name>\`)
+${signInSection(options)}${designSection(options)}${deploySection(options)}`
+}
+
+/** How sign-in works in this app, in one or two sentences. */
+function signInSection(options: ProjectOptions): string {
+  const admin = options.adminEmail ?? ''
+  const text =
+    options.auth === 'none'
+      ? 'There is no sign-in. The API is still closed by default: every request needs an API token\n(`node strut token:create`); a route opts out only explicitly.'
+      : options.auth === 'magic-link'
+        ? `People sign in with a single-use link sent by email (valid 15 minutes). First admin: ${admin}.`
+        : `People sign in with email and password. First admin: ${admin}\n(\`node strut user:password <email>\` sets a new one-time password).`
+  return `\n## Sign-in\n\n${text}\n`
+}
+
+/** Where the deploy recipe and the opt-in container files are. */
+function deploySection(options: ProjectOptions): string {
+  const lines: string[] = []
+  if (options.deploy !== 'later') lines.push('- `deploy/README.md`: how to deploy; the app answers `GET /up` for health checks.')
+  if (options.deploy === 'docker') {
+    lines.push('- `Dockerfile` + `.dockerignore`: the production image (non-root, no secrets inside; ADR-0021). Regenerate: `node strut docker:prod`.')
+  }
+  if (options.devContainer) lines.push('- `.devcontainer/`: open the project in Codespaces or VS Code Dev Containers (ADR-0021).')
+  return lines.length === 0 ? '' : `\n## Deploy and containers\n\n${lines.join('\n')}\n`
 }
 
 /** The README's "Design" section: which design is installed, how to restyle it, how to switch. */

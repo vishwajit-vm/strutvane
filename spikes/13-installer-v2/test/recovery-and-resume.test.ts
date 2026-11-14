@@ -9,7 +9,7 @@ import { parseEnv, setEnvValue } from '../src/env-file.ts'
 import { type InstallerEnvironment, main } from '../src/main.ts'
 import { CANCEL } from '../src/prompter.ts'
 import { loadState } from '../src/setup-state.ts'
-import { describeCall, fakeEnvironment, scriptedPrompter, tempFolder } from './helpers/fakes.ts'
+import { describeCall, fakeEnvironment, scriptedPrompter, tempFolder, RECOMMENDED_ANSWERS } from './helpers/fakes.ts'
 import { fakePrograms, type ProgramOverrides } from './helpers/programs.ts'
 
 /** Create `acme` with these flags and fake programs; returns everything a test needs. */
@@ -72,8 +72,8 @@ describe('npm install failures', () => {
 
 describe('Docker failures', () => {
   it('Docker missing (interactive): "Continue without Docker (SQLite)" switches the project and the app still starts', async () => {
-    const { prompter, asked } = scriptedPrompter({ database: 'mysql', docker: 'docker', 'recover:database': 'sqlite', review: 'create', dev: false })
-    const result = await create(['--stack', 'full', '--ui', 'admin', '--design', 'vivid', '--auth', 'email', '--features', 'none', '--no-teams', '--testing', 'vitest', '--git'], {
+    const { prompter, asked } = scriptedPrompter({ ...RECOMMENDED_ANSWERS, database: 'mysql', docker: 'docker', 'recover:database': 'sqlite', review: 'create', dev: false })
+    const result = await create(['--stack', 'full', '--ui', 'admin', '--design', 'vivid', '--auth', 'email', '--security', 'none', '--no-teams', '--testing', 'vitest', '--git'], {
       docker: () => ({ code: -1, notFound: true, output: 'spawn docker ENOENT' }),
     }, { interactiveTerminal: true, prompter })
     expect(result.code).toBe(0)
@@ -98,7 +98,7 @@ describe('Docker failures', () => {
   it('Docker stopped (interactive): Retry after starting it', async () => {
     const interactive = await create(['--stack', 'api', '--auth', 'none', '--db', 'postgres', '--docker', '--testing', 'none', '--no-git'], {
       docker: (spec, nth) => (spec.args[0] === 'info' && nth === 2 ? { code: 1, output: 'Cannot connect to the Docker daemon' } : undefined),
-    }, { interactiveTerminal: true, prompter: scriptedPrompter({ 'recover:database': 'retry', review: 'create', dev: false }).prompter })
+    }, { interactiveTerminal: true, prompter: scriptedPrompter({ ...RECOMMENDED_ANSWERS, 'recover:database': 'retry', review: 'create', dev: false }).prompter })
     expect(interactive.code).toBe(0)
     expect(interactive.output()).toMatch(/Docker is installed but not running/)
     expect(interactive.output()).toMatch(/Start Docker Desktop/)
@@ -135,7 +135,7 @@ describe('Docker failures', () => {
 
 describe('migrate and git failures', () => {
   it('your own server unreachable (interactive): Skip; migrate waits for it; git still runs', async () => {
-    const { prompter } = scriptedPrompter({ dbPassword: 'Hunter-77-pw', 'recover:database': 'skip', review: 'create', dev: false })
+    const { prompter } = scriptedPrompter({ ...RECOMMENDED_ANSWERS, dbPassword: 'Hunter-77-pw', 'recover:database': 'skip', review: 'create', dev: false })
     const result = await create(
       // Port 1 never answers: a deterministic "server is down".
       ['--stack', 'api', '--auth', 'none', '--db', 'postgres', '--no-docker', '--db-host', '127.0.0.1', '--db-port', '1', '--db-name', 'shop', '--db-user', 'shop', '--testing', 'none', '--git'],
@@ -214,7 +214,7 @@ describe('resume safety', () => {
   })
 
   it('cancel during a recovery question stops with exit 2 (the project stays)', async () => {
-    const { prompter } = scriptedPrompter({ docker: 'host', 'recover:install': CANCEL, review: 'create', dev: false })
+    const { prompter } = scriptedPrompter({ ...RECOMMENDED_ANSWERS, docker: 'host', 'recover:install': CANCEL, review: 'create', dev: false })
     const result = await create(
       ['--stack', 'api', '--auth', 'none', '--db', 'sqlite', '--testing', 'none', '--no-git'],
       { npm: () => ({ code: 1, output: 'boom' }) },

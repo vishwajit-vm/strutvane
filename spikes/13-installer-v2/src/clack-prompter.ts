@@ -55,6 +55,27 @@ export const clackPrompter: Prompter = {
     })
     return clack.isCancel(value) ? CANCEL : value
   },
+  async groupMultiselect(question) {
+    const options: Record<string, clack.Option<(typeof question.initialValues)[number]>[]> = {}
+    for (const [group, choices] of question.groups) options[group] = toClackOptions(choices)
+    const value = await clack.groupMultiselect({
+      message: question.message,
+      options,
+      initialValues: [...question.initialValues],
+      required: false,
+    })
+    return clack.isCancel(value) ? CANCEL : value
+  },
+  async search(question) {
+    const value = await clack.autocompleteMultiselect({
+      message: question.message,
+      placeholder: question.placeholder,
+      options: toClackOptions(question.options),
+      initialValues: [...question.initialValues],
+      required: false,
+    })
+    return clack.isCancel(value) ? CANCEL : value
+  },
   async confirm(question) {
     const value = await clack.confirm({ message: question.message, initialValue: question.initialValue })
     return clack.isCancel(value) ? CANCEL : value

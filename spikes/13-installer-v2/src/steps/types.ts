@@ -87,6 +87,12 @@ export interface StepContext {
   readonly reporter: Reporter
   readonly generateSecret: () => string
   readonly generatePassword: () => string
+  /**
+   * A first-admin password the user typed (masked, or STRUT_ADMIN_PASSWORD in CI). Memory only:
+   * never in a file. `undefined` = generate one. A resumed setup never has it (it was not saved),
+   * so it falls back to a generated password, shown once.
+   */
+  readonly typedAdminPassword: string | undefined
   /** The host user on Linux (the app container runs as this user); `undefined` elsewhere. */
   readonly hostUser: { readonly uid: number; readonly gid: number } | undefined
 }

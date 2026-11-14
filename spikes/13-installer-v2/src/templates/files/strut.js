@@ -7,10 +7,12 @@
 // Docker mode (.strutvane/env.json says "docker"): like Laravel Sail, every command runs inside
 // the app container. On the host this file forwards `node strut <cmd>` to
 // `docker compose exec app node strut <cmd>`; inside the container (STRUTVANE_IN_CONTAINER=1) it
-// runs the command itself. Only setup and services:* always run on the host.
+// runs the command itself. Only setup and services:* always run on the host. That covers
+// everything: `npm run dev` (= node strut dev: API, Vite, queue worker, scheduler), migrate, and
+// the Sail-style pass-throughs `node strut npm|npx|node <args>` and `node strut shell`.
 import { spawnSync } from 'node:child_process'
 import { existsSync, readFileSync, statSync } from 'node:fs'
-import { delimiter, extname, isAbsolute, join } from 'node:path'
+import { delimiter, dirname, extname, isAbsolute, join } from 'node:path'
 import { parseEnv } from 'node:util'
 
 const root = import.meta.dirname
@@ -67,8 +69,12 @@ function compose(args, options = {}) {
   return result
 }
 
-/** Forward one command into the running app container. */
-function forward(args) {
+/**
+ * Run a program inside the running app container. `inner` is an argument list handed to
+ * `docker compose exec` as separate arguments: no shell on our side, so `a&b` or `$(x)` arrive
+ * as plain text.
+ */
+function forwardRaw(inner) {
   const running = compose(['ps', '--status', 'running', '--services'], { capture: true })
   if (running.status !== 0) stop(`Docker is not answering (${String(running.stderr).trim()}). Start Docker Desktop, then: node strut services:up`)
   if (!String(running.stdout).split(/\r?\n/).includes('app')) {
@@ -76,7 +82,57 @@ function forward(args) {
   }
   // -T (no terminal) when our output is not a terminal, e.g. in CI or when piped.
   const tty = process.stdin.isTTY && process.stdout.isTTY ? [] : ['-T']
-  return compose(['exec', ...tty, 'app', 'node', 'strut', ...args]).status ?? 1
+  return compose(['exec', ...tty, 'app', ...inner]).status ?? 1
+}
+
+/** Forward one `node strut` command into the running app container. */
+function forward(args) {
+  return forwardRaw(['node', 'strut', ...args])
+}
+
+/**
+ * Sail-style pass-throughs: `node strut npm|npx|node <args>` and `node strut shell`. In Docker mode
+ * they run in the app container (so `npm install` builds for Linux, inside the named volume); on
+ * this computer, or inside the container, they run right here. Arguments are passed verbatim and
+ * the exit code is passed through.
+ */
+const PASS_THROUGH = new Set(['npm', 'npx', 'node', 'shell'])
+
+/**
+ * Inside the container: a fixed script (no user input in it) that prefers bash and falls back to
+ * sh, because slim images often have no bash.
+ */
+const CONTAINER_SHELL = ['sh', '-c', 'if command -v bash >/dev/null 2>&1; then exec bash; else exec sh; fi']
+
+/** npm's or npx's JS entry next to this node (Windows: node_modules; Linux/macOS: ../lib/node_modules). */
+function npmEntry(tool) {
+  const file = tool === 'npx' ? 'npx-cli.js' : 'npm-cli.js'
+  const home = dirname(process.execPath)
+  const candidates = [join(home, 'node_modules', 'npm', 'bin', file), join(home, '..', 'lib', 'node_modules', 'npm', 'bin', file)]
+  return candidates.find((candidate) => existsSync(candidate))
+}
+
+/** Run a pass-through here (host mode, or already inside the container). Never through a shell. */
+function runHere(tool, args) {
+  let program
+  let full
+  if (tool === 'node') {
+    program = process.execPath
+    full = args
+  } else if (tool === 'shell') {
+    program = process.platform === 'win32' ? (process.env.ComSpec ?? 'cmd.exe') : (process.env.SHELL ?? 'sh')
+    full = []
+  } else {
+    const entry = npmEntry(tool)
+    // Without the JS entry, only a POSIX system can start npm by name without a shell (Windows
+    // would need npm.cmd, which means cmd.exe parsing our arguments).
+    if (entry === undefined && process.platform === 'win32') stop(`${tool} was not found next to node (${process.execPath}).`)
+    program = entry === undefined ? tool : process.execPath
+    full = entry === undefined ? args : [entry, ...args]
+  }
+  const result = spawnSync(program, full, { stdio: 'inherit', windowsHide: true })
+  if (result.error) stop(`${tool} could not start: ${result.error.message}`)
+  return result.status ?? 1
 }
 
 /** `node strut setup`: finish or repeat setup by resuming the installer (always on the host). */
@@ -100,8 +156,12 @@ if (mode === 'docker' && !inContainer) {
   if (command === 'services:up') process.exit(compose(['up', '-d', '--wait', '--wait-timeout', '180']).status ?? 1)
   if (command === 'services:down') process.exit(compose(['down', ...(argv.includes('--volumes') ? ['-v'] : [])]).status ?? 1)
   if (command === 'services:status') process.exit(compose(['ps']).status ?? 1)
+  if (command === 'shell') process.exit(forwardRaw(CONTAINER_SHELL))
+  if (PASS_THROUGH.has(command)) process.exit(forwardRaw(argv))
   process.exit(forward(argv))
 }
+
+if (PASS_THROUGH.has(command)) process.exit(runHere(command, argv.slice(1)))
 
 if (command.startsWith('services:')) {
   stop('This project runs without Docker, so there are no services to start or stop.')

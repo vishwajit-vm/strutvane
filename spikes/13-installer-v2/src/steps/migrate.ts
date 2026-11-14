@@ -38,7 +38,8 @@ export const migrateStep: Step = {
   run: async (context) => {
     // The first admin's one-time password: made here, handed over in the child's environment only
     // (never argv, never .env), hidden in the log, and shown once at the end (security review F-18).
-    const adminPassword = context.generatePassword()
+    const typed = context.typedAdminPassword
+    const adminPassword = typed ?? context.generatePassword()
     const env = { [ADMIN_PASSWORD_VARIABLE]: adminPassword }
     // Docker mode: inside the app container (`-e NAME` copies the value from our environment).
     const result = context.options.docker
@@ -57,7 +58,10 @@ export const migrateStep: Step = {
       const message = summary.length > 0 ? summary : 'Migrations and seeders run'
       // Only a newly created admin gets this password; an existing one keeps theirs.
       const created = lines.some((line) => line.startsWith('Admin created:'))
-      return created
+      // A typed password is already known to its owner, and email-link sign-in has no password
+      // to show: in both cases nothing is shown.
+      const show = created && typed === undefined && context.options.auth === 'email'
+      return show
         ? { status: 'done', message, showOnce: { label: 'Password', value: adminPassword } }
         : { status: 'done', message }
     }

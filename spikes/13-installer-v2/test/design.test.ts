@@ -29,13 +29,12 @@ const file = (project: ReturnType<typeof renderProject>, path: string): string =
 /** Answers for every question except the one under test, so the scripted prompter never stalls. */
 const REST = {
   name: 'my-app',
+  mode: 'recommended',
   stack: 'full',
-  ui: 'admin',
   auth: 'none',
   database: 'sqlite',
   docker: 'host',
-  testing: 'none',
-  git: false,
+  agents: false,
 }
 
 describe('the design list', () => {
@@ -86,11 +85,14 @@ describe('--design flag', () => {
 })
 
 describe('the design question', () => {
-  it('is asked right after the React UI question, with Crisp pre-selected', async () => {
-    const { prompter, asked } = scriptedPrompter({ ...REST, design: 'vivid' })
-    const answers = await askMissing({}, prompter, context)
-    expect(asked.slice(0, 4)).toEqual(['name', 'stack', 'ui', 'design'])
+  it('is asked right after "What are you building?" (blueprint row 3, before the UI starter), in both modes', async () => {
+    const recommended = scriptedPrompter({ ...REST, design: 'vivid' })
+    const answers = await askMissing({}, recommended.prompter, context)
+    expect(recommended.asked.slice(0, 4)).toEqual(['name', 'mode', 'stack', 'design'])
     expect(answers.design).toBe('vivid')
+    const custom = scriptedPrompter({ ...REST, mode: 'custom', design: 'crisp', ui: 'admin' })
+    await askMissing({}, custom.prompter, context).catch(() => undefined) // later custom questions are not scripted
+    expect(custom.asked.slice(2, 5)).toEqual(['stack', 'design', 'ui'])
   })
 
   it('is never asked for an API-only project', async () => {
@@ -116,7 +118,7 @@ describe('review screen', () => {
 
   it('"Change an answer" can revisit the design', async () => {
     const { prompter, asked, notes } = scriptedPrompter({ review: ['change', 'create'], change: 'design', design: 'vivid' })
-    const given = { name: 'my-app', stack: 'full', ui: 'admin', auth: 'none', database: 'sqlite', docker: false, testing: 'none', git: false } as const
+    const given = { name: 'my-app', mode: 'recommended', stack: 'full', auth: 'none', database: 'sqlite', docker: false, agents: false } as const
     const answers = await review({ ...given, design: 'crisp' }, prompter, context)
     expect(answers.design).toBe('vivid')
     expect(asked).toEqual(['review', 'change', 'design', 'review'])
@@ -187,7 +189,7 @@ describe('--yes path (no questions)', () => {
     expect(loadState(directory).options.design).toBe('crisp')
     expect(output()).toMatch(/Design\s+crisp \(@strutvane\/design-crisp\)/)
     expect(output()).toMatch(/Restyle:\s+resources\/ui\/theme\.css, or switch: node strut design:use vivid/)
-    expect(output()).toContain('--ui admin --design crisp --auth')
+    expect(output()).toContain('--stack full --design crisp --ui admin --auth')
   })
 
   it('--design vivid --yes installs Vivid instead', async () => {

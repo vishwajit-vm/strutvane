@@ -57,6 +57,24 @@ export interface Prompter {
     readonly options: readonly Choice<T>[]
     readonly initialValues: readonly T[]
   }): Promise<T[] | Cancel>
+  /**
+   * Pick any number from named groups (the popular extra features, grouped by category).
+   * `groups` keeps its insertion order, which is the display order.
+   */
+  groupMultiselect<T extends string>(question: {
+    readonly id: string
+    readonly message: string
+    readonly groups: ReadonlyMap<string, readonly Choice<T>[]>
+    readonly initialValues: readonly T[]
+  }): Promise<T[] | Cancel>
+  /** Type to filter a long list, then pick any number (the full package catalogue). */
+  search<T extends string>(question: {
+    readonly id: string
+    readonly message: string
+    readonly placeholder: string
+    readonly options: readonly Choice<T>[]
+    readonly initialValues: readonly T[]
+  }): Promise<T[] | Cancel>
   /** Yes or no. */
   confirm(question: {
     readonly id: string
