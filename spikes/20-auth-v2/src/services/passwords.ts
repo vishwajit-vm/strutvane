@@ -11,15 +11,16 @@
  *
  * @module
  */
-import { AuthError } from '../errors.ts'
+import { type AuthIssue, AuthError } from '../errors.ts'
 import { rateLimitSubject } from '../limits/ip.ts'
 import { parseEmail } from '../password/email.ts'
-import { assertPasswordAllowed } from '../password/rules.ts'
+import { assertPasswordAllowed, passwordLengthOk } from '../password/rules.ts'
 import type { AuthRequest } from '../ports/cookies.ts'
 import type { UserRecord } from '../ports/store.ts'
 import { newId } from '../crypto/random.ts'
 import { type AuthDeps, accountKey, emit, requireFeature, sendMail } from '../core/deps.ts'
 import {
+  type ActiveSession,
   assertNotImpersonating,
   endSession,
   requireActive,
@@ -123,6 +124,18 @@ export function passwordService(deps: AuthDeps): PasswordService {
   const verifyUserPassword = async (user: UserRecord | undefined, password: string): Promise<boolean> =>
     user?.passwordHash ? deps.hasher.verify(password, user.passwordHash) : deps.hasher.verifyDummy(password)
 
+  /**
+   * Check a signed-in user's CURRENT password (confirm, change). One shared per-account budget, so
+   * a stolen session cannot brute-force the password through whichever endpoint is unlimited, and
+   * the same length bound as sign-in before any hashing.
+   */
+  const checkCurrentPassword = async (active: ActiveSession, password: unknown, issues?: readonly AuthIssue[]): Promise<void> => {
+    await limited(deps, [[`confirm:${active.user.id}`, limits.confirmPasswordPerAccount]])
+    const fail = () => new AuthError('INVALID_CREDENTIALS', issues ? { issues } : {})
+    if (typeof password !== 'string' || !passwordLengthOk(password, deps.config.passwords.max)) throw fail()
+    if (!(await verifyUserPassword(active.user, password)) || active.user.passwordHash === null) throw fail()
+  }
+
   return {
     async register(req, input) {
       requireFeature(deps, 'registration')
@@ -173,7 +186,7 @@ export function passwordService(deps: AuthDeps): PasswordService {
     async login(req, input) {
       requireFeature(deps, 'passwordLogin')
       const email = requireEmail(input.email)
-      if (typeof input.password !== 'string' || input.password.length === 0 || input.password.length > deps.config.passwords.max)
+      if (typeof input.password !== 'string' || !passwordLengthOk(input.password, deps.config.passwords.max))
         throw new AuthError('VALIDATION_FAILED', { issues: [{ field: 'password', code: 'invalid' }] })
       const account = accountKey(deps, email)
       const fail = async (reason: 'invalid-credentials' | 'locked' | 'rate-limited', userId: string | null) =>
@@ -221,8 +234,7 @@ export function passwordService(deps: AuthDeps): PasswordService {
       assertNotImpersonating(active)
       const { user } = active
       if (user.passwordHash !== null) {
-        if (typeof input.current !== 'string' || !(await deps.hasher.verify(input.current, user.passwordHash)))
-          throw new AuthError('INVALID_CREDENTIALS', { issues: [{ field: 'current', code: 'mismatch' }] })
+        await checkCurrentPassword(active, input.current, [{ field: 'current', code: 'mismatch' }])
       } else {
         requireRecentConfirmation(deps, active)
       }
@@ -244,11 +256,7 @@ export function passwordService(deps: AuthDeps): PasswordService {
       const active = await requireActive(deps, req)
       // An impersonating admin does not know the user's password and must not gain the window.
       assertNotImpersonating(active)
-      await limited(deps, [[`confirm:${active.user.id}`, limits.confirmPasswordPerAccount]])
-      if (typeof input.password !== 'string' || input.password.length > deps.config.passwords.max)
-        throw new AuthError('INVALID_CREDENTIALS')
-      if (!(await verifyUserPassword(active.user, input.password)) || active.user.passwordHash === null)
-        throw new AuthError('INVALID_CREDENTIALS')
+      await checkCurrentPassword(active, input.password)
       await deps.store.updateSession(active.session.digest, { passwordConfirmedAt: deps.clock.now() })
     },
   }

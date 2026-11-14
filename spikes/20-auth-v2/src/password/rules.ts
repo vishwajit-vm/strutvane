@@ -90,6 +90,28 @@ export function rangeBreachCheck(fetchRange: (prefix: string) => Promise<string>
   }
 }
 
+/**
+ * The ONE length measure for passwords, used both when a password is set and when one is checked:
+ * Unicode code points after NFKC (what the hasher hashes). A cheap raw-length bound runs first, so
+ * a megabyte of input is refused before it is normalised or hashed (DoS). Four UTF-16 units per
+ * allowed character covers every real composition (Hangul jamo, astral characters).
+ *
+ * @example
+ * ```ts
+ * passwordLengthOk('e\u0301'.repeat(200), 256) // true: 200 characters once normalised
+ * ```
+ */
+export function passwordLength(password: string, max: number): number | undefined {
+  if (password.length > max * 4) return undefined
+  return [...password.normalize('NFKC')].length
+}
+
+/** True when `password` is non-empty and within `max` by {@link passwordLength}. */
+export function passwordLengthOk(password: string, max: number): boolean {
+  const length = passwordLength(password, max)
+  return length !== undefined && length >= 1 && length <= max
+}
+
 /** Options for {@link assertPasswordAllowed}. */
 export interface PasswordRuleOptions {
   readonly min: number
@@ -110,7 +132,7 @@ export interface PasswordRuleOptions {
 export async function assertPasswordAllowed(password: unknown, options: PasswordRuleOptions): Promise<string> {
   const field = options.field ?? 'password'
   if (typeof password !== 'string') throw new AuthError('VALIDATION_FAILED', { issues: [{ field, code: 'required' }] })
-  const length = [...password.normalize('NFKC')].length
+  const length = passwordLength(password, options.max) ?? Number.POSITIVE_INFINITY
   const issues: AuthIssue[] = []
   if (length < options.min) issues.push({ field, code: 'too_short' })
   if (length > options.max) issues.push({ field, code: 'too_long' })

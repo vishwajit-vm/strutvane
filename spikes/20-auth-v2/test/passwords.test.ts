@@ -347,6 +347,40 @@ describe.each(STORES)('email + password (%s store)', (store) => {
       await rejectsWith(() => h.auth.passwords.login(new Browser().req, { email: user.email, password: PASSWORD }), 'INVALID_CREDENTIALS')
     })
 
+    it('attack: guessing the current password through "change password" is rate-limited like confirmation', async () => {
+      const h = harness({ store })
+      const user = await h.user()
+      const thief = await h.signedIn(user.email) // a stolen session cookie
+      for (let i = 0; i < 5; i++)
+        await rejectsWith(() => h.auth.passwords.change(thief.req, { current: `guess number ${i}!`, password: 'thief picks this one' }), 'INVALID_CREDENTIALS')
+      await rejectsWith(() => h.auth.passwords.change(thief.req, { current: PASSWORD, password: 'thief picks this one' }), 'RATE_LIMITED')
+      await rejectsWith(() => h.auth.passwords.confirm(thief.req, { password: PASSWORD }), 'RATE_LIMITED')
+    })
+
+    it('every password check is length-bounded before hashing, with one measure for setting and checking', async () => {
+      let derives = 0
+      const spy: PasswordHasher = {
+        hash: (pw) => FAST_HASHER.hash(pw),
+        verify: (pw, stored) => ((derives += 1), FAST_HASHER.verify(pw, stored)),
+        needsRehash: (stored) => FAST_HASHER.needsRehash(stored),
+        verifyDummy: (pw) => ((derives += 1), FAST_HASHER.verifyDummy(pw)),
+      }
+      const h = harness({ store, hasher: spy })
+      // 200 characters once normalised (allowed, max 256), but 400 UTF-16 units as typed (decomposed é).
+      const decomposed = 'e\u0301'.repeat(200)
+      const user = await h.user('ada@acme.test', { password: decomposed })
+      const b = new Browser()
+      expect((await h.auth.passwords.login(b.req, { email: user.email, password: decomposed })).status).toBe('signed-in')
+      await h.auth.passwords.confirm(b.req, { password: decomposed })
+      derives = 0
+      const huge = 'x'.repeat(1_000_000)
+      await rejectsWith(() => h.auth.passwords.change(b.req, { current: huge, password: 'brand new passphrase' }), 'INVALID_CREDENTIALS')
+      await rejectsWith(() => h.auth.passwords.confirm(b.req, { password: huge }), 'INVALID_CREDENTIALS')
+      await rejectsWith(() => h.auth.passwords.login(new Browser().req, { email: user.email, password: huge }), 'VALIDATION_FAILED')
+      await rejectsWith(() => h.auth.system.createUser({ name: 'x', email: 'x@acme.test', password: huge }), 'WEAK_PASSWORD')
+      expect(derives).toBe(0)
+    })
+
     it('cookie names get the __Host- prefix on https', async () => {
       const h = harness({ store, config: { appUrl: 'https://app.example.com' } })
       await h.user()
