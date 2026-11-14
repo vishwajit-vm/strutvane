@@ -202,15 +202,17 @@ function killTree(child) {
 /** Start `sv <command> --port` and wait until /health answers. */
 async function startServer(app, command, env = {}) {
   const port = await freePort()
+  const base = `http://127.0.0.1:${port}`
+  // The app's public origin (APP_URL → config/app.ts publicUrl) must be where the "browser" really
+  // is: request URLs take that origin, and auth refuses sign-in from any other Origin.
   const child = spawn(
     process.execPath,
     [join(app, 'node_modules/strutvane/dist/bin.mjs'), command, '--port', String(port)],
-    { cwd: app, env: { ...baseEnv(), ...env }, stdio: ['ignore', 'pipe', 'pipe'] },
+    { cwd: app, env: { ...baseEnv(), APP_URL: base, ...env }, stdio: ['ignore', 'pipe', 'pipe'] },
   )
   let output = ''
   child.stdout.on('data', (d) => (output += d))
   child.stderr.on('data', (d) => (output += d))
-  const base = `http://127.0.0.1:${port}`
   const deadline = Date.now() + 30_000
   while (Date.now() < deadline) {
     if (child.exitCode !== null) throw new Error(`sv ${command} exited early:\n${output}`)
@@ -287,7 +289,8 @@ function buildPackages() {
 
 function generateApp(name, flags) {
   const app = join(WORK, name)
-  rmSync(app, { recursive: true, force: true, maxRetries: 5 })
+  // Windows can hold a just-closed SQLite or log file for a moment; retry for up to ~10 s.
+  rmSync(app, { recursive: true, force: true, maxRetries: 20, retryDelay: 500 })
   mkdirSync(WORK, { recursive: true })
   run(process.execPath, [join(PACKAGES, 'create-strutvane/dist/cli.mjs'), name, ...flags], {
     cwd: WORK,
@@ -342,11 +345,18 @@ async function sqliteJourney() {
       const r = await anon.call('GET', `${api}/invoices`)
       assert(r.status === 401 && r.headers.get('content-type').includes('problem+json'), 'anon 401')
     })
-    await step('auth: seed admin signs in, /me, wrong password is 401', async () => {
+    await step('auth: seed admin signs in, /me, wrong password 401, foreign origin 403', async () => {
       const bad = await anon.call('POST', `${api}/auth/sign-in`, {
         email: env.SEED_ADMIN_EMAIL, password: `${env.SEED_ADMIN_PASSWORD}x`,
       })
       assert(bad.status === 401, 'wrong password rejected')
+      const crossSite = await anon.call(
+        'POST',
+        `${api}/auth/sign-in`,
+        { email: env.SEED_ADMIN_EMAIL, password: env.SEED_ADMIN_PASSWORD },
+        { origin: 'https://attacker.example' },
+      )
+      assert(crossSite.status === 403, 'sign-in from a foreign origin is refused')
       const ok = await admin.call('POST', `${api}/auth/sign-in`, {
         email: env.SEED_ADMIN_EMAIL, password: env.SEED_ADMIN_PASSWORD,
       })
@@ -390,14 +400,23 @@ async function sqliteJourney() {
       const m = (await admin.call('GET', '/.well-known/strutvane.json')).json
       assert(m.resources.some((r) => r.name === 'Invoice'), 'manifest has Invoice')
     })
-    await step('permissions: a fresh sign-up has no role and is refused (deny-by-default)', async () => {
-      const user = client(server.base)
-      const up = await user.call('POST', `${api}/auth/sign-up`, {
+    await step('registration is off by default; with it on, a fresh sign-up has no role (deny-by-default)', async () => {
+      const blocked = await client(server.base).call('POST', `${api}/auth/sign-up`, {
         email: 'member@app.test', password: secret(), name: 'Member',
       })
-      assert(up.status === 201 && up.json.actor.roles.length === 0, 'signed up without roles')
-      assert((await user.call('GET', `${api}/invoices`)).status === 403, 'list forbidden')
-      assert((await user.call('POST', `${api}/invoices`, { number: 'X', amount: '1.00' })).status === 403, 'create forbidden')
+      assert(blocked.status === 403, 'sign-up refused while AUTH_ALLOW_REGISTRATION=false')
+      const open = await startServer(app, 'start', { AUTH_ALLOW_REGISTRATION: 'true' })
+      try {
+        const user = client(open.base)
+        const up = await user.call('POST', `${api}/auth/sign-up`, {
+          email: 'member@app.test', password: secret(), name: 'Member',
+        })
+        assert(up.status === 201 && up.json.actor.roles.length === 0, 'signed up without roles')
+        assert((await user.call('GET', `${api}/invoices`)).status === 403, 'list forbidden')
+        assert((await user.call('POST', `${api}/invoices`, { number: 'X', amount: '1.00' })).status === 403, 'create forbidden')
+      } finally {
+        await stopServer(open)
+      }
     })
     await step('request logs written by @strutvane/logs; viewer reachable locally', async () => {
       assert((await anon.call('GET', '/_strutvane/logs')).status === 200, 'viewer 200 in local')
@@ -414,7 +433,12 @@ async function sqliteJourney() {
   }
 
   await step('APP_ENV=production: viewer is a 404 without a token; API still guarded', async () => {
-    const prod = await startServer(app, 'start', { APP_ENV: 'production', APP_DEBUG: 'false' })
+    const prod = await startServer(app, 'start', {
+      APP_ENV: 'production',
+      APP_DEBUG: 'false',
+      // Production refuses non-https CORS origins.
+      CORS_ORIGINS: 'https://app.example',
+    })
     try {
       const c = client(prod.base)
       assert((await c.call('GET', '/_strutvane/logs')).status === 404, 'viewer hidden')
@@ -433,7 +457,11 @@ async function sqliteJourney() {
           .replace(/^import authProvider .*\r?\n/m, '')
           .replace(/authProvider,\s*/, ''),
       )
-      const r = sv(app, ['start', '--port', '0'], { env: { APP_ENV: 'staging' }, allowFailure: true })
+      const r = sv(app, ['start', '--port', '0'], {
+        // APP_DEBUG=true is itself refused outside local, so turn it off to reach the provider check.
+        env: { APP_ENV: 'staging', APP_DEBUG: 'false' },
+        allowFailure: true,
+      })
       assert(r.code !== 0 && r.output.includes('No PermissionProvider'), 'boot refused')
     } finally {
       writeFileSync(file, original)
@@ -492,7 +520,10 @@ async function tenancyJourney() {
       psql('GRANT USAGE ON SCHEMA public TO sv_runtime')
       psql('GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO sv_runtime')
     })
-    const server = await startServer(app, 'start', dbEnv('sv_runtime', runtimePassword))
+    const server = await startServer(app, 'start', {
+      ...dbEnv('sv_runtime', runtimePassword),
+      AUTH_ALLOW_REGISTRATION: 'true',
+    })
     try {
       const api = '/api/v1'
       const tenantUser = async (email, slug) => {
