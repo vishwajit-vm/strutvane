@@ -22,6 +22,8 @@ export interface FormFieldProps {
   readonly help: ReactNode
   /** Render the widget with the ids it must reference. */
   readonly children: (wiring: { readonly invalid: boolean; readonly describedBy: string | undefined }) => ReactNode
+  /** Span both columns of the form grid (textareas, JSON). */
+  readonly wide?: boolean
 }
 
 /**
@@ -32,13 +34,13 @@ export interface FormFieldProps {
  *   {({ invalid, describedBy }) => <Input id="f-title" aria-invalid={invalid} aria-describedby={describedBy} />}
  * </FormField>
  */
-export function FormField({ id, field, error, help, children }: FormFieldProps): ReactElement {
+export function FormField({ id, field, error, help, children, wide = false }: FormFieldProps): ReactElement {
   const helpId = help === undefined ? undefined : `${id}-help`
   const errorId = error === undefined ? undefined : `${id}-error`
   const describedBy = [helpId, errorId].filter((part) => part !== undefined).join(' ') || undefined
   return (
-    <div className="space-y-1.5" data-field={field.name}>
-      <label htmlFor={id} className="text-sm font-medium">
+    <div className={wide ? 'space-y-1.5 md:col-span-2' : 'space-y-1.5'} data-field={field.name}>
+      <label htmlFor={id} className="block text-sm font-medium">
         {field.label}
         {field.required && (
           <>

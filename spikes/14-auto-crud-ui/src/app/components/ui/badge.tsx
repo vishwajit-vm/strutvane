@@ -14,14 +14,17 @@ import { cn } from '../../lib/cn.ts'
  */
 export interface BadgeProps {
   readonly children: ReactNode
-  readonly tone?: 'default' | 'muted' | 'danger'
+  readonly tone?: 'default' | 'muted' | 'danger' | 'success' | 'warning' | 'info'
   readonly className?: string
 }
 
 const TONES = {
-  default: 'bg-primary/10 text-primary',
+  default: 'bg-primary-soft text-primary-soft-foreground',
   muted: 'bg-muted text-muted-foreground',
-  danger: 'bg-destructive/10 text-destructive',
+  danger: 'bg-destructive-soft text-destructive',
+  success: 'bg-success-soft text-success',
+  warning: 'bg-warning-soft text-warning',
+  info: 'bg-info-soft text-info',
 } as const
 
 /**
@@ -32,5 +35,5 @@ const TONES = {
  * <Badge tone="danger">Deleted</Badge>
  */
 export function Badge({ children, tone = 'default', className }: BadgeProps): ReactElement {
-  return <span className={cn('inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium', TONES[tone], className)}>{children}</span>
+  return <span className={cn('inline-flex items-center rounded-sm px-2 py-0.5 text-xs font-semibold', TONES[tone], className)}>{children}</span>
 }

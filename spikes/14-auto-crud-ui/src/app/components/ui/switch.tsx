@@ -38,12 +38,12 @@ export function Switch({ id, checked, onCheckedChange, disabled, ...aria }: Swit
       disabled={disabled}
       onClick={() => onCheckedChange(!checked)}
       className={cn(
-        'inline-flex h-6 w-11 shrink-0 items-center rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50',
-        checked ? 'bg-primary' : 'bg-input',
+        'inline-flex h-6 w-11 shrink-0 items-center rounded-full border-2 border-transparent transition-colors duration-(--duration-fast) focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card disabled:opacity-50',
+        checked ? 'bg-primary shadow-primary' : 'bg-input',
       )}
       {...aria}
     >
-      <span aria-hidden="true" className={cn('size-5 rounded-full bg-background shadow transition-transform', checked ? 'translate-x-5' : 'translate-x-0')} />
+      <span aria-hidden="true" className={cn('size-5 rounded-full bg-card shadow-sm transition-transform duration-(--duration-fast)', checked ? 'translate-x-5' : 'translate-x-0')} />
     </button>
   )
 }

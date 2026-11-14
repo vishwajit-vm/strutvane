@@ -24,9 +24,28 @@ describe('axe: no violations on any generated screen', () => {
     expect(await violations()).toEqual([])
   })
 
-  it('dashboard with the welcome checklist', async () => {
+  it('dashboard: checklist, stat cards and charts loaded', async () => {
     renderApp({ path: '/' })
     await screen.findByRole('heading', { name: 'Welcome! Your admin is ready.' })
+    await screen.findByRole('table', { name: 'Posts by status' })
+    expect(await violations()).toEqual([])
+  })
+
+  it('open account menu and collapsed sidebar', async () => {
+    const app = renderApp({ path: '/posts' })
+    await waitForTable('Posts')
+    await app.user.click(screen.getByRole('button', { name: 'Collapse menu' }))
+    await app.user.click(screen.getByRole('button', { name: 'Account' }))
+    await screen.findByRole('menu', { name: 'Account' })
+    expect(await violations()).toEqual([])
+  })
+
+  it('a toast after deleting', async () => {
+    const app = renderApp({ path: '/posts' })
+    await waitForTable('Posts')
+    await app.user.click(screen.getByRole('button', { name: 'Delete Shipping: notes' }))
+    await app.user.click(screen.getByRole('button', { name: 'Delete post' }))
+    await screen.findByText('“Shipping: notes” moved to the trash.')
     expect(await violations()).toEqual([])
   })
 

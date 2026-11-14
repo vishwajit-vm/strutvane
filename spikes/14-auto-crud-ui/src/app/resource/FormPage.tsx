@@ -16,9 +16,12 @@ import type { FieldMetadata } from '../../shared/metadata.ts'
 import type { ResolvedResourceUi } from '../../shared/resolve-ui.ts'
 import { slugify } from '../../shared/slug.ts'
 import { ApiError, type ApiRow } from '../api/client.ts'
+import { PageHeader } from '../components/PageHeader.tsx'
 import { Alert } from '../components/ui/alert.tsx'
 import { Button, buttonVariants } from '../components/ui/button.tsx'
+import { Card } from '../components/ui/card.tsx'
 import { Skeleton } from '../components/ui/skeleton.tsx'
+import { useToast } from '../components/ui/toast.tsx'
 import { invalidateResource, recordId, recordRouteKey, recordTitle, useRecord } from '../data/queries.ts'
 import { useApi } from '../registry.tsx'
 import { FormField } from './FormField.tsx'
@@ -76,6 +79,7 @@ export function ResourceForm({ resource, row }: ResourceFormProps): ReactElement
   const api = useApi()
   const queryClient = useQueryClient()
   const navigate = useNavigate()
+  const toast = useToast()
   const formId = useId()
   const mode = row === undefined ? 'create' : 'edit'
   const fields = resource.formFields
@@ -95,6 +99,7 @@ export function ResourceForm({ resource, row }: ResourceFormProps): ReactElement
     },
     onSuccess: async (saved) => {
       await invalidateResource(queryClient, resource.name)
+      toast(mode === 'create' ? `${resource.label.singular} “${recordTitle(resource, saved)}” created.` : 'Changes saved.')
       void navigate({ to: '/$resource/$key', params: { resource: resource.metadata.route, key: recordRouteKey(resource, saved) } })
     },
     onError: (error) => showServerErrors(error, fields, setErrors, setFormIssues, () => setFocusRequest((count) => count + 1)),
@@ -121,11 +126,16 @@ export function ResourceForm({ resource, row }: ResourceFormProps): ReactElement
 
   const errorCount = Object.keys(errors).length + formIssues.length
   const heading = mode === 'create' ? `New ${resource.label.singular.toLowerCase()}` : `Edit ${row === undefined ? '' : recordTitle(resource, row)}`
+  const crumbs = [
+    { label: 'Home', to: '/' as const },
+    { label: resource.label.plural, to: '/$resource' as const, params: { resource: resource.metadata.route } },
+    { label: mode === 'create' ? 'New' : 'Edit' },
+  ]
   return (
-    <div className="max-w-2xl space-y-4">
-      <h1 className="text-2xl font-semibold">{heading}</h1>
+    <div className="mx-auto max-w-4xl">
+      <PageHeader title={heading} crumbs={crumbs} />
       {errorCount > 0 && (
-        <Alert title={errorCount === 1 ? '1 field needs attention' : `${errorCount} fields need attention`}>
+        <Alert className="mb-4" title={errorCount === 1 ? '1 field needs attention' : `${errorCount} fields need attention`}>
           {formIssues.length > 0 && (
             <ul className="list-disc pl-5">
               {formIssues.map((issue) => (
@@ -135,29 +145,36 @@ export function ResourceForm({ resource, row }: ResourceFormProps): ReactElement
           )}
         </Alert>
       )}
-      <form noValidate onSubmit={submit} className="space-y-4 rounded-lg border p-4" aria-label={heading}>
-        {fields.map((field) => (
-          <FormField key={field.name} id={fieldId(field.name)} field={field} error={errors[field.name]} help={helpFor(resource, field, values, mode)}>
-            {({ invalid, describedBy }) => <FieldWidget id={fieldId(field.name)} field={field} value={values[field.name] ?? null} onChange={(value) => setValue(field, value)} invalid={invalid} describedBy={describedBy} />}
-          </FormField>
-        ))}
-        <div className="flex justify-end gap-2 pt-2">
-          {row === undefined ? (
-            <Link to="/$resource" params={{ resource: resource.metadata.route }} className={buttonVariants({ variant: 'outline' })}>
-              Cancel
-            </Link>
-          ) : (
-            <Link to="/$resource/$key" params={{ resource: resource.metadata.route, key: recordRouteKey(resource, row) }} className={buttonVariants({ variant: 'outline' })}>
-              Cancel
-            </Link>
-          )}
-          <Button type="submit" disabled={save.isPending}>
-            {save.isPending ? 'Saving…' : mode === 'create' ? `Create ${resource.label.singular.toLowerCase()}` : 'Save changes'}
-          </Button>
-        </div>
-      </form>
+      <Card>
+        <form noValidate onSubmit={submit} className="grid gap-x-6 gap-y-5 p-6 md:grid-cols-2" aria-label={heading}>
+          {fields.map((field) => (
+            <FormField key={field.name} wide={isWide(field)} id={fieldId(field.name)} field={field} error={errors[field.name]} help={helpFor(resource, field, values, mode)}>
+              {({ invalid, describedBy }) => <FieldWidget id={fieldId(field.name)} field={field} value={values[field.name] ?? null} onChange={(value) => setValue(field, value)} invalid={invalid} describedBy={describedBy} />}
+            </FormField>
+          ))}
+          <div className="flex justify-end gap-3 border-t pt-5 md:col-span-2">
+            {row === undefined ? (
+              <Link to="/$resource" params={{ resource: resource.metadata.route }} className={buttonVariants({ variant: 'outline' })}>
+                Cancel
+              </Link>
+            ) : (
+              <Link to="/$resource/$key" params={{ resource: resource.metadata.route, key: recordRouteKey(resource, row) }} className={buttonVariants({ variant: 'outline' })}>
+                Cancel
+              </Link>
+            )}
+            <Button type="submit" disabled={save.isPending}>
+              {save.isPending ? 'Saving…' : mode === 'create' ? `Create ${resource.label.singular.toLowerCase()}` : 'Save changes'}
+            </Button>
+          </div>
+        </form>
+      </Card>
     </div>
   )
+}
+
+/** Long inputs take the full form width; short ones share a row (two columns from `md`). */
+function isWide(field: FieldMetadata): boolean {
+  return field.input === 'textarea' || field.input === 'json'
 }
 
 /** On create, keep the slug in step with its source field until the user types a slug. */

@@ -12,12 +12,13 @@
  * @module
  */
 import { Link } from '@tanstack/react-router'
-import { Filter, Inbox, Plus } from 'lucide-react'
+import { IconFilter, IconInbox, IconPlus } from '@tabler/icons-react'
 import { useEffect, useId, useState, type ReactElement } from 'react'
 import type { ResolvedResourceUi } from '../../shared/resolve-ui.ts'
 import { activeFilterCount, nextSort, withFilter, type ListParams, type TrashedMode } from '../api/list-params.ts'
 import { useSession } from '../auth/session.tsx'
 import { Button, buttonVariants } from '../components/ui/button.tsx'
+import { Card } from '../components/ui/card.tsx'
 import { Input } from '../components/ui/input.tsx'
 import { NativeSelect } from '../components/ui/native-select.tsx'
 import { Skeleton } from '../components/ui/skeleton.tsx'
@@ -61,8 +62,8 @@ export function ListView({ resource, params, onChange, compact = false }: ListVi
   const filtered = params.search.trim() !== '' || activeFilterCount(params.filters, params.trashed) > 0
   const clearAll = (): void => onChange({ search: '', filters: {}, trashed: 'without', page: 1 })
 
-  return (
-    <div className="space-y-3">
+  const body = (
+    <div className="space-y-4">
       {!compact && (
         <ListToolbar resource={resource} params={params} onChange={onChange} filtersOpen={filtersOpen} onToggleFilters={() => setFiltersOpen((open) => !open)} />
       )}
@@ -87,6 +88,8 @@ export function ListView({ resource, params, onChange, compact = false }: ListVi
       )}
     </div>
   )
+  // On its own page the list sits in a card; inside a detail tab the tab panel is the card.
+  return compact ? body : <Card className="p-5">{body}</Card>
 }
 
 /** Search box, filter toggle and the deleted-records selector. */
@@ -131,7 +134,7 @@ function ListToolbar({ resource, params, onChange, filtersOpen, onToggleFilters 
       </div>
       {resource.filterFields.length > 0 && (
         <Button variant="outline" aria-expanded={filtersOpen} onClick={onToggleFilters}>
-          <Filter aria-hidden="true" />
+          <IconFilter aria-hidden="true" />
           Filters{filterCount > 0 ? ` (${filterCount})` : ''}
         </Button>
       )}
@@ -158,7 +161,7 @@ function toTrashedMode(value: string): TrashedMode {
 /** Skeleton rows shaped like the real table, so nothing jumps when data arrives. */
 function LoadingRows({ resource }: { readonly resource: ResolvedResourceUi }): ReactElement {
   return (
-    <div aria-busy="true" aria-label={`Loading ${resource.label.plural.toLowerCase()}`} role="region" className="space-y-2 rounded-lg border p-3">
+    <div aria-busy="true" aria-label={`Loading ${resource.label.plural.toLowerCase()}`} role="region" className="space-y-3 py-2">
       {[0, 1, 2, 3, 4].map((row) => (
         <div key={row} className="flex gap-3">
           {resource.columns.slice(0, 5).map((field) => (
@@ -174,8 +177,10 @@ function EmptyState({ resource, filtered, onClear }: { readonly resource: Resolv
   const { can } = useSession()
   const noun = resource.label.plural.toLowerCase()
   return (
-    <div className="rounded-lg border border-dashed px-4 py-12 text-center">
-      <Inbox aria-hidden="true" className="mx-auto size-8 text-muted-foreground" />
+    <div className="rounded-xl border border-dashed px-4 py-14 text-center">
+      <span aria-hidden="true" className="mx-auto flex size-14 items-center justify-center rounded-full bg-primary-soft text-primary-soft-foreground">
+        <IconInbox className="size-7" />
+      </span>
       {filtered ? (
         <>
           <p className="mt-3 font-medium">No {noun} match your search or filters</p>
@@ -188,7 +193,7 @@ function EmptyState({ resource, filtered, onClear }: { readonly resource: Resolv
           <p className="mt-3 font-medium">No {noun} yet</p>
           {can('create', resource.name) && (
             <Link to="/$resource/new" params={{ resource: resource.metadata.route }} className={buttonVariants({ className: 'mt-4' })}>
-              <Plus aria-hidden="true" />
+              <IconPlus aria-hidden="true" />
               Create {resource.label.singular.toLowerCase()}
             </Link>
           )}

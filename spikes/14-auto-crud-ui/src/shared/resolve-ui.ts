@@ -31,7 +31,7 @@ export interface ResolvedResourceUi {
   readonly columns: readonly FieldMetadata[]
   readonly formFields: readonly FieldMetadata[]
   readonly filterFields: readonly FieldMetadata[]
-  readonly navigation: { readonly icon: IconName; readonly group: string | undefined; readonly sort: number | undefined; readonly hidden: boolean }
+  readonly navigation: { readonly icon: IconName; readonly group: string | undefined; readonly sort: number | undefined; readonly hidden: boolean; readonly badge: string | undefined }
   readonly pageSize: PageSize
   readonly defaultSort: string
   /** `slug` or the primary key: the value used in UI URLs. */
@@ -68,6 +68,7 @@ export function resolveResourceUi(metadata: ResourceMetadata, config: ResourceUi
       group: config?.navigation?.group,
       sort: config?.navigation?.sort,
       hidden: config?.navigation?.hidden ?? metadata.sidebar.hidden,
+      badge: config?.navigation?.badge,
     },
     pageSize: config?.pageSize ?? DEFAULT_PAGE_SIZE,
     defaultSort: config?.defaultSort ?? metadata.defaultSort,

@@ -8,7 +8,7 @@ import type { InputHTMLAttributes, ReactElement, Ref, TextareaHTMLAttributes } f
 import { cn } from '../../lib/cn.ts'
 
 const CONTROL =
-  'w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm shadow-xs placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 aria-[invalid=true]:border-destructive'
+  'w-full rounded-md border border-input bg-card px-3.5 py-2 text-base placeholder:text-muted-foreground transition-shadow duration-(--duration-fast) focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 focus-visible:shadow-sm disabled:cursor-not-allowed disabled:bg-muted disabled:opacity-70 aria-[invalid=true]:border-destructive aria-[invalid=true]:ring-destructive/30'
 
 /**
  * Props of {@link Input}.
@@ -27,7 +27,7 @@ export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
  * <Input id="title" value={title} onChange={(event) => setTitle(event.target.value)} />
  */
 export function Input({ className, ref, ...props }: InputProps): ReactElement {
-  return <input ref={ref} className={cn(CONTROL, 'h-9', className)} {...props} />
+  return <input ref={ref} className={cn(CONTROL, 'h-10', className)} {...props} />
 }
 
 /**

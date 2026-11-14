@@ -111,7 +111,7 @@ describe('detail page', () => {
   it('loads by slug and shows every field, with relations as links', async () => {
     const app = renderApp({ path: '/posts/shipping-notes' })
     expect(await screen.findByRole('heading', { name: 'Shipping: notes' })).toBeInTheDocument()
-    expect(app.requests[0]?.url.pathname).toBe('/api/posts/by-slug/shipping-notes')
+    expect(app.requests.some((request) => request.url.pathname === '/api/posts/by-slug/shipping-notes')).toBe(true)
     expect(await screen.findByRole('link', { name: 'Asha Rao' })).toHaveAttribute('href', '/users/1')
     expect(screen.getByRole('link', { name: 'Edit' })).toHaveAttribute('href', '/posts/shipping-notes/edit')
     expect(within(screen.getByRole('navigation', { name: 'Breadcrumb' })).getByRole('link', { name: 'Posts' })).toBeInTheDocument()

@@ -18,6 +18,6 @@ export default defineResourceUi('posts', {
   // Developer edit: `meta` is internal JSON, keep it off the form; title and status first.
   form: auto({ except: ['meta'], order: ['title', 'status'] }),
   filters: auto(),
-  navigation: { icon: 'file-text', group: 'Content', sort: 1 },
+  navigation: { icon: 'file-text', group: 'Content', sort: 1, badge: 'count' },
   defaultSort: '-created_at',
 })

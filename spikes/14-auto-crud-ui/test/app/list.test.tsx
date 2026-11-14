@@ -164,6 +164,7 @@ describe('deleted rows and delete', () => {
     await app.user.click(trigger)
     await app.user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Delete post' }))
     await waitFor(() => expect(screen.queryByRole('link', { name: 'Shipping: notes' })).toBeNull())
+    expect(await screen.findByText('“Shipping: notes” moved to the trash.')).toBeInTheDocument()
     expect(app.requests.some((request) => request.method === 'DELETE' && request.url.pathname === '/api/posts/1')).toBe(true)
   })
 

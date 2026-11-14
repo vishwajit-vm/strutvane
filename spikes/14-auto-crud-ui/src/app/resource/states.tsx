@@ -5,7 +5,7 @@
  * @module
  */
 import { Link, useParams } from '@tanstack/react-router'
-import { SearchX } from 'lucide-react'
+import { IconMoodEmpty } from '@tabler/icons-react'
 import type { ReactElement, ReactNode } from 'react'
 import type { ResolvedResourceUi } from '../../shared/resolve-ui.ts'
 import { ApiError } from '../api/client.ts'
@@ -24,7 +24,9 @@ import { useRegistry } from '../registry.tsx'
 export function NotFoundPage(): ReactElement {
   return (
     <div className="mx-auto max-w-md py-16 text-center">
-      <SearchX aria-hidden="true" className="mx-auto size-10 text-muted-foreground" />
+      <span aria-hidden="true" className="mx-auto flex size-16 items-center justify-center rounded-full bg-primary-soft text-primary-soft-foreground">
+        <IconMoodEmpty className="size-8" />
+      </span>
       <h1 className="mt-4 text-xl font-semibold">Nothing here</h1>
       <p className="mt-2 text-sm text-muted-foreground">This page does not exist, or you do not have access to it.</p>
       <Link to="/" className={buttonVariants({ variant: 'outline', className: 'mt-6' })}>

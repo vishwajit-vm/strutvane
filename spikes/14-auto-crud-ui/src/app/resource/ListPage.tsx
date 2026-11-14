@@ -5,11 +5,12 @@
  * @module
  */
 import { Link, useNavigate, useSearch } from '@tanstack/react-router'
-import { Plus } from 'lucide-react'
+import { IconPlus } from '@tabler/icons-react'
 import type { ReactElement } from 'react'
 import type { ResolvedResourceUi } from '../../shared/resolve-ui.ts'
 import type { ListParams } from '../api/list-params.ts'
 import { useSession } from '../auth/session.tsx'
+import { PageHeader } from '../components/PageHeader.tsx'
 import { buttonVariants } from '../components/ui/button.tsx'
 import { validateListSearch, type ListSearch } from '../route-search.ts'
 import { ListView } from './ListView.tsx'
@@ -44,16 +45,20 @@ function ResourceList({ resource }: { readonly resource: ResolvedResourceUi }): 
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-2xl font-semibold">{resource.label.plural}</h1>
-        {can('create', resource.name) && (
-          <Link to="/$resource/new" params={{ resource: resource.metadata.route }} className={buttonVariants()}>
-            <Plus aria-hidden="true" />
-            New {resource.label.singular.toLowerCase()}
-          </Link>
-        )}
-      </div>
+    <div>
+      <PageHeader
+        title={resource.label.plural}
+        crumbs={[{ label: 'Home', to: '/' }, { label: resource.label.plural }]}
+        description={`Search, filter and manage ${resource.label.plural.toLowerCase()}.`}
+        actions={
+          can('create', resource.name) ? (
+            <Link to="/$resource/new" params={{ resource: resource.metadata.route }} className={buttonVariants()}>
+              <IconPlus aria-hidden="true" />
+              New {resource.label.singular.toLowerCase()}
+            </Link>
+          ) : undefined
+        }
+      />
       <ListView resource={resource} params={params} onChange={onChange} />
     </div>
   )

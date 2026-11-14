@@ -4,7 +4,7 @@
  *
  * @module
  */
-import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react'
+import { IconChevronLeft, IconChevronRight, IconChevronsLeft, IconChevronsRight } from '@tabler/icons-react'
 import { useId, type ReactElement, type ReactNode } from 'react'
 import type { ListPage } from '../api/client.ts'
 import { Button } from '../components/ui/button.tsx'
@@ -57,7 +57,7 @@ export function Pagination({ meta, noun, onPage, onPerPage }: PaginationProps): 
   const sizeId = useId()
   const { page, lastPage } = meta
   return (
-    <div className="flex flex-col gap-3 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+    <div className="flex flex-col gap-3 pt-1 text-sm sm:flex-row sm:items-center sm:justify-between">
       <p className="text-muted-foreground">{meta.from === null ? `No ${noun}` : `Showing ${meta.from}–${meta.to ?? meta.from} of ${meta.total} ${noun}`}</p>
       <div className="flex flex-wrap items-center gap-3">
         <div className="flex items-center gap-2">
@@ -74,10 +74,10 @@ export function Pagination({ meta, noun, onPage, onPerPage }: PaginationProps): 
         </div>
         <nav aria-label="Pagination" className="flex items-center gap-1">
           <PageButton label="First page" disabled={page <= 1} onClick={() => onPage(1)}>
-            <ChevronsLeft aria-hidden="true" />
+            <IconChevronsLeft aria-hidden="true" />
           </PageButton>
           <PageButton label="Previous page" disabled={page <= 1} onClick={() => onPage(page - 1)}>
-            <ChevronLeft aria-hidden="true" />
+            <IconChevronLeft aria-hidden="true" />
           </PageButton>
           {pageWindow(page, lastPage).map((item, index) =>
             item === 'gap' ? (
@@ -85,16 +85,16 @@ export function Pagination({ meta, noun, onPage, onPerPage }: PaginationProps): 
                 …
               </span>
             ) : (
-              <Button key={item} variant={item === page ? 'default' : 'ghost'} size="sm" className="min-w-8" aria-label={`Page ${item}`} aria-current={item === page ? 'page' : undefined} onClick={() => onPage(item)}>
+              <Button key={item} variant={item === page ? 'default' : 'soft'} size="sm" className="min-w-8" aria-label={`Page ${item}`} aria-current={item === page ? 'page' : undefined} onClick={() => onPage(item)}>
                 {item}
               </Button>
             ),
           )}
           <PageButton label="Next page" disabled={page >= lastPage} onClick={() => onPage(page + 1)}>
-            <ChevronRight aria-hidden="true" />
+            <IconChevronRight aria-hidden="true" />
           </PageButton>
           <PageButton label="Last page" disabled={page >= lastPage} onClick={() => onPage(lastPage)}>
-            <ChevronsRight aria-hidden="true" />
+            <IconChevronsRight aria-hidden="true" />
           </PageButton>
         </nav>
       </div>
@@ -104,7 +104,7 @@ export function Pagination({ meta, noun, onPage, onPerPage }: PaginationProps): 
 
 function PageButton({ label, disabled, onClick, children }: { readonly label: string; readonly disabled: boolean; readonly onClick: () => void; readonly children: ReactNode }): ReactElement {
   return (
-    <Button variant="ghost" size="icon" className="size-8" aria-label={label} disabled={disabled} onClick={onClick}>
+    <Button variant="soft" size="icon" className="size-8" aria-label={label} disabled={disabled} onClick={onClick}>
       {children}
     </Button>
   )

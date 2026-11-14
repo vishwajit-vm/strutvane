@@ -7,13 +7,14 @@
  * @module
  */
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Trash2, Undo2 } from 'lucide-react'
+import { IconArrowBackUp, IconTrash } from '@tabler/icons-react'
 import { useId, useRef, useState, type ReactElement } from 'react'
 import type { ResolvedResourceUi } from '../../shared/resolve-ui.ts'
 import { ApiError, type ApiRow } from '../api/client.ts'
 import { Alert } from '../components/ui/alert.tsx'
 import { Button } from '../components/ui/button.tsx'
 import { Dialog } from '../components/ui/dialog.tsx'
+import { useToast } from '../components/ui/toast.tsx'
 import { invalidateResource, recordId, recordTitle } from '../data/queries.ts'
 import { useApi } from '../registry.tsx'
 
@@ -40,6 +41,7 @@ export interface DeleteButtonProps {
 export function DeleteButton({ resource, row, onDeleted, variant = 'icon' }: DeleteButtonProps): ReactElement {
   const api = useApi()
   const queryClient = useQueryClient()
+  const toast = useToast()
   const [open, setOpen] = useState(false)
   const titleId = useId()
   const descriptionId = useId()
@@ -56,6 +58,7 @@ export function DeleteButton({ resource, row, onDeleted, variant = 'icon' }: Del
     onSuccess: async () => {
       setOpen(false)
       await invalidateResource(queryClient, resource.name)
+      toast(resource.metadata.softDeletes ? `“${title}” moved to the trash.` : `“${title}” deleted.`)
       onDeleted?.()
     },
   })
@@ -63,10 +66,13 @@ export function DeleteButton({ resource, row, onDeleted, variant = 'icon' }: Del
   return (
     <>
       <Button variant={variant === 'icon' ? 'ghost' : 'outline'} size={variant === 'icon' ? 'icon' : 'default'} aria-label={variant === 'icon' ? `Delete ${title}` : undefined} onClick={() => setOpen(true)}>
-        <Trash2 aria-hidden="true" />
+        <IconTrash aria-hidden="true" />
         {variant === 'full' && 'Delete'}
       </Button>
       <Dialog open={open} onClose={() => setOpen(false)} role="alertdialog" labelledBy={titleId} describedBy={descriptionId} initialFocus={cancel}>
+        <span aria-hidden="true" className="mb-4 flex size-12 items-center justify-center rounded-full bg-destructive-soft text-destructive">
+          <IconTrash className="size-6" />
+        </span>
         <h2 id={titleId} className="text-lg font-semibold">
           Delete this {singular}?
         </h2>
@@ -101,16 +107,20 @@ export function DeleteButton({ resource, row, onDeleted, variant = 'icon' }: Del
 export function RestoreButton({ resource, row }: { readonly resource: ResolvedResourceUi; readonly row: ApiRow }): ReactElement {
   const api = useApi()
   const queryClient = useQueryClient()
+  const toast = useToast()
   const restore = useMutation({
     mutationFn: async () => {
       const id = recordId(resource, row)
       if (id !== undefined) await api.restore(resource.metadata, id)
     },
-    onSuccess: () => invalidateResource(queryClient, resource.name),
+    onSuccess: async () => {
+      await invalidateResource(queryClient, resource.name)
+      toast(`“${recordTitle(resource, row)}” restored.`)
+    },
   })
   return (
     <Button variant="ghost" size="sm" disabled={restore.isPending} onClick={() => restore.mutate()} aria-label={`Restore ${recordTitle(resource, row)}`}>
-      <Undo2 aria-hidden="true" />
+      <IconArrowBackUp aria-hidden="true" />
       Restore
     </Button>
   )

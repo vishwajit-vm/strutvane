@@ -8,14 +8,16 @@
  * @module
  */
 import { Link, useNavigate, useParams, useSearch } from '@tanstack/react-router'
-import { Pencil } from 'lucide-react'
+import { IconPencil } from '@tabler/icons-react'
 import { useId, useRef, useState, type KeyboardEvent, type ReactElement } from 'react'
 import { visibleFields, type RelationMetadata } from '../../shared/metadata.ts'
 import type { ResolvedResourceUi } from '../../shared/resolve-ui.ts'
 import type { ApiRow } from '../api/client.ts'
 import type { ListParams } from '../api/list-params.ts'
 import { useSession } from '../auth/session.tsx'
+import { PageHeader } from '../components/PageHeader.tsx'
 import { buttonVariants } from '../components/ui/button.tsx'
+import { Card } from '../components/ui/card.tsx'
 import { Skeleton } from '../components/ui/skeleton.tsx'
 import { recordId, recordRouteKey, recordTitle, useRecord, useRelatedRows } from '../data/queries.ts'
 import { cn } from '../lib/cn.ts'
@@ -75,36 +77,26 @@ function RecordDetail({ resource, row }: { readonly resource: ResolvedResourceUi
   const selectTab = (tab: string): void => void navigate({ to: '/$resource/$key', params, search: tab === DETAILS_TAB ? {} : { tab }, replace: true })
 
   return (
-    <div className="space-y-4">
-      <nav aria-label="Breadcrumb" className="text-sm text-muted-foreground">
-        <ol className="flex gap-1">
-          <li>
-            <Link to="/$resource" params={{ resource: resource.metadata.route }} className="hover:underline">
-              {resource.label.plural}
-            </Link>
-          </li>
-          <li aria-hidden="true">/</li>
-          <li aria-current="page" className="truncate text-foreground">
-            {title}
-          </li>
-        </ol>
-      </nav>
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-2xl font-semibold">{title}</h1>
-        <div className="flex gap-2">
-          {can('update', resource.name) && (
-            <Link to="/$resource/$key/edit" params={params} className={buttonVariants({ variant: 'outline' })}>
-              <Pencil aria-hidden="true" />
-              Edit
-            </Link>
-          )}
-          {can('delete', resource.name) && <DeleteButton resource={resource} row={row} variant="full" onDeleted={() => void navigate({ to: '/$resource', params: { resource: resource.metadata.route } })} />}
-        </div>
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        title={title}
+        crumbs={[{ label: 'Home', to: '/' }, { label: resource.label.plural, to: '/$resource', params: { resource: resource.metadata.route } }, { label: title }]}
+        actions={
+          <>
+            {can('update', resource.name) && (
+              <Link to="/$resource/$key/edit" params={params} className={buttonVariants()}>
+                <IconPencil aria-hidden="true" />
+                Edit
+              </Link>
+            )}
+            {can('delete', resource.name) && <DeleteButton resource={resource} row={row} variant="full" onDeleted={() => void navigate({ to: '/$resource', params: { resource: resource.metadata.route } })} />}
+          </>
+        }
+      />
       <Tabs tabs={[{ id: DETAILS_TAB, label: 'Details' }, ...tabs.map((tab) => ({ id: tab.relation.name, label: tab.target.label.plural }))]} current={current} onSelect={selectTab} />
-      <div role="tabpanel" id={`panel-${current}`} aria-labelledby={`tab-${current}`} tabIndex={0} className="focus-visible:outline-none">
+      <Card role="tabpanel" id={`panel-${current}`} aria-labelledby={`tab-${current}`} tabIndex={0} className="p-5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
         {current === DETAILS_TAB ? <FieldList resource={resource} row={row} /> : <RelationPanel tab={tabs.find((tab) => tab.relation.name === current)} parentId={recordId(resource, row)} />}
-      </div>
+      </Card>
     </div>
   )
 }
@@ -122,7 +114,7 @@ function Tabs({ tabs, current, onSelect }: { readonly tabs: readonly { readonly 
     refs.current.get(next.id)?.focus()
   }
   return (
-    <div role="tablist" aria-label="Sections" onKeyDown={onKeyDown} className="flex gap-1 border-b">
+    <div role="tablist" aria-label="Sections" onKeyDown={onKeyDown} className="flex flex-wrap gap-2">
       {tabs.map((tab) => (
         <button
           key={tab.id}
@@ -138,7 +130,10 @@ function Tabs({ tabs, current, onSelect }: { readonly tabs: readonly { readonly 
           // Roving tabindex: Tab enters the tab list once; arrows move inside it.
           tabIndex={tab.id === current ? 0 : -1}
           onClick={() => onSelect(tab.id)}
-          className={cn('-mb-px min-h-9 border-b-2 px-3 text-sm', tab.id === current ? 'border-primary font-medium' : 'border-transparent text-muted-foreground hover:text-foreground')}
+          className={cn(
+            'min-h-10 rounded-lg px-5 text-base font-medium transition-colors duration-(--duration-fast) focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+            tab.id === current ? 'bg-primary text-primary-foreground shadow-primary' : 'text-foreground/80 hover:bg-accent hover:text-accent-foreground',
+          )}
         >
           {tab.label}
         </button>
@@ -153,13 +148,13 @@ function FieldList({ resource, row }: { readonly resource: ResolvedResourceUi; r
   const fields = visibleFields(resource.metadata)
   const related = useRelatedRows(resource, fields, [row])
   return (
-    <dl className="grid gap-x-6 gap-y-3 rounded-lg border p-4 sm:grid-cols-[12rem_1fr]">
+    <dl className="grid gap-x-6 gap-y-4 sm:grid-cols-[12rem_1fr]">
       {fields.map((field) => {
         const target = field.references === undefined ? undefined : byName.get(field.references)
         return (
           <div key={field.name} className="contents">
-            <dt className="text-sm text-muted-foreground">{field.label}</dt>
-            <dd className="break-words text-sm">
+            <dt className="text-sm font-medium text-muted-foreground">{field.label}</dt>
+            <dd className="break-words text-base">
               <FieldValue field={field} value={row[field.name]} {...(target === undefined ? {} : { related: { resource: target, rows: related.data?.get(field.name) } })} />
             </dd>
           </div>

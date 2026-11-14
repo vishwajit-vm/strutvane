@@ -2,16 +2,18 @@
 
 **Date:** 2026-11-14.
 
-**Environment:** Windows 11, Node v24.21.0, npm (not pnpm), TypeScript 6.0.3, React 19.3.1, Vite 8.3.8, Tailwind 4.3.5, TanStack Router 1.170.46 / Query 5.107.1 / Table 9.3.1, Vitest 5.1.0 + jsdom 31 + Testing Library, axe-core 4.14.0, oxc-parser 0.158.0, lucide-react 1.73.0.
+**Environment:** Windows 11, Node v24.21.0, npm (not pnpm), TypeScript 6.0.3, React 19.3.1, Vite 8.3.8, Tailwind 4.3.5, TanStack Router 1.170.46 / Query 5.107.1 / Table 9.3.1, Tabler Icons 3.50.0, Recharts 3.10.1, Public Sans (@fontsource 5.3.0), Vitest 5.1.0 + jsdom 31 + Testing Library, axe-core 4.14.0, oxc-parser 0.158.0.
 
 ```bash
 cd spikes/14-auto-crud-ui
 npm install
-npm test           # tsc --noEmit + vitest run (101 tests)
+npm test           # tsc --noEmit + vitest run (114 tests)
 npm run build      # tsc --noEmit + vite build
 npm run ui:sync    # regenerate example/.strutvane/ui.gen.ts from example/.strutvane/resources.json
 npm run dev        # the admin on http://localhost:5173 with a seeded mock API at /api
 ```
+
+**Design standard:** [`DESIGN.md`](DESIGN.md) is the enforceable UI standard for `@strutvane/ui` and every package that adds screens: tokens for both themes, layout, component specs, content style, accessibility and extension points. The look is an **original design** in the style of popular premium admin templates: a vertical menu, a floating sticky navbar, cards with soft shadows, light and dark. No template's CSS, markup, images, illustrations, colours or fonts are used. Third-party assets and their licences are listed in DESIGN.md §10 and below.
 
 The contract tests also run spike 10's real API in-process. They need `npm install` in `spikes/10-migration-first-schema`; without it they are skipped with a message.
 
@@ -33,22 +35,29 @@ The contract tests also run spike 10's real API in-process. They need `npm insta
 
 ## Evidence
 
-`npm test` exits 0: `tsc --noEmit` plus **10 files, 101 tests (100 passed, 1 skipped)**. The skip is the "spike 10 not installed" placeholder, which only runs when the real contract tests can't. `npm run build` exits 0 (JS 472 kB, 148 kB gzip; CSS 26 kB). Two consecutive full runs were green.
+`npm test` exits 0: `tsc --noEmit` plus **12 files, 114 tests (113 passed, 1 skipped)**. The skip is the "spike 10 not installed" placeholder, which only runs when the real contract tests can't. `npm run build` exits 0 (JS 874 kB, 261 kB gzip, of which Recharts is the largest part; CSS 41 kB; Public Sans woff2 files). Two consecutive full runs were green.
 
 | Test file | Tests | What it proves |
 |---|---|---|
 | `generator/sync.test.ts` | 16 | **First sync** scaffolds one owned file per table, plus the registry and the lock. A second sync writes nothing; a dry run writes nothing. **Customise, then migrate (adds `posts.subtitle`, `posts.category_id`, `tags.color`):** the owned files stay byte-identical; `auto()` lists now include the new columns while keeping `except`/`order`/label/navigation edits; the explicit `tags.columns` list is unchanged and the report says `! New column tags.color (columns) is NOT shown … Add 'color' to that list`. A dropped column is reported; a dropped table's file is kept and called orphaned. **Never overwritten:** only a new table is scaffolded; a lost lock doesn't re-scaffold; a deleted owned file is reported, not recreated; a damaged lock is treated as missing. Output is deterministic (LF, no machine paths), and the committed `example/` equals fresh output. Friendly errors point to `sv migrate`. |
 | `generator/typecheck.test.ts` | 3 | **Real TypeScript compiler:** `columns: ['title', 'subtitle', 'status']` compiles. After a migration drops `subtitle` and `ui:sync` runs, it fails with exactly one `TS2322 Type '"subtitle"' is not assignable`. `auto({ except: ['nope'] })`, `defaultSort: '-nope'`, `defineResourceUi('invoices')` and `icon: 'reciept'` (with "Did you mean 'receipt'?") are all compile errors. `password` is not a typed field name. |
 | `generator/owned-reader.test.ts` | 5 | The static reader (oxc, never executes app code, ADR-0010) classifies `auto()`, `auto({...})`, explicit lists (also through `as const`/`satisfies`) and absent properties. It **reports, never guesses**, for variables and spreads (`posts.ui.ts:4`), syntax errors and missing default exports. |
-| `app/shell.test.tsx` | 11 | The sidebar comes from the registry: plural labels, groups, explicit sort then A to Z, decorative icons, `aria-current`. Entries are hidden without `viewAny`, and such a URL says "Nothing here". **A table added by a later migrate appears in the sidebar and lists rows with no file edit.** Sign-in stub (email check, focus, roles) and sign-out. **Ctrl+K / Cmd+K** opens global search; Escape returns focus; Arrow and Enter open a record by slug; resources the user may not list are never searched. Dark mode toggles `html.dark`, is remembered, and still works when `localStorage` throws. Mobile drawer opens and closes. |
+| `app/shell.test.tsx` | 16 | The sidebar comes from the registry: plural labels, groups, explicit sort then A to Z, decorative icons, `aria-current`. Entries are hidden without `viewAny`, and such a URL says "Nothing here". **A table added by a later migrate appears in the sidebar and lists rows with no file edit.** Sign-in stub (email check, focus, roles) and sign-out. **Ctrl+K / Cmd+K** opens global search; Escape returns focus; Arrow and Enter open a record by slug; resources the user may not list are never searched. Dark mode toggles `html.dark`, is remembered, and still works when `localStorage` throws. Mobile drawer opens and closes. **Redesign:**<br>• the account menu (menu button pattern: first item focused, arrows, Escape returns focus) holds Sign out;<br>• a notifications menu;<br>• the dashboard: stat cards with live counts, plus charts whose data is also a screen-reader table ("published 22");<br>• a live sidebar badge whose accessible name is "Posts, 35 rows";<br>• collapse-to-icons (remembered, `title` tooltips, names kept);<br>• collapsible menu groups (`aria-expanded`). |
 | `app/list.test.tsx` | 16 | **Page numbers** with a summary ("Showing 26–35 of 35 posts"), `aria-current`, a disabled Next on the last page. Page sizes 10/25/50/100 reset to page 1; malformed URL state is ignored. **Debounced search** with a polite count announcement. **Sort**: first click ascending, then descending, with `aria-sort`. **Typed filters** send exact wire params (`filter[status][in]=draft`, `filter[featured][eq]=true`, `filter[price][gte]=10`, `filter[author_id][eq]=2` via the async relation select). Empty-with-filters (Clear), empty (Create tag), skeleton loading (`aria-busy`), a 502 HTML page becomes a friendly error with Retry. **Deleted rows:** "Only deleted" shows 2 rows with a "Deleted" badge, and Restore works. **Delete confirm:** `alertdialog`, Cancel focused, Escape returns focus, the soft-delete wording, `DELETE /api/posts/1`. A viewer sees no write actions. An explicit column list is rendered exactly. No export/bulk controls appear by default. |
 | `app/form-detail.test.tsx` | 10 | **Widgets by type** (text, textarea, decimal `inputmode`, enum select, relation combobox, switch, date). The owned `form: auto({ except: ['meta'], order: ['title', 'status'] })` applies. **The slug follows the title** (`Héllo, World!` becomes `hello-world`) until it is edited, with a URL preview. Client checks focus the first invalid field, with `aria-invalid` and a description. **Create** with keyboard relation select; the decimal point survives typing ("12."). The body is exactly what is needed, an untouched slug is left to the server, and you land on `/posts/launch-day`. **A server 422** (`Slug "engineering" is already taken.`) lands on its field and focuses it. **Edit sends only changed fields** (`PATCH /api/posts/1 {"status":"published"}`). **Detail by slug** (`/api/posts/by-slug/…`): relation links, breadcrumb, **hasMany tabs** (lazy, `?tab=posts`, Arrow keys, `filter[author_id][eq]=1`), a friendly 404, and id URLs for slug-less tables. |
-| `app/a11y.test.tsx` | 11 | **axe-core: 0 violations on 9 screens**: sign-in, dashboard, list with filters open, empty list, form with errors, edit, detail with a relation tab, delete dialog, search palette. `color-contrast` is off because jsdom has no layout (see Limits). The skip link is the first Tab stop and targets `<main>`; every form control has a `<label for>`. |
+| `app/a11y.test.tsx` | 13 | **axe-core: 0 violations on 11 screens and states**: sign-in, dashboard with charts loaded, list with filters open, empty list, form with errors, edit, detail with a relation tab, delete dialog, open account menu with the sidebar collapsed, a toast, search palette. `color-contrast` is off because jsdom has no layout (see Limits). The skip link is the first Tab stop and targets `<main>`; every form control has a `<label for>`. |
 | `security/exposure.test.ts` | 8 | **Security review F-01, F-03, F-13, F-15.** 60 real secret column names (Laravel, Sanctum, Passport, Cashier, Fortify, Rails, Django) are all hidden by the shared redaction matcher; ordinary names stay visible. `secret: true` / sensitive names never appear in columns, form, filters or typed names, even when listed explicitly. The API never returns, filters, sorts, searches or accepts them, and its error hint doesn't list them. **Internal tables** (`sessions`, `personal_access_tokens`, `user_roles`, `team_members`, `jobs`, `failed_jobs`, `migrations`, `audit_events`, `cache_*`, or `internal: true`) get no owned file, typed names, registry entry or screen, also at runtime. Export and bulk are off unless opted in. |
 | `contract/spike10.test.tsx` | 7 | **Spike 10's real API in-process on `node:sqlite`.** The 47-request script (pagination, search incl. `100%` and `_` as literals, multi-sort with NULLs, 12 filter shapes, 6 hostile queries, by-slug, 404s, 422s, a duplicate unique email, a non-Latin title, PATCH, soft delete) gives **identical status codes and bodies** from the mock and spike 10. Extensions are confirmed absent from spike 10 (`filter[trashed]` is a 422 there). **The UI on spike 10:** list/search/sort; create through the form; **the server de-duplicates the slug** (`/posts/hello-world-4`); a 422 unique email lands on the Email field; soft-delete from detail returns to a 4-row list. |
+| `shared/contrast.test.ts` | 2×2 | **WCAG AA from the stylesheet itself:** 23 text/background pairs (4.5:1; focus ring 3:1) in light and dark, computed OKLCH → sRGB → luminance. Checked at the configured `--brand-hue` **and at every hue in 15° steps**, so any accent a developer configures stays readable. |
+| `shared/design-tokens.test.ts` | 2 | **No hard-coded colours in components:** fails on hex, `rgb/hsl/oklch(...)`, Tailwind palette classes (`bg-red-500`, `text-white`, `bg-black/50`) and arbitrary colour values anywhere in `src/app`. The rule is itself tested against a planted bad snippet. |
 | `shared/pure.test.ts` | 14 | `auto()` defaults, `except`/`order`, unknown names; sidebar ordering, including package pages merged under the same rules and permissions; icon guesses; spike 10's wire format; the sort cycle; URL validation; page windows (`1 … 5 6 7 … 12`); form values (defaults, server-equivalent checks, edit diff with `null`); the slug rule. |
 
-**Manual check in a real browser** (Vite dev server, Chromium pane, 1280×800 and a narrow width):
+**Manual check after the redesign** (Vite dev server, Chromium pane, 1366×850):
+
+- **Dashboard, dark:** a white-on-accent logo mark and "Strutvane" over the menu. "Dashboard" is a filled indigo pill with a soft glow. ACCESS and CONTENT are uppercase group headings with chevrons; Posts carries a "35" pill badge; "Collapse menu" is pinned at the bottom. The navbar floats as a rounded card: a search field with a `Ctrl K` hint, a three-way theme switch, a bell with a red dot, and an initials avatar with a green status dot. The content shows breadcrumbs "Home › Dashboard", a welcome card with three numbered steps, four stat cards (4 Categories, 35 Posts, 12 Tags, 3 Users) with soft tinted icon tiles, a "Rows per table" bar chart (rounded bars), and a "Posts by status" donut with a legend (Draft 37 %, Published 63 %).
+- **Posts list, light:** an off-white page with white cards. A page header with breadcrumbs, a description and a filled "+ New post" button. The table card has a search field, Filters and a "Hide deleted" select; uppercase muted column headers with sort arrows; 52 px rows with monospace slugs, right-aligned prices, soft status badges, author links and "✓ Yes / — No".
+
+The first pass, before the redesign (1280×800 and a narrow width):
 
 - **Sign-in:** a centred card on the system (dark) theme, with a three-button theme switch in the corner. An invalid email shows a red message under the field and keeps focus there.
 - **Dashboard:** the welcome checklist (migrations done; make a screen your own; decide who sees what) and one card per resource. At narrow width the sidebar collapses behind a menu button.
@@ -57,6 +66,18 @@ The contract tests also run spike 10's real API in-process. They need `npm insta
 - **New post:** typing "Héllo, Wörld! Launch day" fills the slug `hello-world-launch-day` with a live URL preview. Submitting without an author moves focus to Author. Choosing "Asha Rao" and saving lands on `/posts/hello-world-launch-day`.
 - **User detail:** Details and Posts tabs. The Posts tab shows that user's posts as a full table.
 - **Ctrl+K:** a centred palette. "pric" lists the four "Pricing: …" posts with icons and a "Post" hint. Arrow keys move the highlight.
+
+## Third-party assets (all open source)
+
+| Asset | Licence |
+|---|---|
+| Tabler Icons (`@tabler/icons-react` 3.50.0) | MIT |
+| Public Sans (`@fontsource/public-sans` 5.3.0) | SIL OFL 1.1 |
+| Recharts 3.10.1 | MIT |
+| Tailwind CSS 4.3.5, shadcn/ui patterns (copied structure), clsx, tailwind-merge, TanStack, React | MIT |
+| class-variance-authority 0.7.1 | Apache-2.0 |
+
+The logo mark and the avatars are drawn in code; the spike ships no images. Versions are pinned exactly, and the newest Tabler release (published that day) was skipped on purpose (minimum release age).
 
 ## Design
 
@@ -85,7 +106,8 @@ spike 10: migrate ──► .strutvane/resources.json
 | `src/app/api/*` | `createApiClient` (transport-injected, defensive problem+json parsing), the list wire format |
 | `src/app/shell/*` | `AppShell` (skip link, Ctrl/Cmd+K), `Sidebar`, `TopBar`, `CommandPalette`, `ThemeSwitch`, `SignInPage` stub, `HomePage` checklist |
 | `src/app/resource/*` | `ListPage`/`ListView`, `ResourceTable` (TanStack Table v9), `FilterPanel`, `Pagination`, `FormPage` + `form-values.ts` + widgets (`RelationSelect` ARIA combobox), `DetailPage` (tabs), `DeleteButton`, states |
-| `src/app/components/ui/*` | shadcn-style owned components (Button with cva, Input, NativeSelect, Switch, Badge, Alert, Dialog with focus trap, Skeleton) |
+| `src/app/components/ui/*`, `src/app/components/PageHeader.tsx` | shadcn-style owned components (Button with cva, Input, NativeSelect, Switch, Badge, Alert, Card, DropdownMenu, Avatar, Toast, Dialog with focus trap, Skeleton) and the page header with breadcrumbs; `src/app/styles.css` holds every token (DESIGN.md §2) |
+| `src/app/shell/{BrandMark,charts,notifications}.tsx` | the original logo mark, the Recharts bar and donut charts (each with a hidden data table), demo notifications |
 | `example/` | the blog app: spike 10's `resources.json`, generated `ui.gen.ts` + lock, owned files with real customisations |
 
 ### Owned file (what a developer edits): `example/resources/ui/posts.ui.ts`
@@ -121,8 +143,13 @@ Other settings: `label`, `pageSize` (10/25/50/100), `navigation.hidden`, and `ac
 
     The matcher deliberately over-matches (`tokenizer_version` is hidden); heuristics may only hide.
 11. **No engine assumptions in the UI.** The app now defaults to MySQL, so search case rules, collation and NULL ordering stay entirely server-side. The UI only sends spike 10's documented parameters. Calendar dates are formatted in UTC so a `DATE` never shifts a day; timestamps use the user's time zone.
-12. **jsdom quirks worth knowing:**
+12. **The design rules found real defects:**
+    - **Contrast:** the hue sweep showed that a green or cyan accent at L 0.52 drops to 4.0–4.5:1 in light mode. The primary went to L 0.48, which is AA at every hue.
+    - **Badge naming:** accessible names drop spaces between inline children, so the badge read as "Posts35rows". It now reads "Posts, 35 rows".
+    - **Class conflicts:** active and inactive menu link classes were both present, and CSS order decided the colour. They are now split with `activeProps`/`inactiveProps`.
+13. **jsdom quirks worth knowing:**
     - Vite's module runner under jsdom needs `server.fs.allow: ['..']` to load a sibling project.
+    - Recharts measures nothing in jsdom: give `ResponsiveContainer` an `initialDimension`, and assert on the chart's hidden data table instead.
     - `new Function('return import()')` has no import hook inside Vitest's VM.
     - `scrollTo` must be stubbed for the router.
 
@@ -141,7 +168,8 @@ Other settings: `label`, `pageSize` (10/25/50/100), `navigation.hidden`, and `ac
 - **Permissions are a stub** (`demoPolicy`). Hiding is not security: the API must refuse, and spike 10 has no auth yet.
 - **Owned files are config only** (thin by design). Pages come from the package. An owned page override (L2/L3) was not prototyped.
 - **The mock does not model `ON DELETE CASCADE / SET NULL`.** The `users` resource still gets a screen here because the blog uses it as the author relation. Security review F-01.3 says `users` should become an owned controller, not an auto resource.
-- **The bundle is 472 kB** (148 kB gzip) with no code splitting. TanStack Router's lazy routes would split per screen.
+- **The bundle is 874 kB** (261 kB gzip) with no code splitting; Recharts is most of the growth. TanStack Router's lazy routes would split the dashboard and its charts from the CRUD screens.
+- **Colour contrast in a real browser** (axe in Playwright) is still to do. The palette maths is tested, but rendered states such as translucent hovers over images are not.
 
 ## Recommendation
 
@@ -164,4 +192,5 @@ Other settings: `label`, `pageSize` (10/25/50/100), `navigation.hidden`, and `ac
    - reserved slug words;
    - the `options`/`count`/`search` endpoints later;
    - per-role readable fields for error hints (F-13).
-4. **Next:** Playwright + axe contrast in both themes; owned page overrides (L2/L3) with the ADR-0012 merge; Zod-driven live validation once spike 10 emits schemas.
+4. **Adopt `DESIGN.md` as the UI standard.** Every package with screens copies the no-literal-colour and contrast tests and runs axe on its screens.
+5. **Next:** Playwright + axe contrast in both themes; owned page overrides (L2/L3) with the ADR-0012 merge; Zod-driven live validation once spike 10 emits schemas.

@@ -131,7 +131,7 @@ function PaletteBody({ onClose }: { readonly onClose: () => void }): ReactElemen
             onMouseDown={(event) => event.preventDefault()}
             onClick={() => choose(option)}
             onMouseMove={() => setActive(index)}
-            className={cn('flex cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-sm', index === active && 'bg-accent text-accent-foreground')}
+            className={cn('flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 text-base', index === active && 'bg-accent text-accent-foreground')}
           >
             <ResourceIcon name={option.resource.navigation.icon} />
             <span className="flex-1 truncate">{option.label}</span>

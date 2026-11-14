@@ -29,7 +29,7 @@ export interface AlertProps {
  */
 export function Alert({ title, children, tone = 'error', role = 'alert', className }: AlertProps): ReactElement {
   return (
-    <div role={role} className={cn('rounded-md border p-3 text-sm', tone === 'error' ? 'border-destructive/40 bg-destructive/5' : 'border-border bg-muted', className)}>
+    <div role={role} className={cn('rounded-lg border p-4 text-sm', tone === 'error' ? 'border-destructive/40 bg-destructive-soft' : 'border-border bg-info-soft', className)}>
       <p className={cn('font-medium', tone === 'error' && 'text-destructive')}>{title}</p>
       {children !== undefined && <div className="mt-1 text-muted-foreground">{children}</div>}
     </div>

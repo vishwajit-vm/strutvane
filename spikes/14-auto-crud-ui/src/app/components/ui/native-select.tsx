@@ -32,7 +32,7 @@ export function NativeSelect({ className, ref, ...props }: NativeSelectProps): R
     <select
       ref={ref}
       className={cn(
-        'h-9 w-full rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring aria-[invalid=true]:border-destructive',
+        'h-10 w-full rounded-md border border-input bg-card px-3 text-base focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 aria-[invalid=true]:border-destructive',
         className,
       )}
       {...props}

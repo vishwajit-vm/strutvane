@@ -63,7 +63,7 @@ function OpenDialog({ onClose, labelledBy, describedBy, role = 'dialog', initial
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 p-4 pt-[15vh]" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+    <div className="fixed inset-0 z-(--z-overlay) flex items-start justify-center bg-overlay p-4 pt-[15vh]" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
       <div
         ref={panel}
         role={role}
@@ -71,7 +71,7 @@ function OpenDialog({ onClose, labelledBy, describedBy, role = 'dialog', initial
         aria-labelledby={labelledBy}
         aria-describedby={describedBy}
         onKeyDown={onKeyDown}
-        className={cn('w-full max-w-lg rounded-lg border bg-background p-5 text-foreground shadow-lg', className)}
+        className={cn('w-full max-w-lg rounded-xl bg-card p-6 text-card-foreground shadow-popover', className)}
       >
         {children}
       </div>

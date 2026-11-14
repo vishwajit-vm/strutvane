@@ -104,6 +104,11 @@ export interface NavigationConfig {
   readonly sort?: number
   /** Keep the routes but hide the sidebar entry. */
   readonly hidden?: boolean
+  /**
+   * A badge next to the entry: `'count'` shows the number of rows (one extra request, so opt-in,
+   * design doc §4.9), any other text is shown as is (`'New'`).
+   */
+  readonly badge?: 'count' | (string & {})
 }
 
 /**

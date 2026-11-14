@@ -11,6 +11,7 @@ import type { ApiClient } from './api/client.ts'
 import { SessionProvider, type SessionUser } from './auth/session.tsx'
 import { ApiProvider, RegistryProvider, type UiRegistryRuntime } from './registry.tsx'
 import { createAppRouter } from './router.tsx'
+import { ToastProvider } from './components/ui/toast.tsx'
 import { ThemeProvider } from './theme/theme.tsx'
 
 /**
@@ -45,7 +46,9 @@ export function App({ api, registry, history, initialUser, queryClient }: AppPro
         <RegistryProvider registry={registry}>
           <SessionProvider {...(initialUser === undefined ? {} : { initialUser })}>
             <ThemeProvider>
-              <RouterProvider router={router} />
+              <ToastProvider>
+                <RouterProvider router={router} />
+              </ToastProvider>
             </ThemeProvider>
           </SessionProvider>
         </RegistryProvider>

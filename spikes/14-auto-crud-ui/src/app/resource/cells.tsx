@@ -8,7 +8,7 @@
  * @module
  */
 import { Link } from '@tanstack/react-router'
-import { Check, Minus } from 'lucide-react'
+import { IconCheck, IconMinus } from '@tabler/icons-react'
 import type { ReactElement } from 'react'
 import type { FieldMetadata } from '../../shared/metadata.ts'
 import type { ResolvedResourceUi } from '../../shared/resolve-ui.ts'
@@ -78,7 +78,7 @@ function EmptyValue(): ReactElement {
 
 /** Icon plus the word, so the meaning never depends on the icon or its colour alone. */
 function BooleanValue({ value }: { readonly value: boolean }): ReactElement {
-  const Icon = value ? Check : Minus
+  const Icon = value ? IconCheck : IconMinus
   return (
     <span className="inline-flex items-center gap-1">
       <Icon aria-hidden="true" className="size-4" />

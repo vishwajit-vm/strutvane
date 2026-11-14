@@ -12,7 +12,7 @@
  * @module
  */
 import { useQuery } from '@tanstack/react-query'
-import { X } from 'lucide-react'
+import { IconX } from '@tabler/icons-react'
 import { useId, useState, type KeyboardEvent, type ReactElement } from 'react'
 import type { ResolvedResourceUi } from '../../../shared/resolve-ui.ts'
 import { Input } from '../../components/ui/input.tsx'
@@ -134,11 +134,11 @@ export function RelationSelect({ id, target, value, onChange, clearable, invalid
         />
         {clearable && value !== null && (
           <button type="button" aria-label={`Clear ${target.label.singular.toLowerCase()}`} onClick={() => onChange(null)} className="inline-flex size-8 shrink-0 items-center justify-center rounded-md hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-            <X aria-hidden="true" className="size-4" />
+            <IconX aria-hidden="true" className="size-4" />
           </button>
         )}
       </div>
-      <ul id={listboxId} role="listbox" aria-label={target.label.plural} hidden={!open} className="absolute z-20 mt-1 max-h-60 w-full overflow-y-auto rounded-md border bg-background p-1 shadow-md">
+      <ul id={listboxId} role="listbox" aria-label={target.label.plural} hidden={!open} className="absolute z-(--z-dropdown) mt-1 max-h-60 w-full overflow-y-auto rounded-lg bg-card p-1 shadow-popover">
         {options.isPending && <li role="presentation" className="px-2 py-1.5 text-sm text-muted-foreground">Loading…</li>}
         {options.isError && <li role="presentation" className="px-2 py-1.5 text-sm text-destructive">Could not load {target.label.plural.toLowerCase()}. Close and try again.</li>}
         {options.isSuccess && rows.length === 0 && <li role="presentation" className="px-2 py-1.5 text-sm text-muted-foreground">No {target.label.plural.toLowerCase()} match “{term}”.</li>}
@@ -151,7 +151,7 @@ export function RelationSelect({ id, target, value, onChange, clearable, invalid
             // mousedown would blur the input (closing the list) before the click lands.
             onMouseDown={(event) => event.preventDefault()}
             onClick={() => choose(index)}
-            className={cn('cursor-pointer rounded px-2 py-1.5 text-sm', index === active && 'bg-accent text-accent-foreground')}
+            className={cn('cursor-pointer rounded-md px-3 py-2 text-base', index === active && 'bg-accent text-accent-foreground')}
           >
             {recordTitle(target, row)}
           </li>

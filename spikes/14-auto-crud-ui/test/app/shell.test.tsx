@@ -18,10 +18,11 @@ describe('sidebar', () => {
     renderApp({ path: '/' })
     await screen.findByRole('heading', { name: 'Dashboard' })
     const nav = sidebar()
-    const links = within(nav).getAllByRole('link').map((link) => link.textContent)
+    const links = within(nav).getAllByRole('link').map((link) => link.textContent?.replace(/\d+(, \d+ rows)?$/, ''))
     // "Access" (Users) before "Content"; inside Content: Posts (sort 1), Categories (sort 2), Tags.
     expect(links).toEqual(['Dashboard', 'Users', 'Posts', 'Categories', 'Tags'])
     expect(within(nav).getByRole('heading', { name: 'Content' })).toBeInTheDocument()
+    expect(within(nav).getByRole('button', { name: 'Content' })).toHaveAttribute('aria-expanded', 'true')
     // Icons are decorative: the link text alone names each entry.
     for (const svg of nav.querySelectorAll('svg')) expect(svg).toHaveAttribute('aria-hidden', 'true')
   })
@@ -67,10 +68,29 @@ describe('sign-in stub', () => {
     expect(within(sidebar()).queryByRole('link', { name: 'Users' })).toBeNull()
   })
 
-  it('signs out from the top bar', async () => {
+  it('signs out from the account menu (menu button pattern: focus, arrows, Escape)', async () => {
     const app = renderApp({ path: '/' })
-    await app.user.click(await screen.findByRole('button', { name: 'Sign out' }))
+    const account = await screen.findByRole('button', { name: 'Account' })
+    expect(account).toHaveAttribute('aria-haspopup', 'menu')
+    await app.user.click(account)
+    const menu = screen.getByRole('menu', { name: 'Account' })
+    expect(within(menu).getByText('tester@example.com')).toBeInTheDocument()
+    expect(within(menu).getByRole('menuitem', { name: 'Dashboard' })).toHaveFocus()
+    await app.user.keyboard('{Escape}')
+    expect(screen.queryByRole('menu')).toBeNull()
+    expect(account).toHaveFocus()
+
+    await app.user.click(account)
+    await app.user.keyboard('{ArrowDown}')
+    expect(screen.getByRole('menuitem', { name: 'Sign out' })).toHaveFocus()
+    await app.user.keyboard('{Enter}')
     expect(await screen.findByRole('heading', { name: 'Sign in' })).toBeInTheDocument()
+  })
+
+  it('lists notifications in their own menu', async () => {
+    const app = renderApp({ path: '/' })
+    await app.user.click(await screen.findByRole('button', { name: 'Notifications' }))
+    expect(within(screen.getByRole('menu', { name: 'Notifications' })).getByText('Your admin is ready')).toBeInTheDocument()
   })
 })
 
@@ -133,6 +153,46 @@ describe('theme', () => {
     } finally {
       if (original !== undefined) Object.defineProperty(window, 'localStorage', original)
     }
+  })
+})
+
+describe('dashboard', () => {
+  it('shows a stat card per resource with live counts, and charts with data tables for screen readers', async () => {
+    renderApp({ path: '/' })
+    const totals = await screen.findByRole('list', { name: 'Totals' })
+    await waitFor(() => expect(within(totals).getByRole('link', { name: /35\s*Posts/ })).toHaveAttribute('href', '/posts'))
+    const byStatus = await screen.findByRole('table', { name: 'Posts by status' })
+    await waitFor(() => expect(within(byStatus).getByRole('row', { name: 'published 22' })).toBeInTheDocument())
+    expect(within(screen.getByRole('table', { name: 'Rows per table' })).getByRole('row', { name: 'Tags 12' })).toBeInTheDocument()
+  })
+})
+
+describe('sidebar extras', () => {
+  it('shows a live row count badge where the owned file asks for one', async () => {
+    renderApp({ path: '/' })
+    await screen.findByRole('heading', { name: 'Dashboard' })
+    await waitFor(() => expect(within(sidebar()).getByRole('link', { name: 'Posts, 35 rows' })).toBeInTheDocument())
+  })
+
+  it('collapses to icons (names stay for screen readers) and remembers it', async () => {
+    const app = renderApp({ path: '/' })
+    await screen.findByRole('heading', { name: 'Dashboard' })
+    const toggle = screen.getByRole('button', { name: 'Collapse menu' })
+    await app.user.click(toggle)
+    expect(toggle).toHaveAttribute('aria-pressed', 'true')
+    expect(within(sidebar()).getByRole('link', { name: 'Users' })).toHaveAttribute('title', 'Users')
+    expect(window.localStorage.getItem('strutvane.sidebar-collapsed')).toBe('true')
+    await app.user.click(toggle)
+    expect(window.localStorage.getItem('strutvane.sidebar-collapsed')).toBe('false')
+  })
+
+  it('collapses a group with its heading button', async () => {
+    const app = renderApp({ path: '/' })
+    await screen.findByRole('heading', { name: 'Dashboard' })
+    const heading = within(sidebar()).getByRole('button', { name: 'Content' })
+    await app.user.click(heading)
+    expect(heading).toHaveAttribute('aria-expanded', 'false')
+    expect(within(sidebar()).queryByRole('link', { name: 'Tags' })).toBeNull()
   })
 })
 

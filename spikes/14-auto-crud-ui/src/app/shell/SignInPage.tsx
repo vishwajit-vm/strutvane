@@ -11,6 +11,7 @@ import { useSession, type Role } from '../auth/session.tsx'
 import { Button } from '../components/ui/button.tsx'
 import { Input } from '../components/ui/input.tsx'
 import { NativeSelect } from '../components/ui/native-select.tsx'
+import { BrandMark } from './BrandMark.tsx'
 import { ThemeSwitch } from './ThemeSwitch.tsx'
 
 /** Loose on purpose: the server owns real validation; this only catches obvious typos. */
@@ -45,11 +46,15 @@ export function SignInPage(): ReactElement {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-muted/40 p-4 text-foreground">
+    <main className="flex min-h-screen items-center justify-center bg-background p-4 text-foreground">
       <div className="absolute right-4 top-4">
         <ThemeSwitch />
       </div>
-      <form noValidate onSubmit={submit} className="w-full max-w-sm space-y-4 rounded-lg border bg-background p-6 shadow-sm">
+      <form noValidate onSubmit={submit} className="w-full max-w-md space-y-5 rounded-xl bg-card p-8 shadow-card">
+        <div className="flex items-center gap-2.5">
+          <BrandMark />
+          <span className="text-xl font-semibold tracking-tight">Strutvane</span>
+        </div>
         <div>
           <h1 className="text-xl font-semibold">Sign in</h1>
           <p className="mt-1 text-sm text-muted-foreground">Demo sign-in: no password is checked. Pick a role to see how the screens change.</p>

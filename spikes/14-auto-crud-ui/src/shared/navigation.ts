@@ -20,6 +20,10 @@ export interface NavigationEntry {
   readonly label: string
   readonly icon: IconName
   readonly path: string
+  /** `'count'` (live row count) or a short text such as `'New'`. */
+  readonly badge?: string
+  /** `true` for resources (routed by the app), `false` for package pages (plain links). */
+  readonly isResource: boolean
 }
 
 /**
@@ -48,6 +52,7 @@ export interface NavigationPage {
   readonly icon: IconName
   readonly group?: string
   readonly sort?: number
+  readonly badge?: string
   /** Checked with the same callback as resources; deny-by-default like everything else. */
   readonly permission: string
 }
@@ -77,8 +82,8 @@ export function buildNavigation(resources: readonly ResolvedResourceUi[], canSee
   const candidates: Candidate[] = [
     ...resources
       .filter((resource) => !resource.navigation.hidden && canSee(resource.name))
-      .map((resource) => ({ name: resource.name, label: resource.label.plural, icon: resource.navigation.icon, path: `/${resource.metadata.route}`, group: resource.navigation.group, sort: resource.navigation.sort })),
-    ...pages.filter((page) => canSee(page.permission)).map((page) => ({ name: page.name, label: page.label, icon: page.icon, path: page.path, group: page.group, sort: page.sort })),
+      .map((resource) => ({ name: resource.name, label: resource.label.plural, icon: resource.navigation.icon, path: `/${resource.metadata.route}`, group: resource.navigation.group, sort: resource.navigation.sort, isResource: true, ...(resource.navigation.badge === undefined ? {} : { badge: resource.navigation.badge }) })),
+    ...pages.filter((page) => canSee(page.permission)).map((page) => ({ name: page.name, label: page.label, icon: page.icon, path: page.path, group: page.group, sort: page.sort, isResource: false, ...(page.badge === undefined ? {} : { badge: page.badge }) })),
   ]
   const named = [...new Set(candidates.flatMap((candidate) => (candidate.group === undefined ? [] : [candidate.group])))].sort((a, b) => a.localeCompare(b))
   // Ungrouped first, added by hand: `Array.prototype.sort` always moves `undefined` to the end
@@ -90,8 +95,14 @@ export function buildNavigation(resources: readonly ResolvedResourceUi[], canSee
     entries: candidates
       .filter((candidate) => candidate.group === heading)
       .sort(compareEntries)
-      .map(({ name, label, icon, path }) => ({ name, label, icon, path })),
+      .map(toEntry),
   }))
+}
+
+/** Drop the ordering-only fields: the sidebar needs what to show, not how it was sorted. */
+function toEntry(candidate: Candidate): NavigationEntry {
+  const entry: NavigationEntry = { name: candidate.name, label: candidate.label, icon: candidate.icon, path: candidate.path, isResource: candidate.isResource }
+  return candidate.badge === undefined ? entry : { ...entry, badge: candidate.badge }
 }
 
 function compareEntries(a: Candidate, b: Candidate): number {

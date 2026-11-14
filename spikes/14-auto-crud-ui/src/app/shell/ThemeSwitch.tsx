@@ -6,15 +6,15 @@
  *
  * @module
  */
-import { Monitor, Moon, Sun, type LucideIcon } from 'lucide-react'
+import { IconDeviceDesktop, IconMoon, IconSun, type Icon as TablerIcon } from '@tabler/icons-react'
 import type { ReactElement } from 'react'
 import { cn } from '../lib/cn.ts'
 import { useTheme, type ThemePreference } from '../theme/theme.tsx'
 
-const CHOICES: readonly { readonly value: ThemePreference; readonly label: string; readonly icon: LucideIcon }[] = [
-  { value: 'light', label: 'Light theme', icon: Sun },
-  { value: 'dark', label: 'Dark theme', icon: Moon },
-  { value: 'system', label: 'System theme', icon: Monitor },
+const CHOICES: readonly { readonly value: ThemePreference; readonly label: string; readonly icon: TablerIcon }[] = [
+  { value: 'light', label: 'Light theme', icon: IconSun },
+  { value: 'dark', label: 'Dark theme', icon: IconMoon },
+  { value: 'system', label: 'System theme', icon: IconDeviceDesktop },
 ]
 
 /**
@@ -26,7 +26,7 @@ const CHOICES: readonly { readonly value: ThemePreference; readonly label: strin
 export function ThemeSwitch(): ReactElement {
   const { preference, setPreference } = useTheme()
   return (
-    <div role="group" aria-label="Theme" className="flex items-center rounded-md border p-0.5">
+    <div role="group" aria-label="Theme" className="flex items-center gap-0.5 rounded-lg bg-muted p-0.5">
       {CHOICES.map(({ value, label, icon: Icon }) => (
         <button
           key={value}
@@ -36,8 +36,8 @@ export function ThemeSwitch(): ReactElement {
           title={label}
           onClick={() => setPreference(value)}
           className={cn(
-            'inline-flex size-8 items-center justify-center rounded text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-            preference === value && 'bg-accent text-accent-foreground',
+            'inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors duration-(--duration-fast) hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+            preference === value && 'bg-card text-primary shadow-sm',
           )}
         >
           <Icon aria-hidden="true" className="size-4" />

@@ -10,7 +10,7 @@
  */
 import { Link } from '@tanstack/react-router'
 import { type ColumnDef, rowSortingFeature, type SortingState, tableFeatures, useTable } from '@tanstack/react-table'
-import { ArrowDown, ArrowUp, ArrowUpDown, Eye, Pencil } from 'lucide-react'
+import { IconArrowDown, IconArrowUp, IconArrowsSort, IconEye, IconPencil } from '@tabler/icons-react'
 import { createContext, useContext, useMemo, type ReactElement } from 'react'
 import type { FieldMetadata } from '../../shared/metadata.ts'
 import type { ResolvedResourceUi } from '../../shared/resolve-ui.ts'
@@ -80,16 +80,16 @@ export function ResourceTable({ resource, rows, sort, onSort, related, busy }: R
 
   return (
     <RelatedRowsContext.Provider value={related}>
-      <div className={cn('overflow-x-auto rounded-lg border transition-opacity', busy && 'opacity-60')}>
+      <div className={cn('-mx-5 overflow-x-auto border-y transition-opacity duration-(--duration-base)', busy && 'opacity-60')}>
         <table className="w-full text-sm" aria-busy={busy || undefined}>
           <caption className="sr-only">{resource.label.plural}</caption>
-          <thead className="border-b bg-muted/50 text-left">
+          <thead className="border-b bg-muted/60 text-left text-xs uppercase tracking-wider text-muted-foreground">
             {table.getHeaderGroups().map((group) => (
               <tr key={group.id}>
                 {group.headers.map((header) => {
                   const field = resource.columns.find((candidate) => candidate.name === header.column.id)
                   return field === undefined ? (
-                    <th key={header.id} scope="col" className="px-3 py-2 text-right font-medium">
+                    <th key={header.id} scope="col" className="px-5 py-3 text-right font-semibold">
                       <span className="sr-only">Actions</span>
                     </th>
                   ) : (
@@ -101,9 +101,9 @@ export function ResourceTable({ resource, rows, sort, onSort, related, busy }: R
           </thead>
           <tbody>
             {table.getRowModel().rows.map((row) => (
-              <tr key={row.id} className={cn('border-b last:border-0 hover:bg-muted/30', isTrashed(resource, row.original) && 'text-muted-foreground')}>
+              <tr key={row.id} className={cn('border-b transition-colors duration-(--duration-fast) last:border-0 hover:bg-accent/40', isTrashed(resource, row.original) && 'text-muted-foreground')}>
                 {row.getAllCells().map((cell) => (
-                  <td key={cell.id} className={cn('max-w-64 truncate px-3 py-2', alignmentOf(resource.columns, cell.column.id))}>
+                  <td key={cell.id} className={cn('h-13 max-w-64 truncate px-5 py-2 text-base first:pl-5', alignmentOf(resource.columns, cell.column.id))}>
                     <table.FlexRender cell={cell} />
                   </td>
                 ))}
@@ -172,15 +172,15 @@ function SortableHeader({ field, direction, onSort }: { readonly field: FieldMet
   const align = isNumeric(field) && field.references === undefined ? 'text-right' : ''
   if (!field.sortable) {
     return (
-      <th scope="col" className={cn('px-3 py-2 font-medium', align)}>
+      <th scope="col" className={cn('px-5 py-3 font-semibold', align)}>
         {field.label}
       </th>
     )
   }
-  const Icon = direction === 'asc' ? ArrowUp : direction === 'desc' ? ArrowDown : ArrowUpDown
+  const Icon = direction === 'asc' ? IconArrowUp : direction === 'desc' ? IconArrowDown : IconArrowsSort
   return (
-    <th scope="col" className={cn('px-1 py-1 font-medium', align)} aria-sort={direction === 'asc' ? 'ascending' : direction === 'desc' ? 'descending' : 'none'}>
-      <button type="button" onClick={() => onSort(field.name)} className="inline-flex min-h-8 items-center gap-1 rounded px-2 hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+    <th scope="col" className={cn('px-3 py-1.5 font-semibold', align)} aria-sort={direction === 'asc' ? 'ascending' : direction === 'desc' ? 'descending' : 'none'}>
+      <button type="button" onClick={() => onSort(field.name)} className="inline-flex min-h-8 items-center gap-1 rounded-md px-2 uppercase tracking-wider hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
         {field.label}
         <Icon aria-hidden="true" className={cn('size-3.5', direction === false && 'opacity-40')} />
       </button>
@@ -197,12 +197,12 @@ function RowActions({ resource, row }: { readonly resource: ResolvedResourceUi; 
     <span className="flex justify-end gap-1">
       {can('view', resource.name) && (
         <Link to="/$resource/$key" params={params} aria-label={`View ${title}`} className={buttonVariants({ variant: 'ghost', size: 'icon' })}>
-          <Eye aria-hidden="true" />
+          <IconEye aria-hidden="true" />
         </Link>
       )}
       {can('update', resource.name) && (
         <Link to="/$resource/$key/edit" params={params} aria-label={`Edit ${title}`} className={buttonVariants({ variant: 'ghost', size: 'icon' })}>
-          <Pencil aria-hidden="true" />
+          <IconPencil aria-hidden="true" />
         </Link>
       )}
       {can('delete', resource.name) && <DeleteButton resource={resource} row={row} />}
