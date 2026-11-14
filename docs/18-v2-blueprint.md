@@ -118,19 +118,21 @@ The list is read from the published catalogue index (§3.3), so it only ever off
 
 It then does **everything**, with friendly progress output:
 1. writes the project;
-2. `npm install`;
-3. generates secrets into `.env` (never into `.env.example`);
-4. picks free ports;
-5. starts the database (`docker compose up -d --wait` from a git-ignored `docker/compose.yaml`) when Docker was chosen;
-6. `migrate` with default seeding (this creates the first admin user);
+2. generates secrets into `.env` (never into `.env.example`);
+3. picks free ports (and retries with fresh ones if a port is taken between the check and the start);
+4. starts the database (`docker compose up -d --wait` from a git-ignored `docker/compose.yaml`) when Docker was chosen;
+5. `npm ci` from the shipped lockfile (inside the container in Docker mode);
+6. `migrate` with default seeding. This creates the first admin user; a generated password must be changed at first sign-in;
 7. git init and a first commit;
 8. offers to run `npm run dev`.
+
+(Order decided in `spikes/CONSISTENCY-2026-11-15.md` #1, which is the source for every naming and default decision of 2026-11-15.)
 
 When a step fails, it recovers:
 - **Docker is missing or stopped:** it offers to start Docker, to fall back to SQLite, or to retry.
 - **A port is taken:** it picks the next free one.
 
-Progress is saved in `.strutvane/setup.json`, so `npm run setup` resumes from the failed step. Exit codes: `0` success, `1` failed, `2` created but setup incomplete, `130` cancelled.
+Your answers are saved in the committed `strutvane.json`, and progress is saved in the git-ignored `.strutvane/local/setup.json`. `npm run setup` resumes from the failed step, and it also works on a fresh clone for a teammate, using only `strutvane.json`. Exit codes: `0` success, `1` nothing was created, `2` created but setup incomplete, `130` cancelled.
 
 ### 2.2 `node strut <command>`: the project CLI (our `php artisan`)
 
@@ -153,7 +155,7 @@ Command vocabulary copied from artisan:
   | `event:cache` / `event:clear` / `event:list` | discovered listeners |
   | `cache:clear [--store=redis]` / `cache:forget <key>` | the application cache |
   | `ui:clear` | Vite's dev cache and the built UI assets |
-  | `sync` | regenerates everything in `.strutvane/` (types, resources, UI, charts) from the migrations |
+  | `sync` | regenerates everything in `.strutvane/` (types, resources, UI, plus the outputs of installed packages such as charts) from the migrations |
   | `queue:restart` / `queue:clear` / `queue:retry <id\|all>` / `queue:flush` | workers and jobs |
   | `schedule:list` / `schedule:run` / `schedule:work` | the scheduler |
   | `log:clear` | local log files |
@@ -167,7 +169,7 @@ Command vocabulary copied from artisan:
 
 **Docker mode runs everything in the container** (decided 2026-11-14, re-confirmed 2026-11-15). This happens only when you chose Docker:
 - The API, the React UI dev server (Vite), queue workers, the scheduler, `migrate`, `npm install` and every other `node strut` command run inside the `app` container.
-- `npm run dev` on the host is `node strut dev`, which is forwarded into the container. You never need Node on the host after the installer.
+- `npm run dev` on the host is `node strut dev`, which is forwarded into the container. On the host, Node only runs the small `strut.js` forwarder. Everything else (npm packages, the build, the database) lives in the containers.
 - Without Docker, the same commands run on your machine.
 
 Run with no arguments, `make:*` commands ask interactively.
@@ -229,11 +231,11 @@ Files you own are **never overwritten**:
 ```text
 my-app/
   app/
-    http/controllers/      PostController.ts (optional; resources work without one)
+    http/controllers/      post.controller.ts (optional; resources work without one)
     http/middleware/
     http/requests/         form requests (validation)
     models/                post.ts: class Post extends Model('posts') { author() { return this.belongsTo(User) } }
-    policies/              post-policy.ts (auto-discovered by name; deny by default)
+    policies/              post.policy.ts (auto-discovered by name; deny by default)
     providers/
   bootstrap/app.ts         Application.configure(...).withRouting(...).withMiddleware(...).create()
   bootstrap/providers.ts
@@ -379,7 +381,7 @@ The project lead expects **more than 100 packages** over time. Everything that t
 
 The admin UI is split into **what it does** and **what it looks like**:
 
-- **`@strutvane/ui`** holds the behaviour: the auto CRUD screens, tables, forms, filters, the sidebar registry, the command palette, shortcuts, every UX convenience, chart data and accessibility. It has no colours or layout chrome of its own.
+- **`@strutvane/ui`** holds the behaviour: the auto CRUD screens, tables, forms, filters, the sidebar registry, the command palette, shortcuts, every UX convenience, and accessibility. Charts are the separate `@strutvane/charts` package. It has no colours or layout chrome of its own.
 - **A design package** holds the look:
   - tokens for light and dark (colour, type, spacing, radius, shadow, density);
   - fonts;
@@ -431,7 +433,7 @@ This replaces the earlier "theme styles (Classic, Glass, Soft)" idea. Each desig
 | Default (nothing to write) | on for the `web` and `api` groups; a plain form post without a token is rejected |
 | App-wide exceptions (Laravel 11 style) | `.withMiddleware(m => m.validateCsrfTokens({ except: ['webhooks/*'] }))` in `bootstrap/app.ts` |
 | One route | `Route.post('/import', ImportController).middleware('csrf')` / `.withoutMiddleware('csrf')` |
-| A group | `Route.middleware(['csrf']).group(() => { … })` |
+| A group | `Route.middleware('csrf').group(() => { … })` (an array of route definitions is also accepted) |
 | A controller | `static middleware = [csrf()]` or `static middleware = [csrf({ except: ['callback'] })]` |
 | A plain handler function | `export default withCsrf(async (ctx) => { … })` |
 | Imperative call | `await csrf.verify(ctx)` and `csrf.token(ctx)` |
@@ -478,6 +480,9 @@ LOG_LEVEL=debug          # emergency alert critical error warning notice info de
 LOG_DAILY_DAYS=14        # how many days of daily files to keep
 LOG_FORMAT=line          # line (readable, like Laravel) | json (one JSON object per line)
 LOG_MAX_FILE_SIZE=100mb  # a new part file starts after this size
+LOG_PATH=storage/logs    # where log files go
+LOG_SLACK_WEBHOOK_URL=   # for the slack channel (critical and above)
+LOG_DEPRECATIONS_CHANNEL=null  # where deprecation warnings go
 ```
 
 - **`single`** writes `storage/logs/strutvane.log`. **`daily`** writes `storage/logs/strutvane-2026-11-15.log` and deletes files older than `LOG_DAILY_DAYS`.
@@ -489,7 +494,7 @@ LOG_MAX_FILE_SIZE=100mb  # a new part file starts after this size
 
 ## 6. Auth (Laravel's Fortify + Sanctum, built in)
 
-- **Features list:** `config/auth.ts` has a `features` list: registration, email verification, password reset, 2FA, passkeys, password confirmation, teams.
+- **Features list:** `config/auth.ts` has a `features` list, written by the installer, with these exact names used everywhere: `registration`, `emailVerification`, `passwordReset` (always on), `passwordConfirmation`, `twoFactor`, `passkeys`, `emailLink`, `apiTokens`, `teams`, `impersonation`. Feature switches live in config, not in `.env`; `APP_KEY` is the only root secret.
 - **Routes:** standard `/login`, `/register`, `/forgot-password` and so on, accepting JSON and form posts with CSRF. The screens are owned by your app.
 - **Sessions and tokens:** cookie session for the first-party UI. Personal access tokens with abilities for APIs, stored hashed with SHA-256.
 - **Tables are ordinary migrations in the app,** applied by `migrate`. There's no separate auth migration step, and a real `users` model is generated.
