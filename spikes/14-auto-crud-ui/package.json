@@ -1,0 +1,49 @@
+{
+  "name": "spike-14-auto-crud-ui",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Spike 14: after migrate, every table gets CRUD screens and a sidebar entry (Filament-like), generated as a machine-owned registry plus developer-owned config files that survive the next migrate.",
+  "engines": {
+    "node": ">=24"
+  },
+  "imports": {
+    "#strutvane/ui": "./src/shared/define-ui.ts"
+  },
+  "scripts": {
+    "ui:sync": "node scripts/ui-sync.ts example",
+    "dev": "vite",
+    "typecheck": "tsc --noEmit -p .",
+    "test": "tsc --noEmit -p . && vitest run",
+    "build": "tsc --noEmit -p . && vite build"
+  },
+  "dependencies": {
+    "@tanstack/react-query": "5.107.1",
+    "@tanstack/react-router": "1.170.46",
+    "@tanstack/react-table": "9.3.1",
+    "class-variance-authority": "0.7.1",
+    "clsx": "2.1.1",
+    "lucide-react": "1.73.0",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "tailwind-merge": "3.7.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "4.3.5",
+    "@testing-library/dom": "10.4.2",
+    "@testing-library/jest-dom": "7.0.1",
+    "@testing-library/react": "16.3.3",
+    "@testing-library/user-event": "14.6.10",
+    "@types/node": "24.10.1",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "6.3.0",
+    "axe-core": "4.14.0",
+    "jsdom": "31.0.1",
+    "oxc-parser": "0.158.0",
+    "tailwindcss": "4.3.5",
+    "typescript": "6.0.3",
+    "vite": "8.3.8",
+    "vitest": "5.1.0"
+  }
+}

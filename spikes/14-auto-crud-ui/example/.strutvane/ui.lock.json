@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "resources": {
+    "categories": [
+      "id",
+      "name",
+      "slug",
+      "created_at",
+      "updated_at"
+    ],
+    "posts": [
+      "id",
+      "title",
+      "slug",
+      "content",
+      "price",
+      "status",
+      "author_id",
+      "featured",
+      "published_on",
+      "meta",
+      "created_at",
+      "updated_at",
+      "deleted_at",
+      "subtitle",
+      "category_id"
+    ],
+    "tags": [
+      "id",
+      "name",
+      "position"
+    ],
+    "users": [
+      "id",
+      "name",
+      "email",
+      "created_at",
+      "updated_at"
+    ]
+  }
+}
