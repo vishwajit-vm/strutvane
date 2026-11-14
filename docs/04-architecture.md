@@ -52,7 +52,7 @@ Laravel's power comes from a small set of kernel ideas. We keep the ideas and ex
 | **Hooks** | Typed lifecycle hooks with ordering and short-circuit | Extension without forking |
 | **Events** | `events.emit('invoice.sent', payload)`; listeners auto-registered; sync or queued | Decoupling; feeds webhooks, notify, analytics |
 | **Errors** | Typed error classes → RFC 9457 problem+json | Consistent API errors |
-| **Logger** | pino-based, context-enriched, redacting | Structured logs |
+| **Logger** | `Logger` contract; `@strutvane/logs` by default (own non-blocking pipeline, ADR-0015), core fallback otherwise; context-enriched, redacting | Structured logs |
 | **Plugin host** | Packages register providers, commands, generators, field types, UI extensions | One extension model for first- and third-party packages |
 | **Registry runtime** | Loads `.strutvane/registry.gen.ts` | Zero-config discovery (§3) |
 
@@ -192,7 +192,7 @@ export default defineInstaller({
 | Jobs/queues | framework (`/queue`) | `defineJob`, retries with backoff, idempotency keys, scheduled jobs (`defineSchedule`), BullMQ driver (Valkey or Postgres), `sync` driver for dev/tests |
 | Cache | framework (`/cache`) | `cache.remember(key, ttl, fn)`, tenant-namespaced keys, tags, memory/Valkey/database drivers |
 | Events/outbox | core + framework | `DomainEvent` → outbox → queue → listeners/webhooks |
-| Observability | core | OTel traces/metrics/logs (SDK 3), pino logs with trace ids, `/health` and `/ready` endpoints |
+| Observability | core | OTel traces/metrics/logs (SDK 3), structured logs with trace ids via `@strutvane/logs` (ADR-0015), `/health` and `/ready` endpoints |
 | API versioning | framework | `/v1` prefix; per-field `since`/`deprecated`; `Deprecation` + `Sunset` headers; `sv api:version v2` scaffolds a version |
 | Mail | framework (`/mail`) | `defineMail` with React Email or plain templates; SMTP/SES/Resend/Postmark/log drivers; Mailpit locally |
 

@@ -18,7 +18,7 @@ This folder is the **umbrella workspace and the hub repo** (`github.com/vishwaji
 
 ## Status
 
-- **Phase 0 (foundations) closed 2026-11-14 (Gate 0 passed; see docs/14-roadmap.md). Phase 1 is next.** RFC-0002/0003/0004 need project-lead acceptance before Phase 1 builds on them. Governance: GOVERNANCE.md. Workspace setup: `node scripts/setup-workspace.mjs`. Phase 0 delivered:
+- **Phase 0 closed 2026-11-14 (Gate 0 passed). Phase 1 in progress:** all packages implemented and committed locally, hardened after a security review, `scripts/e2e-local.mjs` green; publishing (npm trusted publishing) and pushing the package repos are pending. RFC-0002/0003/0004 are accepted. Progress: `docs/14-roadmap.md` § "Phase 1 progress". Governance: GOVERNANCE.md. Workspace setup: `node scripts/setup-workspace.mjs`. Phase 0 delivered:
   - `packages/tooling`: canonical configs, CI and release workflows, and `sync.mjs` with drift check
   - `packages/contracts`: v0 implemented and tested
   - `packages/docs`: friendly Starlight docs site

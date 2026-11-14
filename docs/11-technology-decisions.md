@@ -46,7 +46,7 @@ Every library was scored on six criteria:
 | **Queue / jobs** | **BullMQ 6.7** with backend **Valkey** or **Postgres** (v6 pluggable backends) | pg-boss 12, graphile-worker 0.18, Trigger.dev 4 | Mature, rich features (retries, scheduling, rate limits, flows). v6 Postgres backend means one less service for small apps. [src](https://docs.bullmq.io/guide/migrations/migrate-from-v5-to-v6) | v6 migration required moving from legacy repeatable jobs to Job Schedulers | `QueueDriver` interface: `memory` (dev/test), `bullmq`, `pgboss` |
 | **Cache / KV / rate-limit store** | **Valkey 9** (BSD-3) via **ioredis 6** / iovalkey | Redis 8 (RSALv2/SSPLv1/**AGPLv3**), Memcached, in-process LRU | License clarity for enterprises. Redis protocol compatible. | iovalkey is 0.x | `CacheDriver`: `memory`, `redis-protocol` (Valkey or Redis), `database` |
 | **Mail** | **nodemailer** (SMTP) + **Mailpit** locally (Docker, local only) | Resend/Postmark/SES/SendGrid SDKs | SMTP works everywhere; Mailpit gives a local inbox UI | — | `MailDriver`: smtp, ses, resend, postmark, log, array (tests) |
-| **Logging** | **pino 10** | winston | Fastest structured JSON logs; redaction | — | `Logger` interface in core |
+| **Logging** | **`@strutvane/logs` (own pipeline, ADR-0015)** | pino 10, winston | Non-blocking, bounded delivery, built-in redaction and viewer; 1.3–4× faster than pino in spike 09 with no logging runtime dependency | — | `Logger` contract; core fallback |
 | **Observability** | **OpenTelemetry JS SDK 3** (traces, metrics, **logs now stable**) | Vendor APMs | Vendor-neutral. SDK 3.0 folded `api-logs` into `@opentelemetry/api` ([OTel blog](https://opentelemetry.io/blog/2026/otel-js-sdk-3-0/)). | Experimental packages are 0.300.x | Optional `@strutvane/framework/otel`; no-op when disabled |
 | **OpenAPI generation** | **Own generator**: model + Zod 4 JSON Schema → **OpenAPI 3.1** with `x-strutvane-*` extensions | @hono/zod-openapi 1.6, zod-openapi 6 | We need resource-level metadata (permissions, UI hints, filters) that route-level tools don't model | — | Output is plain OpenAPI 3.1, so any tool can consume it |
 | **API reference UI** | **Scalar** (`@scalar/api-reference` 1.78) at `/docs` | Swagger UI, Redoc | Modern, very active, MIT | Fast release churn | Swagger UI as a config option |
@@ -127,7 +127,6 @@ Redis 8 is tri-licensed RSALv2/SSPLv1/AGPLv3. Valkey is BSD-3 ([redis.io](https:
 | bullmq | 6.7.6 | Postgres backend available |
 | ioredis | 6.0.0 | — |
 | Valkey | 9.1.3 | BSD-3 |
-| pino | 10.4.0 | — |
 | @opentelemetry/sdk-node | 0.301.2 (stable pkgs 3.x) | — |
 | @scalar/api-reference | 1.78.1 | — |
 | @hey-api/openapi-ts | 0.99.0 | — |
