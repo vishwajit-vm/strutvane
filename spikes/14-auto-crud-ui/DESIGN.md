@@ -1,5 +1,13 @@
 # Strutvane UI design standard
 
+> **Visual direction is being re-decided (2026-11-14).** Tokens and component visuals will be replaced by the chosen direction. Behavioural rules stay:
+> - accessibility (§7);
+> - conveniences (§11);
+> - the Back control (§4);
+> - layout and overflow rules (§3);
+> - ownership and extension (§8);
+> - content style (§6).
+
 **Applies to:** `@strutvane/ui` and **every package that adds screens** (auth, logs viewer, files, notify, billing, …).
 **Status:** v0.1 (2026-11-14), proven in `spikes/14-auto-crud-ui`.
 **Source of truth for values:** `src/app/styles.css`. This document explains them. If the two ever disagree, the stylesheet wins and this file gets fixed in the same PR.
@@ -223,6 +231,12 @@ Tailwind defaults:
 - Page header actions wrap under the title.
 - Touch targets are at least 32 px; menu items are 40 px.
 
+**Overflow rule (MUST):** wide content scrolls inside its own box, never the page.
+- **The box:** every scroll container (`overflow-auto` / `overflow-x-auto`) is also positioned (`relative`).
+- **Why:** visually hidden text (`sr-only`, which is `position: absolute`) inside a non-positioned scroll box escapes it and widens the whole page. This was found at 1440 px: the Posts table pushed the page to 1918 px, and content slid under the sidebar.
+- **The content column:** carries `min-w-0`.
+- **Regression test:** `test/app/conveniences.test.tsx`.
+
 ---
 
 ## 4. Components
@@ -257,6 +271,7 @@ Every component lives in the app as owned code (`src/app/components/ui/*`, shadc
 | **Toast** (`toast.tsx`) | bottom-right stack, 320 px, success icon + message + Dismiss; `shadow-popover` | success (others reuse Alert tones later) | 4 s auto-dismiss; polite live region; never steals focus | After every create, save, delete and restore. One sentence, past tense. |
 | **Alert** (`alert.tsx`) | `rounded-lg`, `p-4`, title + body | `error` (destructive-soft), `info` (info-soft) | `role="alert"` for errors after an action, `status` otherwise | Always include the next step ("Retry"). |
 | **Tooltip** | native `title` in v0.1 (collapsed menu items) | | | **Planned:** an accessible tooltip (`role="tooltip"`, shown on focus and hover, Escape dismisses). Never put essential information only in a tooltip. |
+| **Back control** (`BackButton.tsx`, in `PageHeader`'s `back` prop) | arrow-left icon (20 px) + "Back to <Plural>" (or "Back to <record title>" on edit), placed before the `<h1>` | desktop: icon + text; below `sm`: icon only, named by `aria-label` | **Behaviour:** goes back in history when the previous entry is inside the app (`useCanGoBack`), so the list returns with its URL state (page, filters, sort) and scroll position (router scroll restoration). Otherwise (direct link, new tab) it goes to the parent route: detail → list, edit → detail, create → list. **Keys:** Alt+← anywhere; Escape inside a form. Both pass through the unsaved-changes guard. | **When to show:** on every page below the top level (detail, create, edit, nested and custom pages). **Never** on top-level pages (dashboard, lists). Breadcrumbs stay. |
 | **Breadcrumbs** (`PageHeader.tsx`) | `nav[aria-label=Breadcrumb] > ol`; chevron separators (`aria-hidden`); links muted, hover primary | | last crumb `aria-current="page"` | Always start at Home. |
 | **Sidebar item / group** (`Sidebar.tsx`) | item: 20 px icon (stroke 1.75) + label + optional badge, 40 px, `rounded-lg`; group: an uppercase `text-xs` heading button with a chevron | expanded, collapsed (icons + `title`), drawer | active = `bg-primary text-primary-foreground shadow-primary` (exactly one class set, via `activeProps`/`inactiveProps`); group `aria-expanded` | Badge: `'count'` (live rows) or short text; its accessible name reads "Posts, 35 rows". |
 | **Navbar items** (`TopBar.tsx`) | search trigger (icon + "Search…" + `kbd` hint), theme switch (3 pressed-state buttons in a group), notifications (bell + dot), account (avatar + status dot) | | each a ≥ 32 px target with an accessible name | Keep to these four; packages extend through §8. |
@@ -383,10 +398,72 @@ A package never ships its own CSS colours, fonts or layout. It contributes data,
 
 ---
 
+## 11. UX conveniences
+
+Each item is part of the standard: **P0** = in the spike now (tested); **P1** = the real 0.2 build; **P2** = later. Every item is keyboard-accessible, token-based, and covered by axe where it renders something. Tests: `test/app/conveniences.test.tsx`.
+
+### Navigation
+
+| Item | What and when | Keyboard / accessibility | Priority | Where |
+|---|---|---|---|---|
+| Back control with restored list state | see §4 "Back control" | Alt+←; `aria-label` when icon-only | **P0 done** | `components/BackButton.tsx` |
+| Breadcrumbs | every page | `nav` + `aria-current` | **P0 done** | `components/PageHeader.tsx` |
+| Deep links | list search, filters, sort, page and size live in the URL; the detail tab is `?tab=` | | **P0 done** | `route-search.ts`, `ListPage.tsx` |
+| Command palette | jump to a screen, a record (by title), or an action ("New post", switch theme, keyboard shortcuts) | Ctrl/Cmd+K, `/`; combobox + listbox | **P0 done** | `shell/CommandPalette.tsx` |
+| Next/previous record | on detail pages, in the list's default order (approximated by id; no position endpoint yet) | links named "Next post: <title>" | **P0 done** | `resource/RecordNavigation.tsx` |
+| Keyboard shortcuts + `?` overlay | `g d` dashboard, `/` search, `n` new, `e` edit, `?` help, Esc closes | single keys never fire while typing or under a dialog | **P0 done** | `shell/shortcuts.tsx` |
+| Recently viewed records | palette section and dashboard card | | P1 | needs per-user storage |
+| Pinned favourites in the sidebar | pin any list or record | | P1 | needs per-user storage |
+
+### Lists
+
+| Item | What and when | Keyboard / accessibility | Priority | Where |
+|---|---|---|---|---|
+| Sticky table header | the header stays while rows scroll inside the card (`max-h: 70vh`) | | **P0 done** | `ResourceTable.tsx` |
+| Column show/hide | "Columns" menu; the title column always stays; remembered per viewer (localStorage) | `menuitemcheckbox` + `aria-checked`; stays open while toggling | **P0 done** | `ListView.tsx`, `view-prefs.ts` |
+| Density toggle | comfortable (52 px rows) or compact (36 px); remembered per viewer | `aria-pressed` | **P0 done** | same |
+| Filter chips + Clear all | each active search, filter or deleted-rows setting is a chip with a remove button | the remove button is named "Remove filter: Price at least 10" | **P0 done** | `FilterChips.tsx` |
+| Shareable URL | "Copy link to this view" (filters, sort and page included) | toast confirms; fallback when the clipboard is blocked | **P0 done** | `ListView.tsx`, `lib/clipboard.ts` |
+| Search-term highlight | matches in text cells wrapped in `<mark>` (literal, case-insensitive, like the server) | colour pair contrast-tested | **P0 done** | `ResourceTable.tsx` (`Highlighted`) |
+| Copy ID / link | on detail pages | names include the id ("Copy ID (1)") | **P0 done** | `RecordNavigation.tsx` |
+| Bulk actions, export | opt-in per resource (`actions`) | | exists (opt-in) | `define-ui.ts` |
+| Column resize/reorder, saved views, quick-view drawer, inline edit | | | P1 | |
+
+### Forms
+
+| Item | What and when | Keyboard / accessibility | Priority | Where |
+|---|---|---|---|---|
+| Save and add another | on create forms: save, toast, then a fresh form with focus on the first field | | **P0 done** | `FormPage.tsx` |
+| Unsaved-changes guard | any navigation away from a changed form (link, Back, Escape, Alt+←, browser Back) asks "Leave without saving?"; reloading or closing the tab uses the browser's prompt; never after a successful save | `alertdialog`; "Keep editing" is focused | **P0 done** | `FormPage.tsx` (`useBlocker`) |
+| Help text, required markers, character counters | counter "12/200" for limited text fields; read as "12 of 200 characters" | via `aria-describedby`, not a live region | **P0 done** | `FormField.tsx` |
+| Scroll to first error | after a failed save: centre the first invalid field and focus it | | **P0 done** | `FormPage.tsx` |
+| Duplicate record, autosaved drafts (never secret fields), date range presets, drag-drop upload | | | P1 | |
+
+### Safety and feedback
+
+| Item | What and when | Keyboard / accessibility | Priority | Where |
+|---|---|---|---|---|
+| Undo delete | the soft-delete toast has "Undo" (10 s, paused while hovered or focused); the same is always possible via Deleted records, then Restore | the toast action is a real button | **P0 done** | `DeleteButton.tsx`, `toast.tsx` |
+| Type-to-confirm | permanent deletes (tables without soft deletes) need the record's name typed | labelled input; the button stays disabled until it matches | **P0 done** | `DeleteButton.tsx` |
+| Retry on network errors | reads retry twice on no connection or 5xx; never on 4xx, never writes | | **P0 done** | `api/client.ts` (`shouldRetry`) |
+| Skeleton loaders | | `aria-busy` | exists | |
+| Optimistic updates with rollback, offline indicator, session-expiry warning | | | P1 | |
+
+### Context
+
+| Item | What and when | Keyboard / accessibility | Priority | Where |
+|---|---|---|---|---|
+| Relative time + exact tooltip | timestamps read "3 hours ago"; `title` shows the exact local time; `<time dateTime>` | | **P0 done** | `cells.tsx`, `lib/time.ts` |
+| Related-record counts on tabs | "Posts 13" on detail tabs | spoken "Posts, 13" | **P0 done** | `RecordNavigation.tsx` |
+| Created/updated **by** | needs audit data | | P1 (audit package) | |
+| Per-record activity history, contextual docs link, first-run tour | the welcome checklist exists | | P1 | |
+| Language switcher | | | P2 | |
+
 ## 9. Changelog
 
 | Version | Date | Change |
 |---|---|---|
+| 0.2 | 2026-11-14 | Added:<br>• the Back control (§4);<br>• the overflow rule (§3);<br>• the UX conveniences chapter (§11) with the P0 set implemented and tested.<br>The visual direction is being re-decided (note at top). |
 | 0.1 | 2026-11-14 | First standard, from spike 14:<br>• OKLCH tokens with one `--brand-hue`, light and dark;<br>• Public Sans and Tabler Icons;<br>• the shell (260/76 px sidebar, 62 px floating navbar, 1440 px content);<br>• component specs;<br>• contrast, axe and hard-coded-colour tests. |
 
 Changes to this standard follow the normal flow: a PR that updates `styles.css`, this file and the tests together, and a changelog row.

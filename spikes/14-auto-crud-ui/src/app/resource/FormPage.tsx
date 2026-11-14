@@ -10,13 +10,15 @@
  * @module
  */
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Link, useNavigate, useParams } from '@tanstack/react-router'
-import { useEffect, useId, useState, type FormEvent, type ReactElement, type ReactNode } from 'react'
+import { Link, useBlocker, useNavigate, useParams } from '@tanstack/react-router'
+import { useEffect, useId, useRef, useState, type FormEvent, type ReactElement, type ReactNode } from 'react'
 import type { FieldMetadata } from '../../shared/metadata.ts'
 import type { ResolvedResourceUi } from '../../shared/resolve-ui.ts'
 import { slugify } from '../../shared/slug.ts'
 import { ApiError, type ApiRow } from '../api/client.ts'
+import { useGoBack, type BackTarget } from '../components/BackButton.tsx'
 import { PageHeader } from '../components/PageHeader.tsx'
+import { Dialog } from '../components/ui/dialog.tsx'
 import { Alert } from '../components/ui/alert.tsx'
 import { Button, buttonVariants } from '../components/ui/button.tsx'
 import { Card } from '../components/ui/card.tsx'
@@ -91,16 +93,37 @@ export function ResourceForm({ resource, row }: ResourceFormProps): ReactElement
   const [focusRequest, setFocusRequest] = useState(0)
   const fieldId = (name: string): string => `${formId}-${name}`
   useFocusFirstError(errors, fields, fieldId, focusRequest)
+  // "Save and add another" sets this just before submitting; the success handler reads it.
+  const addAnother = useRef(false)
+  // Set after a successful save, so leaving the form then is never "unsaved changes".
+  const saved = useRef(false)
+  const dirty = !sameValues(values, initial)
+  const parent: BackTarget =
+    row === undefined
+      ? { to: '/$resource', params: { resource: resource.metadata.route } }
+      : { to: '/$resource/$key', params: { resource: resource.metadata.route, key: recordRouteKey(resource, row) } }
+  const goBack = useGoBack(parent)
+  const blocker = useBlocker({ shouldBlockFn: () => dirty && !saved.current, withResolver: true, enableBeforeUnload: () => dirty && !saved.current })
 
   const save = useMutation({
     mutationFn: (body: Record<string, unknown>) => {
       const id = row === undefined ? undefined : recordId(resource, row)
       return id === undefined ? api.create(resource.metadata, body) : api.update(resource.metadata, id, body)
     },
-    onSuccess: async (saved) => {
+    onSuccess: async (record) => {
       await invalidateResource(queryClient, resource.name)
-      toast(mode === 'create' ? `${resource.label.singular} “${recordTitle(resource, saved)}” created.` : 'Changes saved.')
-      void navigate({ to: '/$resource/$key', params: { resource: resource.metadata.route, key: recordRouteKey(resource, saved) } })
+      toast(mode === 'create' ? `${resource.label.singular} “${recordTitle(resource, record)}” created.` : 'Changes saved.')
+      if (addAnother.current) {
+        // Stay on a fresh form: the quickest way to enter several records in a row.
+        addAnother.current = false
+        setValues(initial)
+        setSlugTouched(false)
+        setErrors({})
+        document.getElementById(fieldId(fields[0]?.name ?? ''))?.focus()
+        return
+      }
+      saved.current = true
+      void navigate({ to: '/$resource/$key', params: { resource: resource.metadata.route, key: recordRouteKey(resource, record) } })
     },
     onError: (error) => showServerErrors(error, fields, setErrors, setFormIssues, () => setFocusRequest((count) => count + 1)),
   })
@@ -133,7 +156,7 @@ export function ResourceForm({ resource, row }: ResourceFormProps): ReactElement
   ]
   return (
     <div className="mx-auto max-w-4xl">
-      <PageHeader title={heading} crumbs={crumbs} />
+      <PageHeader title={heading} crumbs={crumbs} back={{ label: row === undefined ? `Back to ${resource.label.plural}` : `Back to ${recordTitle(resource, row)}`, parent }} />
       {errorCount > 0 && (
         <Alert className="mb-4" title={errorCount === 1 ? '1 field needs attention' : `${errorCount} fields need attention`}>
           {formIssues.length > 0 && (
@@ -146,9 +169,19 @@ export function ResourceForm({ resource, row }: ResourceFormProps): ReactElement
         </Alert>
       )}
       <Card>
-        <form noValidate onSubmit={submit} className="grid gap-x-6 gap-y-5 p-6 md:grid-cols-2" aria-label={heading}>
+        <form
+          noValidate
+          onSubmit={submit}
+          onKeyDown={(event) => {
+            // Escape leaves the form (open lists and dialogs handle their own Escape first).
+            if (event.key === 'Escape' && !event.defaultPrevented) goBack()
+          }}
+          aria-keyshortcuts="Escape"
+          className="grid gap-x-6 gap-y-5 p-6 md:grid-cols-2"
+          aria-label={heading}
+        >
           {fields.map((field) => (
-            <FormField key={field.name} wide={isWide(field)} id={fieldId(field.name)} field={field} error={errors[field.name]} help={helpFor(resource, field, values, mode)}>
+            <FormField key={field.name} wide={isWide(field)} id={fieldId(field.name)} field={field} error={errors[field.name]} help={helpFor(resource, field, values, mode)} counter={counterFor(field, values[field.name])}>
               {({ invalid, describedBy }) => <FieldWidget id={fieldId(field.name)} field={field} value={values[field.name] ?? null} onChange={(value) => setValue(field, value)} invalid={invalid} describedBy={describedBy} />}
             </FormField>
           ))}
@@ -162,14 +195,60 @@ export function ResourceForm({ resource, row }: ResourceFormProps): ReactElement
                 Cancel
               </Link>
             )}
-            <Button type="submit" disabled={save.isPending}>
+            {mode === 'create' && (
+              <Button type="submit" variant="soft" disabled={save.isPending} onClick={() => (addAnother.current = true)}>
+                Save and add another
+              </Button>
+            )}
+            <Button type="submit" disabled={save.isPending} onClick={() => (addAnother.current = false)}>
               {save.isPending ? 'Saving…' : mode === 'create' ? `Create ${resource.label.singular.toLowerCase()}` : 'Save changes'}
             </Button>
           </div>
         </form>
       </Card>
+      <UnsavedChangesDialog open={blocker.status === 'blocked'} onStay={() => blocker.reset?.()} onLeave={() => blocker.proceed?.()} />
     </div>
   )
+}
+
+/**
+ * "Leave without saving?": shown when a navigation (a link, Back, Escape, Alt+Left, the browser's
+ * Back) would drop typed changes. Staying is the default answer. Closing the tab or reloading
+ * shows the browser's own prompt instead (`beforeunload`).
+ */
+function UnsavedChangesDialog({ open, onStay, onLeave }: { readonly open: boolean; readonly onStay: () => void; readonly onLeave: () => void }): ReactElement {
+  const titleId = useId()
+  const descriptionId = useId()
+  const stay = useRef<HTMLButtonElement>(null)
+  return (
+    <Dialog open={open} onClose={onStay} role="alertdialog" labelledBy={titleId} describedBy={descriptionId} initialFocus={stay}>
+      <h2 id={titleId} className="text-lg font-semibold">
+        Leave without saving?
+      </h2>
+      <p id={descriptionId} className="mt-2 text-sm text-muted-foreground">
+        Your changes on this form will be lost.
+      </p>
+      <div className="mt-5 flex justify-end gap-2">
+        <Button ref={stay} variant="outline" onClick={onStay}>
+          Keep editing
+        </Button>
+        <Button variant="destructive" onClick={onLeave}>
+          Discard changes
+        </Button>
+      </div>
+    </Dialog>
+  )
+}
+
+/** Have any inputs changed since the form opened? */
+function sameValues(values: FormValues, initial: FormValues): boolean {
+  return Object.keys(initial).every((name) => values[name] === initial[name])
+}
+
+/** "12/200" under text inputs that have a length limit. */
+function counterFor(field: FieldMetadata, value: FormValue | undefined): { readonly length: number; readonly max: number } | undefined {
+  if (field.maxLength === undefined || (field.input !== 'text' && field.input !== 'textarea')) return undefined
+  return { length: typeof value === 'string' ? [...value].length : 0, max: field.maxLength }
 }
 
 /** Long inputs take the full form width; short ones share a row (two columns from `md`). */
@@ -221,7 +300,10 @@ function useFocusFirstError(errors: FormErrors, fields: readonly FieldMetadata[]
   useEffect(() => {
     if (request === 0) return
     const first = fields.find((field) => errors[field.name] !== undefined)
-    if (first !== undefined) document.getElementById(fieldId(first.name))?.focus()
+    const element = first === undefined ? null : document.getElementById(fieldId(first.name))
+    // Centre it on screen (long forms), then focus without a second jump.
+    element?.scrollIntoView?.({ block: 'center' })
+    element?.focus({ preventScroll: true })
     // Only a new submit attempt moves focus; typing must not.
   }, [request])
 }

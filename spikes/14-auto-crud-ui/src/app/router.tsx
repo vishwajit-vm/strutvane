@@ -42,7 +42,8 @@ const routeTree = rootRoute.addChildren([signInRoute, appRoute.addChildren([home
  * const router = createAppRouter(createMemoryHistory({ initialEntries: ['/posts'] }))
  */
 export function createAppRouter(history?: RouterHistory) {
-  return createRouter({ routeTree, ...(history === undefined ? {} : { history }), defaultPreload: false })
+  // scrollRestoration: going Back to a list lands where you were, not at the top.
+  return createRouter({ routeTree, ...(history === undefined ? {} : { history }), defaultPreload: false, scrollRestoration: true })
 }
 
 /**

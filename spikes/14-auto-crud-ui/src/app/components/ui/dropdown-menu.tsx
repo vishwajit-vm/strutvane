@@ -9,6 +9,7 @@
  * @module
  */
 import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactElement, type ReactNode, type RefObject } from 'react'
+import { IconCheck } from '@tabler/icons-react'
 import { cn } from '../../lib/cn.ts'
 
 /**
@@ -22,6 +23,11 @@ export interface DropdownItem {
   readonly label: ReactNode
   readonly icon?: ReactNode
   readonly onSelect?: () => void
+  /**
+   * Makes the item a checkbox (`menuitemcheckbox`) that toggles without closing the menu, for
+   * settings such as "show this column".
+   */
+  readonly checked?: boolean
 }
 
 /**
@@ -40,6 +46,8 @@ export interface DropdownMenuProps {
   /** Shown when there are no items ("No new notifications"). */
   readonly empty?: ReactNode
   readonly align?: 'start' | 'end'
+  /** Replace the default round icon-button look (for a labelled toolbar button). */
+  readonly triggerClassName?: string
 }
 
 /**
@@ -48,7 +56,7 @@ export interface DropdownMenuProps {
  * @example
  * <DropdownMenu label="Account" trigger={<Avatar name={user.email} />} items={[{ id: 'out', label: 'Sign out', onSelect: signOut }]} />
  */
-export function DropdownMenu({ label, trigger, header, items, empty, align = 'end' }: DropdownMenuProps): ReactElement {
+export function DropdownMenu({ label, trigger, header, items, empty, align = 'end', triggerClassName }: DropdownMenuProps): ReactElement {
   const [open, setOpen] = useState(false)
   const menuId = useId()
   const button = useRef<HTMLButtonElement>(null)
@@ -56,7 +64,7 @@ export function DropdownMenu({ label, trigger, header, items, empty, align = 'en
   useCloseOnOutsideClick(open, menu, button, () => setOpen(false))
   useEffect(() => {
     // Focus the first item when the menu opens (or the menu itself when it only has text).
-    if (open) (menu.current?.querySelector<HTMLElement>('[role="menuitem"]') ?? menu.current)?.focus()
+    if (open) (menu.current?.querySelector<HTMLElement>('[role^="menuitem"]') ?? menu.current)?.focus()
   }, [open])
 
   const close = (returnFocus: boolean): void => {
@@ -65,7 +73,7 @@ export function DropdownMenu({ label, trigger, header, items, empty, align = 'en
   }
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>): void => {
-    const entries = [...(menu.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? [])]
+    const entries = [...(menu.current?.querySelectorAll<HTMLElement>('[role^="menuitem"]') ?? [])]
     const index = entries.findIndex((entry) => entry === document.activeElement)
     const target = targetIndex(event.key, index, entries.length)
     if (event.key === 'Escape') {
@@ -89,7 +97,7 @@ export function DropdownMenu({ label, trigger, header, items, empty, align = 'en
         aria-expanded={open}
         aria-controls={open ? menuId : undefined}
         onClick={() => setOpen((current) => !current)}
-        className="relative inline-flex size-9 items-center justify-center rounded-full text-muted-foreground hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className={triggerClassName ?? 'relative inline-flex size-9 items-center justify-center rounded-full text-muted-foreground hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'}
       >
         {trigger}
       </button>
@@ -109,14 +117,21 @@ export function DropdownMenu({ label, trigger, header, items, empty, align = 'en
             <button
               key={item.id}
               type="button"
-              role="menuitem"
+              role={item.checked === undefined ? 'menuitem' : 'menuitemcheckbox'}
+              aria-checked={item.checked}
               tabIndex={-1}
               onClick={() => {
-                close(true)
+                // Checkbox items stay open so several can be toggled in one go.
+                if (item.checked === undefined) close(true)
                 item.onSelect?.()
               }}
               className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-accent hover:text-accent-foreground focus-visible:bg-accent focus-visible:text-accent-foreground focus-visible:outline-none"
             >
+              {item.checked !== undefined && (
+                <span aria-hidden="true" className={cn('flex size-4 items-center justify-center rounded-sm border', item.checked ? 'border-primary bg-primary text-primary-foreground' : 'border-input')}>
+                  {item.checked && <IconCheck className="size-3" />}
+                </span>
+              )}
               {item.icon}
               <span className="flex-1">{item.label}</span>
             </button>

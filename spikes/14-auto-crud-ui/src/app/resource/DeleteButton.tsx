@@ -14,6 +14,7 @@ import { ApiError, type ApiRow } from '../api/client.ts'
 import { Alert } from '../components/ui/alert.tsx'
 import { Button } from '../components/ui/button.tsx'
 import { Dialog } from '../components/ui/dialog.tsx'
+import { Input } from '../components/ui/input.tsx'
 import { useToast } from '../components/ui/toast.tsx'
 import { invalidateResource, recordId, recordTitle } from '../data/queries.ts'
 import { useApi } from '../registry.tsx'
@@ -48,6 +49,11 @@ export function DeleteButton({ resource, row, onDeleted, variant = 'icon' }: Del
   const cancel = useRef<HTMLButtonElement>(null)
   const title = recordTitle(resource, row)
   const singular = resource.label.singular.toLowerCase()
+  const permanent = !resource.metadata.softDeletes
+  // Permanent deletes need the record's name typed: one slip of the Enter key is not enough.
+  const [typed, setTyped] = useState('')
+  const confirmed = !permanent || typed.trim() === title
+  const confirmId = useId()
 
   const remove = useMutation({
     mutationFn: async () => {
@@ -56,12 +62,31 @@ export function DeleteButton({ resource, row, onDeleted, variant = 'icon' }: Del
       await api.remove(resource.metadata, id)
     },
     onSuccess: async () => {
-      setOpen(false)
+      close()
       await invalidateResource(queryClient, resource.name)
-      toast(resource.metadata.softDeletes ? `“${title}” moved to the trash.` : `“${title}” deleted.`)
+      if (permanent) toast(`“${title}” deleted.`)
+      else toast(`“${title}” moved to the trash.`, { label: 'Undo', onAction: () => void undo() })
       onDeleted?.()
     },
   })
+
+  // Undo = restore. The same is always possible later via "Deleted records" → Restore.
+  const undo = async (): Promise<void> => {
+    const id = recordId(resource, row)
+    if (id === undefined) return
+    try {
+      await api.restore(resource.metadata, id)
+      await invalidateResource(queryClient, resource.name)
+      toast(`“${title}” restored.`)
+    } catch {
+      toast(`Could not restore “${title}”. Find it under Deleted records.`)
+    }
+  }
+
+  const close = (): void => {
+    setOpen(false)
+    setTyped('')
+  }
 
   return (
     <>
@@ -69,7 +94,7 @@ export function DeleteButton({ resource, row, onDeleted, variant = 'icon' }: Del
         <IconTrash aria-hidden="true" />
         {variant === 'full' && 'Delete'}
       </Button>
-      <Dialog open={open} onClose={() => setOpen(false)} role="alertdialog" labelledBy={titleId} describedBy={descriptionId} initialFocus={cancel}>
+      <Dialog open={open} onClose={close} role="alertdialog" labelledBy={titleId} describedBy={descriptionId} initialFocus={cancel}>
         <span aria-hidden="true" className="mb-4 flex size-12 items-center justify-center rounded-full bg-destructive-soft text-destructive">
           <IconTrash className="size-6" />
         </span>
@@ -79,6 +104,14 @@ export function DeleteButton({ resource, row, onDeleted, variant = 'icon' }: Del
         <p id={descriptionId} className="mt-2 text-sm text-muted-foreground">
           “{title}” {resource.metadata.softDeletes ? 'moves to the trash. You can restore it later.' : 'will be deleted. This cannot be undone.'}
         </p>
+        {permanent && (
+          <div className="mt-4 space-y-1.5">
+            <label htmlFor={confirmId} className="block text-sm font-medium">
+              Type <span className="font-semibold">{title}</span> to confirm
+            </label>
+            <Input id={confirmId} value={typed} autoComplete="off" onChange={(event) => setTyped(event.target.value)} />
+          </div>
+        )}
         {remove.isError && (
           <Alert className="mt-3" title="Could not delete">
             {remove.error instanceof ApiError ? remove.error.message : 'Please try again.'}
@@ -86,10 +119,10 @@ export function DeleteButton({ resource, row, onDeleted, variant = 'icon' }: Del
         )}
         <div className="mt-5 flex justify-end gap-2">
           {/* Cancel gets focus first: the safe answer is the default one. */}
-          <Button ref={cancel} variant="outline" onClick={() => setOpen(false)}>
+          <Button ref={cancel} variant="outline" onClick={close}>
             Cancel
           </Button>
-          <Button variant="destructive" disabled={remove.isPending} onClick={() => remove.mutate()}>
+          <Button variant="destructive" disabled={remove.isPending || !confirmed} onClick={() => remove.mutate()}>
             {remove.isPending ? 'Deleting…' : `Delete ${singular}`}
           </Button>
         </div>

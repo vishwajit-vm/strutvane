@@ -66,6 +66,19 @@ export class ApiError extends Error {
 }
 
 /**
+ * Should a failed **read** be retried? Only for failures a retry can fix: no connection (status 0)
+ * and server errors (5xx), at most twice. Never 4xx (the request itself is wrong) and never
+ * writes: retrying a POST could create the row twice (TanStack Query only retries queries).
+ *
+ * @example
+ * new QueryClient({ defaultOptions: { queries: { retry: shouldRetry } } })
+ */
+export function shouldRetry(failureCount: number, error: unknown): boolean {
+  if (failureCount >= 2) return false
+  return error instanceof ApiError && (error.status === 0 || error.status >= 500)
+}
+
+/**
  * Sends a request and returns the response; `fetch` in the browser.
  *
  * @example

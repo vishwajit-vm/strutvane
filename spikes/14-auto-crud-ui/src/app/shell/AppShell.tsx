@@ -10,6 +10,7 @@ import { useCallback, useEffect, useState, type ReactElement } from 'react'
 import { useSession } from '../auth/session.tsx'
 import { cn } from '../lib/cn.ts'
 import { CommandPalette } from './CommandPalette.tsx'
+import { ShortcutsDialog, useShortcuts } from './shortcuts.tsx'
 import { Sidebar } from './Sidebar.tsx'
 import { TopBar } from './TopBar.tsx'
 
@@ -30,6 +31,10 @@ export function AppShell(): ReactElement {
   // Stable callback, so the keyboard listener is registered once, not on every render.
   const toggleSearch = useCallback(() => setSearchOpen((open) => !open), [])
   useGlobalSearchShortcut(toggleSearch)
+  const [helpOpen, setHelpOpen] = useState(false)
+  const openSearch = useCallback(() => setSearchOpen(true), [])
+  const openHelp = useCallback(() => setHelpOpen(true), [])
+  useShortcuts({ openSearch, openHelp })
 
   const toggleCollapsed = (): void => {
     setCollapsed((current) => {
@@ -48,11 +53,12 @@ export function AppShell(): ReactElement {
       <Sidebar mobileOpen={menuOpen} onCloseMobile={() => setMenuOpen(false)} collapsed={collapsed} onToggleCollapsed={toggleCollapsed} />
       <div className={cn('flex min-h-screen min-w-0 flex-col transition-[padding] duration-(--duration-base) ease-(--ease-standard)', collapsed ? 'md:pl-(--sidebar-width-collapsed)' : 'md:pl-(--sidebar-width)')}>
         <TopBar onOpenMenu={() => setMenuOpen(true)} onOpenSearch={() => setSearchOpen(true)} />
-        <main id="main" tabIndex={-1} className="mx-auto w-full max-w-(--content-max-width) flex-1 px-4 py-6 outline-none md:px-6">
+        <main id="main" tabIndex={-1} className="mx-auto w-full min-w-0 max-w-(--content-max-width) flex-1 px-4 py-6 outline-none md:px-6">
           <Outlet />
         </main>
       </div>
-      <CommandPalette open={searchOpen} onClose={() => setSearchOpen(false)} />
+      <CommandPalette open={searchOpen} onClose={() => setSearchOpen(false)} onShowShortcuts={openHelp} />
+      <ShortcutsDialog open={helpOpen} onClose={() => setHelpOpen(false)} />
     </div>
   )
 }

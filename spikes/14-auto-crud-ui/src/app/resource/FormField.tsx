@@ -24,6 +24,8 @@ export interface FormFieldProps {
   readonly children: (wiring: { readonly invalid: boolean; readonly describedBy: string | undefined }) => ReactNode
   /** Span both columns of the form grid (textareas, JSON). */
   readonly wide?: boolean
+  /** Characters used and allowed, for inputs with a length limit ("12/200"). */
+  readonly counter?: { readonly length: number; readonly max: number } | undefined
 }
 
 /**
@@ -34,10 +36,12 @@ export interface FormFieldProps {
  *   {({ invalid, describedBy }) => <Input id="f-title" aria-invalid={invalid} aria-describedby={describedBy} />}
  * </FormField>
  */
-export function FormField({ id, field, error, help, children, wide = false }: FormFieldProps): ReactElement {
+export function FormField({ id, field, error, help, children, wide = false, counter }: FormFieldProps): ReactElement {
   const helpId = help === undefined ? undefined : `${id}-help`
   const errorId = error === undefined ? undefined : `${id}-error`
-  const describedBy = [helpId, errorId].filter((part) => part !== undefined).join(' ') || undefined
+  const counterId = counter === undefined ? undefined : `${id}-counter`
+  const describedBy = [helpId, errorId, counterId].filter((part) => part !== undefined).join(' ') || undefined
+  const overLimit = counter !== undefined && counter.length > counter.max
   return (
     <div className={wide ? 'space-y-1.5 md:col-span-2' : 'space-y-1.5'} data-field={field.name}>
       <label htmlFor={id} className="block text-sm font-medium">
@@ -61,6 +65,17 @@ export function FormField({ id, field, error, help, children, wide = false }: Fo
       {error !== undefined && (
         <p id={errorId} className="text-sm text-destructive">
           {error}
+        </p>
+      )}
+      {counter !== undefined && (
+        // Read with the field ("12 of 200 characters"); not a live region, so typing stays quiet.
+        <p id={counterId} className={overLimit ? 'text-right text-xs font-semibold text-destructive' : 'text-right text-xs text-muted-foreground'}>
+          <span aria-hidden="true">
+            {counter.length}/{counter.max}
+          </span>
+          <span className="sr-only">
+            {counter.length} of {counter.max} characters
+          </span>
         </p>
       )}
     </div>

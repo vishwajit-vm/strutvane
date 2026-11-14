@@ -49,7 +49,7 @@ describe('create form', () => {
     const title = screen.getByRole('textbox', { name: /^Title/ })
     expect(title).toHaveFocus()
     expect(title).toHaveAttribute('aria-invalid', 'true')
-    expect(title).toHaveAccessibleDescription('Title is required.')
+    expect(title).toHaveAccessibleDescription('Title is required. 0 of 200 characters')
     expect(screen.getByText('Author is required.')).toBeInTheDocument()
     expect(screen.getByRole('alert')).toHaveTextContent('2 fields need attention')
     expect(app.requests.some((request) => request.method === 'POST')).toBe(false)
@@ -122,17 +122,19 @@ describe('detail page', () => {
     await screen.findByRole('heading', { name: 'Asha Rao' })
     const details = screen.getByRole('tab', { name: 'Details' })
     expect(details).toHaveAttribute('aria-selected', 'true')
-    expect(app.requests.some((request) => request.url.searchParams.get('filter[author_id][eq]') === '1')).toBe(false)
+    // Only the tab's count is fetched up front (no sort); the related list waits for the tab.
+    const listed = (): boolean => app.requests.some((request) => request.url.searchParams.get('filter[author_id][eq]') === '1' && request.url.searchParams.has('sort'))
+    expect(listed()).toBe(false)
 
     details.focus()
     await app.user.keyboard('{ArrowRight}')
-    const postsTab = screen.getByRole('tab', { name: 'Posts' })
+    const postsTab = screen.getByRole('tab', { name: /^Posts/ })
     await waitFor(() => expect(postsTab).toHaveAttribute('aria-selected', 'true'))
     expect(postsTab).toHaveFocus()
     expect(app.history.location.search).toContain('tab=posts')
     const table = await screen.findByRole('table', { name: 'Posts' })
     expect(within(table).getAllByRole('row').length).toBeGreaterThan(1)
-    expect(app.requests.some((request) => request.url.searchParams.get('filter[author_id][eq]') === '1')).toBe(true)
+    expect(listed()).toBe(true)
   })
 
   it('explains a missing record without saying whether it exists elsewhere', async () => {

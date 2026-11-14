@@ -71,6 +71,7 @@ const PAIRS: readonly (readonly [text: string, background: string, minimum: numb
   ['success', 'card', 4.5],
   ['warning', 'warning-soft', 4.5],
   ['info', 'info-soft', 4.5],
+  ['foreground', 'warning-soft', 4.5], // search-term highlight (<mark>)
   ['primary', 'primary-foreground', 4.5],
   ['primary-soft-foreground', 'card', 4.5],
   ['foreground', 'sidebar', 4.5],

@@ -12,13 +12,18 @@
  * @module
  */
 import { Link } from '@tanstack/react-router'
-import { IconFilter, IconInbox, IconPlus } from '@tabler/icons-react'
-import { useEffect, useId, useState, type ReactElement } from 'react'
+import { IconColumns, IconFilter, IconInbox, IconLayoutRows, IconLink, IconPlus } from '@tabler/icons-react'
+import { useEffect, useId, useMemo, useState, type ReactElement } from 'react'
 import type { ResolvedResourceUi } from '../../shared/resolve-ui.ts'
 import { activeFilterCount, nextSort, withFilter, type ListParams, type TrashedMode } from '../api/list-params.ts'
 import { useSession } from '../auth/session.tsx'
 import { Button, buttonVariants } from '../components/ui/button.tsx'
 import { Card } from '../components/ui/card.tsx'
+import { DropdownMenu } from '../components/ui/dropdown-menu.tsx'
+import { useToast } from '../components/ui/toast.tsx'
+import { copyText } from '../lib/clipboard.ts'
+import { FilterChips } from './FilterChips.tsx'
+import { useViewPrefs } from './view-prefs.ts'
 import { Input } from '../components/ui/input.tsx'
 import { NativeSelect } from '../components/ui/native-select.tsx'
 import { Skeleton } from '../components/ui/skeleton.tsx'
@@ -56,7 +61,15 @@ export interface ListViewProps {
 export function ListView({ resource, params, onChange, compact = false }: ListViewProps): ReactElement {
   const query = useListQuery(resource, params)
   const rows = query.data?.data ?? []
-  const related = useRelatedRows(resource, resource.columns, rows)
+  const view = useViewPrefs(resource.name)
+  // The title column always stays: without it a row has nothing to click. Memoised: a new array
+  // on every render would give the table new cell components and remount every cell (closing an
+  // open delete dialog; the defect the delete test caught twice).
+  const columns = useMemo(
+    () => resource.columns.filter((field) => field.name === resource.metadata.titleField || !view.prefs.hidden.includes(field.name)),
+    [resource.columns, resource.metadata.titleField, view.prefs.hidden],
+  )
+  const related = useRelatedRows(resource, columns, rows)
   const [filtersOpen, setFiltersOpen] = useState(activeFilterCount(params.filters, 'without') > 0)
   const noun = resource.label.plural.toLowerCase()
   const filtered = params.search.trim() !== '' || activeFilterCount(params.filters, params.trashed) > 0
@@ -65,8 +78,9 @@ export function ListView({ resource, params, onChange, compact = false }: ListVi
   const body = (
     <div className="space-y-4">
       {!compact && (
-        <ListToolbar resource={resource} params={params} onChange={onChange} filtersOpen={filtersOpen} onToggleFilters={() => setFiltersOpen((open) => !open)} />
+        <ListToolbar resource={resource} params={params} onChange={onChange} filtersOpen={filtersOpen} onToggleFilters={() => setFiltersOpen((open) => !open)} view={view} />
       )}
+      {!compact && <FilterChips resource={resource} params={params} onChange={onChange} />}
       {!compact && filtersOpen && resource.filterFields.length > 0 && (
         <FilterPanel resource={resource} filters={params.filters} onFilter={(key, value) => onChange({ filters: withFilter(params.filters, key, value), page: 1 })} />
       )}
@@ -82,7 +96,7 @@ export function ListView({ resource, params, onChange, compact = false }: ListVi
         <EmptyState resource={resource} filtered={filtered} onClear={clearAll} />
       ) : (
         <>
-          <ResourceTable resource={resource} rows={rows} sort={params.sort} related={related.data} busy={query.isPlaceholderData} onSort={(field) => onChange({ sort: nextSort(params.sort, field, resource.defaultSort), page: 1 })} />
+          <ResourceTable resource={resource} rows={rows} columns={columns} density={view.prefs.density} highlight={params.search} sort={params.sort} related={related.data} busy={query.isPlaceholderData} onSort={(field) => onChange({ sort: nextSort(params.sort, field, resource.defaultSort), page: 1 })} />
           <Pagination meta={query.data.meta} noun={noun} onPage={(page) => onChange({ page })} onPerPage={(perPage) => onChange({ perPage, page: 1 })} />
         </>
       )}
@@ -93,7 +107,8 @@ export function ListView({ resource, params, onChange, compact = false }: ListVi
 }
 
 /** Search box, filter toggle and the deleted-records selector. */
-function ListToolbar({ resource, params, onChange, filtersOpen, onToggleFilters }: ListViewProps & { readonly filtersOpen: boolean; readonly onToggleFilters: () => void }): ReactElement {
+function ListToolbar({ resource, params, onChange, filtersOpen, onToggleFilters, view }: ListViewProps & { readonly filtersOpen: boolean; readonly onToggleFilters: () => void; readonly view: ReturnType<typeof useViewPrefs> }): ReactElement {
+  const toast = useToast()
   const searchId = useId()
   const trashedId = useId()
   const [text, setText] = useState(params.search)
@@ -138,6 +153,39 @@ function ListToolbar({ resource, params, onChange, filtersOpen, onToggleFilters 
           Filters{filterCount > 0 ? ` (${filterCount})` : ''}
         </Button>
       )}
+      <DropdownMenu
+        label="Columns"
+        align="end"
+        triggerClassName={buttonVariants({ variant: 'outline' })}
+        trigger={
+          <>
+            <IconColumns aria-hidden="true" />
+            Columns
+          </>
+        }
+        items={resource.columns
+          .filter((field) => field.name !== resource.metadata.titleField)
+          .map((field) => ({ id: field.name, label: field.label, checked: !view.prefs.hidden.includes(field.name), onSelect: () => view.toggleColumn(field.name) }))}
+      />
+      <Button
+        variant="outline"
+        size="icon"
+        aria-pressed={view.prefs.density === 'compact'}
+        aria-label="Compact rows"
+        title="Compact rows"
+        onClick={() => view.setDensity(view.prefs.density === 'compact' ? 'comfortable' : 'compact')}
+      >
+        <IconLayoutRows aria-hidden="true" />
+      </Button>
+      <Button
+        variant="outline"
+        size="icon"
+        aria-label="Copy link to this view"
+        title="Copy link to this view (filters, sort and page included)"
+        onClick={() => void copyText(window.location.href).then((ok) => toast(ok ? 'Link to this view copied.' : 'Could not copy the link. Copy it from the address bar instead.'))}
+      >
+        <IconLink aria-hidden="true" />
+      </Button>
       {resource.metadata.softDeletes && (
         <div className="flex items-center gap-2">
           <label htmlFor={trashedId} className="whitespace-nowrap text-sm text-muted-foreground">

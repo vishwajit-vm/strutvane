@@ -16,6 +16,7 @@ import type { ApiRow } from '../api/client.ts'
 import { Badge } from '../components/ui/badge.tsx'
 import { VisuallyHidden } from '../components/ui/skeleton.tsx'
 import { recordRouteKey, recordTitle } from '../data/queries.ts'
+import { formatRelative } from '../lib/time.ts'
 
 /**
  * Is this field shown right-aligned (numbers line up by their digits)?
@@ -59,7 +60,12 @@ export function FieldValue({ field, value, related }: FieldValueProps): ReactEle
     case 'date':
       return <>{formatDate(String(value))}</>
     case 'timestamp':
-      return <time dateTime={String(value)} title={String(value)}>{formatDateTime(String(value))}</time>
+      // Relative is quicker to read ("3 hours ago"); the exact local time is one hover away.
+      return (
+        <time dateTime={String(value)} title={formatDateTime(String(value))}>
+          {formatRelative(String(value))}
+        </time>
+      )
     case 'json':
       return <code className="font-mono text-xs">{JSON.stringify(value)}</code>
     default:

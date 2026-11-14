@@ -7,11 +7,18 @@
 ```bash
 cd spikes/14-auto-crud-ui
 npm install
-npm test           # tsc --noEmit + vitest run (114 tests)
+npm test           # tsc --noEmit + vitest run (133 tests)
 npm run build      # tsc --noEmit + vite build
 npm run ui:sync    # regenerate example/.strutvane/ui.gen.ts from example/.strutvane/resources.json
 npm run dev        # the admin on http://localhost:5173 with a seeded mock API at /api
 ```
+
+> **Visual direction is being re-decided (2026-11-14).** The current look, tokens and component visuals will be replaced by the chosen mockup. The behaviour stays:
+> - the generator;
+> - the Back control and conveniences;
+> - accessibility;
+> - the overflow rule;
+> - the API contract.
 
 **Design standard:** [`DESIGN.md`](DESIGN.md) is the enforceable UI standard for `@strutvane/ui` and every package that adds screens: tokens for both themes, layout, component specs, content style, accessibility and extension points. The look is an **original design** in the style of popular premium admin templates: a vertical menu, a floating sticky navbar, cards with soft shadows, light and dark. No template's CSS, markup, images, illustrations, colours or fonts are used. Third-party assets and their licences are listed in DESIGN.md §10 and below.
 
@@ -35,7 +42,7 @@ The contract tests also run spike 10's real API in-process. They need `npm insta
 
 ## Evidence
 
-`npm test` exits 0: `tsc --noEmit` plus **12 files, 114 tests (113 passed, 1 skipped)**. The skip is the "spike 10 not installed" placeholder, which only runs when the real contract tests can't. `npm run build` exits 0 (JS 874 kB, 261 kB gzip, of which Recharts is the largest part; CSS 41 kB; Public Sans woff2 files). Two consecutive full runs were green.
+`npm test` exits 0: `tsc --noEmit` plus **13 files, 133 tests (132 passed, 1 skipped)**. The skip is the "spike 10 not installed" placeholder, which only runs when the real contract tests can't. `npm run build` exits 0 (JS 874 kB, 261 kB gzip, of which Recharts is the largest part; CSS 41 kB; Public Sans woff2 files). Two consecutive full runs were green.
 
 | Test file | Tests | What it proves |
 |---|---|---|
@@ -50,6 +57,7 @@ The contract tests also run spike 10's real API in-process. They need `npm insta
 | `contract/spike10.test.tsx` | 7 | **Spike 10's real API in-process on `node:sqlite`.** The 47-request script (pagination, search incl. `100%` and `_` as literals, multi-sort with NULLs, 12 filter shapes, 6 hostile queries, by-slug, 404s, 422s, a duplicate unique email, a non-Latin title, PATCH, soft delete) gives **identical status codes and bodies** from the mock and spike 10. Extensions are confirmed absent from spike 10 (`filter[trashed]` is a 422 there). **The UI on spike 10:** list/search/sort; create through the form; **the server de-duplicates the slug** (`/posts/hello-world-4`); a 422 unique email lands on the Email field; soft-delete from detail returns to a 4-row list. |
 | `shared/contrast.test.ts` | 2×2 | **WCAG AA from the stylesheet itself:** 23 text/background pairs (4.5:1; focus ring 3:1) in light and dark, computed OKLCH → sRGB → luminance. Checked at the configured `--brand-hue` **and at every hue in 15° steps**, so any accent a developer configures stays readable. |
 | `shared/design-tokens.test.ts` | 2 | **No hard-coded colours in components:** fails on hex, `rgb/hsl/oklch(...)`, Tailwind palette classes (`bg-red-500`, `text-white`, `bg-black/50`) and arbitrary colour values anywhere in `src/app`. The rule is itself tested against a planted bad snippet. |
+| `app/conveniences.test.tsx` | 19 | **The P0 conveniences (DESIGN.md §11):**<br>• **Back:** goes back in history to the list with its page and filters intact, or to the parent route on a direct link (detail → list, edit → detail); Alt+←; icon-only with a name on mobile; not shown on top-level pages.<br>• **Unsaved-changes guard:** on Back and Escape, "Keep editing" is focused, Discard works, and axe passes.<br>• **Forms:** Save and add another; character counter.<br>• **Detail:** previous/next record; tab counts ("Posts, 13"); Copy ID.<br>• **Lists:** filter chips with remove and Clear all; column hide (remembered); compact density; search highlight; Undo after delete; type-to-confirm for permanent delete.<br>• **Shortcuts:** `?`, `e`, `n`, `g d`, `/`, never while typing; palette action "New post".<br>• **Overflow regression:** every scroll box is positioned, `main` has `min-w-0`, and the header is sticky. |
 | `shared/pure.test.ts` | 14 | `auto()` defaults, `except`/`order`, unknown names; sidebar ordering, including package pages merged under the same rules and permissions; icon guesses; spike 10's wire format; the sort cycle; URL validation; page windows (`1 … 5 6 7 … 12`); form values (defaults, server-equivalent checks, edit diff with `null`); the slug rule. |
 
 **Manual check after the redesign** (Vite dev server, Chromium pane, 1366×850):
@@ -147,7 +155,15 @@ Other settings: `label`, `pageSize` (10/25/50/100), `navigation.hidden`, and `ac
     - **Contrast:** the hue sweep showed that a green or cyan accent at L 0.52 drops to 4.0–4.5:1 in light mode. The primary went to L 0.48, which is AA at every hue.
     - **Badge naming:** accessible names drop spaces between inline children, so the badge read as "Posts35rows". It now reads "Posts, 35 rows".
     - **Class conflicts:** active and inactive menu link classes were both present, and CSS order decided the colour. They are now split with `activeProps`/`inactiveProps`.
-13. **jsdom quirks worth knowing:**
+13. **The third round found four real defects:**
+    - **Page overflow** (seen by the user at 1440 px). Root cause: `sr-only` texts (`position: absolute`) inside table cells escaped the table's non-positioned `overflow-x-auto` box and widened the page to 1918 px.
+      - **Fix:** the scroll box is `relative`, and the content column has `min-w-0`.
+      - **Verified in a real browser:** page width = viewport (1425 px); the table scrolls inside its 1115 px box.
+      - **Guarded by:** a structural test, because jsdom has no layout. Playwright has no browser installed here.
+    - **Out-of-memory loop.** `useLocation()` in the shortcut hook re-rendered the shell on every router update, until the test worker ran out of heap. Fix: subscribe to the pathname string only (`useRouterState({ select })`). Found with a temporary render counter.
+    - **Remounting cells, again.** The visible-columns array was rebuilt on every render, giving the table new cell components; the delete dialog closed mid-click. Fix: memoised (third instance of this defect class, see Finding 4).
+    - **Windows `EPERM` on rename** in `ui:sync`'s atomic write, while a file watcher (a running dev server) held `ui.gen.ts`. This also explains the earlier one-off flaky sync test. Fix: retry the rename with a short backoff, like graceful-fs; the dev server also ignores `.tmp`.
+14. **jsdom quirks worth knowing:**
     - Vite's module runner under jsdom needs `server.fs.allow: ['..']` to load a sibling project.
     - Recharts measures nothing in jsdom: give `ResponsiveContainer` an `initialDimension`, and assert on the chart's hidden data table instead.
     - `new Function('return import()')` has no import hook inside Vitest's VM.

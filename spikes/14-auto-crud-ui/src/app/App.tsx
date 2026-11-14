@@ -7,7 +7,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { RouterProvider, type RouterHistory } from '@tanstack/react-router'
 import { useState, type ReactElement } from 'react'
-import type { ApiClient } from './api/client.ts'
+import { shouldRetry, type ApiClient } from './api/client.ts'
 import { SessionProvider, type SessionUser } from './auth/session.tsx'
 import { ApiProvider, RegistryProvider, type UiRegistryRuntime } from './registry.tsx'
 import { createAppRouter } from './router.tsx'
@@ -38,7 +38,7 @@ export interface AppProps {
  */
 export function App({ api, registry, history, initialUser, queryClient }: AppProps): ReactElement {
   // Created once per mount: a new client per render would drop the cache.
-  const [client] = useState(() => queryClient ?? new QueryClient({ defaultOptions: { queries: { staleTime: 10_000, retry: 1 } } }))
+  const [client] = useState(() => queryClient ?? new QueryClient({ defaultOptions: { queries: { staleTime: 10_000, retry: shouldRetry } } }))
   const [router] = useState(() => createAppRouter(history))
   return (
     <QueryClientProvider client={client}>

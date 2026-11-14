@@ -23,6 +23,7 @@ import { isTrashed, recordRouteKey, recordTitle } from '../data/queries.ts'
 import { cn } from '../lib/cn.ts'
 import { useRegistry } from '../registry.tsx'
 import { FieldValue, isNumeric } from './cells.tsx'
+import type { Density } from './view-prefs.ts'
 import { DeleteButton, RestoreButton } from './DeleteButton.tsx'
 
 const features = tableFeatures({ rowSortingFeature })
@@ -34,6 +35,8 @@ const features = tableFeatures({ rowSortingFeature })
  * closing an open delete dialog mid-click (found by the delete test).
  */
 const RelatedRowsContext = createContext<ResourceTableProps['related']>(undefined)
+/** The current search term, for highlighting matches in text cells (same context reasoning). */
+const HighlightContext = createContext('')
 
 /**
  * Props of {@link ResourceTable}.
@@ -52,6 +55,11 @@ export interface ResourceTableProps {
   readonly related: ReadonlyMap<string, ReadonlyMap<number, ApiRow>> | undefined
   /** A newer page is loading: rows stay visible but dimmed. */
   readonly busy: boolean
+  /** The columns to show (the resolved columns minus the ones this viewer hid). */
+  readonly columns: readonly FieldMetadata[]
+  readonly density: Density
+  /** Search term to highlight in text cells; `''` for none. */
+  readonly highlight: string
 }
 
 /**
@@ -60,14 +68,14 @@ export interface ResourceTableProps {
  * @example
  * <ResourceTable resource={posts} rows={page.data} sort={sort} onSort={toggleSort} related={related} busy={isFetching} />
  */
-export function ResourceTable({ resource, rows, sort, onSort, related, busy }: ResourceTableProps): ReactElement {
-  const columns = useColumns(resource)
+export function ResourceTable({ resource, rows, sort, onSort, related, busy, columns: shown, density, highlight }: ResourceTableProps): ReactElement {
+  const columns = useColumns(resource, shown)
   const sorting: SortingState = useMemo(
-    () => resource.columns.flatMap((field) => {
+    () => shown.flatMap((field) => {
       const direction = sortDirectionOf(sort, field.name)
       return direction === false ? [] : [{ id: field.name, desc: direction === 'desc' }]
     }),
-    [resource.columns, sort],
+    [shown, sort],
   )
   const table = useTable({
     features,
@@ -80,14 +88,21 @@ export function ResourceTable({ resource, rows, sort, onSort, related, busy }: R
 
   return (
     <RelatedRowsContext.Provider value={related}>
-      <div className={cn('-mx-5 overflow-x-auto border-y transition-opacity duration-(--duration-base)', busy && 'opacity-60')}>
+    <HighlightContext.Provider value={highlight.trim()}>
+      {/*
+        The table scrolls inside its card, never the page. `relative` matters: it makes this box the
+        containing block of the visually hidden (position: absolute) texts inside cells; without
+        it they escape the scroll box and widen the whole page (found at 1440 px, DESIGN.md §3).
+        The capped height gives the sticky header something to stick to.
+      */}
+      <div data-scroll-container="" className={cn('relative -mx-5 max-h-[70vh] overflow-auto border-y transition-opacity duration-(--duration-base)', busy && 'opacity-60')}>
         <table className="w-full text-sm" aria-busy={busy || undefined}>
           <caption className="sr-only">{resource.label.plural}</caption>
-          <thead className="border-b bg-muted/60 text-left text-xs uppercase tracking-wider text-muted-foreground">
+          <thead className="sticky top-0 z-(--z-sticky) border-b bg-muted text-left text-xs uppercase tracking-wider text-muted-foreground">
             {table.getHeaderGroups().map((group) => (
               <tr key={group.id}>
                 {group.headers.map((header) => {
-                  const field = resource.columns.find((candidate) => candidate.name === header.column.id)
+                  const field = shown.find((candidate) => candidate.name === header.column.id)
                   return field === undefined ? (
                     <th key={header.id} scope="col" className="px-5 py-3 text-right font-semibold">
                       <span className="sr-only">Actions</span>
@@ -103,7 +118,7 @@ export function ResourceTable({ resource, rows, sort, onSort, related, busy }: R
             {table.getRowModel().rows.map((row) => (
               <tr key={row.id} className={cn('border-b transition-colors duration-(--duration-fast) last:border-0 hover:bg-accent/40', isTrashed(resource, row.original) && 'text-muted-foreground')}>
                 {row.getAllCells().map((cell) => (
-                  <td key={cell.id} className={cn('h-13 max-w-64 truncate px-5 py-2 text-base first:pl-5', alignmentOf(resource.columns, cell.column.id))}>
+                  <td key={cell.id} className={cn('max-w-64 truncate px-5 text-base first:pl-5', density === 'compact' ? 'h-9 py-1' : 'h-13 py-2', alignmentOf(shown, cell.column.id))}>
                     <table.FlexRender cell={cell} />
                   </td>
                 ))}
@@ -112,6 +127,7 @@ export function ResourceTable({ resource, rows, sort, onSort, related, busy }: R
           </tbody>
         </table>
       </div>
+    </HighlightContext.Provider>
     </RelatedRowsContext.Provider>
   )
 }
@@ -123,10 +139,10 @@ function alignmentOf(columns: readonly FieldMetadata[], id: string): string {
 }
 
 /** Column definitions: one per resolved column, the title column links to the detail page. */
-function useColumns(resource: ResolvedResourceUi): ColumnDef<typeof features, ApiRow>[] {
+function useColumns(resource: ResolvedResourceUi, shown: readonly FieldMetadata[]): ColumnDef<typeof features, ApiRow>[] {
   const { byName } = useRegistry()
   return useMemo(() => {
-    const fieldColumns: ColumnDef<typeof features, ApiRow>[] = resource.columns.map((field) => {
+    const fieldColumns: ColumnDef<typeof features, ApiRow>[] = shown.map((field) => {
       const target = field.references === undefined ? undefined : byName.get(field.references)
       return {
         id: field.name,
@@ -142,25 +158,31 @@ function useColumns(resource: ResolvedResourceUi): ColumnDef<typeof features, Ap
     })
     const actions: ColumnDef<typeof features, ApiRow> = { id: '__actions', header: 'Actions', enableSorting: false, cell: (context) => <RowActions resource={resource} row={context.row.original} /> }
     return [...fieldColumns, actions]
-  }, [resource, byName])
+  }, [resource, shown, byName])
 }
 
 /** A cell value, with relation titles from {@link RelatedRowsContext} when the field is a foreign key. */
 function RelatedFieldValue({ field, row, target }: { readonly field: FieldMetadata; readonly row: ApiRow; readonly target: ResolvedResourceUi | undefined }): ReactElement {
   const related = useContext(RelatedRowsContext)
-  if (target === undefined) return <FieldValue field={field} value={row[field.name]} />
+  const highlight = useContext(HighlightContext)
+  const value = row[field.name]
+  if (target === undefined && typeof value === 'string' && field.searchable === 'text' && highlight !== '') return <Highlighted text={value} term={highlight} />
+  if (target === undefined) return <FieldValue field={field} value={value} />
   return <FieldValue field={field} value={row[field.name]} related={{ resource: target, rows: related?.get(field.name) }} />
 }
 
 function TitleCell({ resource, row }: { readonly resource: ResolvedResourceUi; readonly row: ApiRow }): ReactElement {
+  const highlight = useContext(HighlightContext)
   const trashed = isTrashed(resource, row)
   return (
     <span className="inline-flex items-center gap-2">
       {trashed ? (
-        <span>{recordTitle(resource, row)}</span>
+        <span>
+          <Highlighted text={recordTitle(resource, row)} term={highlight} />
+        </span>
       ) : (
         <Link to="/$resource/$key" params={{ resource: resource.metadata.route, key: recordRouteKey(resource, row) }} className="font-medium text-foreground underline-offset-4 hover:underline">
-          {recordTitle(resource, row)}
+          <Highlighted text={recordTitle(resource, row)} term={highlight} />
         </Link>
       )}
       {trashed && <Badge tone="danger">Deleted</Badge>}
@@ -208,4 +230,32 @@ function RowActions({ resource, row }: { readonly resource: ResolvedResourceUi; 
       {can('delete', resource.name) && <DeleteButton resource={resource} row={row} />}
     </span>
   )
+}
+
+/**
+ * Text with every case-insensitive match of the search term wrapped in `<mark>`, so the eye finds
+ * why a row matched. Matching mirrors the server's literal "contains" (no wildcards).
+ *
+ * @example
+ * <Highlighted text="Pricing notes" term="pric" /> // <mark>Pric</mark>ing notes
+ */
+export function Highlighted({ text, term }: { readonly text: string; readonly term: string }): ReactElement {
+  if (term === '') return <>{text}</>
+  const parts: ReactElement[] = []
+  const lower = text.toLowerCase()
+  const needle = term.toLowerCase()
+  let start = 0
+  let index = lower.indexOf(needle)
+  while (index !== -1) {
+    if (index > start) parts.push(<span key={`t${start}`}>{text.slice(start, index)}</span>)
+    parts.push(
+      <mark key={`m${index}`} className="rounded-sm bg-warning-soft px-0.5 text-foreground">
+        {text.slice(index, index + needle.length)}
+      </mark>,
+    )
+    start = index + needle.length
+    index = lower.indexOf(needle, start)
+  }
+  if (start < text.length) parts.push(<span key={`t${start}`}>{text.slice(start)}</span>)
+  return <>{parts}</>
 }

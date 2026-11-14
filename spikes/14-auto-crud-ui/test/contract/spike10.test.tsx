@@ -189,7 +189,8 @@ describe.skipIf(!INSTALLED)('against spike 10 (in-process Hono CRUD API on node:
     await app.user.type(screen.getByRole('textbox', { name: /^Email/ }), 'asha@example.com')
     await app.user.click(screen.getByRole('button', { name: 'Create user' }))
     const email = screen.getByRole('textbox', { name: /^Email/ })
-    await waitFor(() => expect(email).toHaveAccessibleDescription('Email "asha@example.com" is already taken.'))
+    // The description is the server's message, then the character counter.
+    await waitFor(() => expect(email).toHaveAccessibleDescription('Email "asha@example.com" is already taken. 16 of 255 characters'))
     expect(email).toHaveFocus()
   })
 

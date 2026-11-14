@@ -14,7 +14,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { useId, useMemo, useState, type KeyboardEvent, type ReactElement } from 'react'
-import type { ResolvedResourceUi } from '../../shared/resolve-ui.ts'
 import { useSession } from '../auth/session.tsx'
 import { Dialog } from '../components/ui/dialog.tsx'
 import { recordRouteKey, recordTitle } from '../data/queries.ts'
@@ -22,6 +21,8 @@ import { ResourceIcon } from '../icons.tsx'
 import { cn } from '../lib/cn.ts'
 import { useDebouncedValue } from '../lib/hooks.ts'
 import { useApi, useRegistry } from '../registry.tsx'
+import { useTheme } from '../theme/theme.tsx'
+import type { IconName } from '../../shared/icons.ts'
 
 /** Wait this long after the last key before searching records. */
 const SEARCH_DEBOUNCE_MS = 250
@@ -35,10 +36,10 @@ const MAX_SEARCHED_RESOURCES = 10
 interface PaletteOption {
   readonly id: string
   readonly label: string
+  /** "Screen", "Post", "Action": what choosing it does. */
   readonly hint: string
-  readonly resource: ResolvedResourceUi
-  /** `undefined` for "open the list screen". */
-  readonly recordKey: string | undefined
+  readonly icon: IconName
+  readonly run: () => void
 }
 
 /**
@@ -50,6 +51,8 @@ interface PaletteOption {
 export interface CommandPaletteProps {
   readonly open: boolean
   readonly onClose: () => void
+  /** Opens the keyboard shortcuts overlay (the "Keyboard shortcuts" action). */
+  readonly onShowShortcuts?: () => void
 }
 
 /**
@@ -58,31 +61,28 @@ export interface CommandPaletteProps {
  * @example
  * <CommandPalette open={open} onClose={() => setOpen(false)} />
  */
-export function CommandPalette({ open, onClose }: CommandPaletteProps): ReactElement | null {
+export function CommandPalette({ open, onClose, onShowShortcuts }: CommandPaletteProps): ReactElement | null {
   const titleId = useId()
   return (
     <Dialog open={open} onClose={onClose} labelledBy={titleId} className="p-0">
       <h2 id={titleId} className="sr-only">
         Search
       </h2>
-      <PaletteBody onClose={onClose} />
+      <PaletteBody onClose={onClose} onShowShortcuts={onShowShortcuts} />
     </Dialog>
   )
 }
 
-function PaletteBody({ onClose }: { readonly onClose: () => void }): ReactElement {
-  const navigate = useNavigate()
+function PaletteBody({ onClose, onShowShortcuts }: { readonly onClose: () => void; readonly onShowShortcuts: (() => void) | undefined }): ReactElement {
   const listboxId = useId()
   const [text, setText] = useState('')
   const [active, setActive] = useState(0)
-  const options = usePaletteOptions(text)
+  const options = usePaletteOptions(text, onShowShortcuts)
 
   const choose = (option: PaletteOption | undefined): void => {
     if (option === undefined) return
     onClose()
-    const resource = option.resource.metadata.route
-    if (option.recordKey === undefined) void navigate({ to: '/$resource', params: { resource } })
-    else void navigate({ to: '/$resource/$key', params: { resource, key: option.recordKey } })
+    option.run()
   }
 
   const onKeyDown = (event: KeyboardEvent<HTMLInputElement>): void => {
@@ -133,7 +133,7 @@ function PaletteBody({ onClose }: { readonly onClose: () => void }): ReactElemen
             onMouseMove={() => setActive(index)}
             className={cn('flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 text-base', index === active && 'bg-accent text-accent-foreground')}
           >
-            <ResourceIcon name={option.resource.navigation.icon} />
+            <ResourceIcon name={option.icon} />
             <span className="flex-1 truncate">{option.label}</span>
             <span className="text-xs text-muted-foreground">{option.hint}</span>
           </li>
@@ -143,11 +143,13 @@ function PaletteBody({ onClose }: { readonly onClose: () => void }): ReactElemen
   )
 }
 
-/** Screens matching the text, then records from every listable resource. */
-function usePaletteOptions(text: string): PaletteOption[] {
+/** Screens matching the text, then actions, then records from every listable resource. */
+function usePaletteOptions(text: string, onShowShortcuts: (() => void) | undefined): PaletteOption[] {
   const api = useApi()
+  const navigate = useNavigate()
   const { resources } = useRegistry()
   const { can } = useSession()
+  const { preference, setPreference } = useTheme()
   const term = useDebouncedValue(text.trim(), SEARCH_DEBOUNCE_MS)
   const searchable = useMemo(() => resources.filter((resource) => can('viewAny', resource.name)).slice(0, MAX_SEARCHED_RESOURCES), [resources, can])
 
@@ -168,16 +170,25 @@ function usePaletteOptions(text: string): PaletteOption[] {
 
   return useMemo(() => {
     const lower = text.trim().toLowerCase()
+    const matches = (label: string): boolean => lower === '' || label.toLowerCase().includes(lower)
     const screens: PaletteOption[] = searchable
-      .filter((resource) => lower === '' || resource.label.plural.toLowerCase().includes(lower))
-      .map((resource) => ({ id: `palette-screen-${resource.name}`, label: resource.label.plural, hint: 'Screen', resource, recordKey: undefined }))
+      .filter((resource) => matches(resource.label.plural))
+      .map((resource) => ({ id: `palette-screen-${resource.name}`, label: resource.label.plural, hint: 'Screen', icon: resource.navigation.icon, run: () => void navigate({ to: '/$resource', params: { resource: resource.metadata.route } }) }))
+    const dark = preference === 'dark'
+    const actions: PaletteOption[] = [
+      ...searchable
+        .filter((resource) => can('create', resource.name))
+        .map((resource) => ({ id: `palette-new-${resource.name}`, label: `New ${resource.label.singular.toLowerCase()}`, hint: 'Action', icon: resource.navigation.icon, run: () => void navigate({ to: '/$resource/new', params: { resource: resource.metadata.route } }) })),
+      { id: 'palette-theme', label: dark ? 'Switch to light theme' : 'Switch to dark theme', hint: 'Action', icon: 'settings' as const, run: () => setPreference(dark ? 'light' : 'dark') },
+      ...(onShowShortcuts === undefined ? [] : [{ id: 'palette-shortcuts', label: 'Keyboard shortcuts', hint: 'Action', icon: 'settings' as const, run: onShowShortcuts }]),
+    ].filter((action) => lower !== '' && matches(action.label))
     const found: PaletteOption[] =
       term.length < MIN_RECORD_SEARCH
         ? []
         : (records.data ?? []).map(({ resource, row }) => {
             const key = recordRouteKey(resource, row)
-            return { id: `palette-record-${resource.name}-${key}`, label: recordTitle(resource, row), hint: resource.label.singular, resource, recordKey: key }
+            return { id: `palette-record-${resource.name}-${key}`, label: recordTitle(resource, row), hint: resource.label.singular, icon: resource.navigation.icon, run: () => void navigate({ to: '/$resource/$key', params: { resource: resource.metadata.route, key } }) }
           })
-    return [...screens, ...found]
-  }, [text, term, searchable, records.data])
+    return [...screens, ...actions, ...found]
+  }, [text, term, searchable, records.data, can, navigate, preference, setPreference, onShowShortcuts])
 }

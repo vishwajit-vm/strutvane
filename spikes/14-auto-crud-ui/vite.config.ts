@@ -44,4 +44,6 @@ async function forward(request: IncomingMessage, response: ServerResponse, handl
 
 export default defineConfig({
   plugins: [react(), tailwindcss(), mockApiPlugin()],
+  // Test runs create throwaway apps in .tmp; the dev server has no reason to watch (and lock) them.
+  server: { watch: { ignored: ['**/.tmp/**'] } },
 })

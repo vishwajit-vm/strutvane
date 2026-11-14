@@ -120,12 +120,40 @@ function writeIfChanged(path: string, text: string): boolean {
   const temp = `${path}.${process.pid}.tmp`
   try {
     writeFileSync(temp, text)
-    renameSync(temp, path)
+    renameWithRetry(temp, path)
   } finally {
     // After a successful rename the temp file is gone; after a failure, clean it up.
     rmSync(temp, { force: true })
   }
   return true
+}
+
+/** Windows refuses a rename while another process holds the target file open. */
+const TRANSIENT_RENAME_ERRORS: ReadonlySet<string> = new Set(['EPERM', 'EACCES', 'EBUSY'])
+const RENAME_ATTEMPTS = 10
+const RENAME_BACKOFF_MS = 25
+
+/**
+ * Rename, retrying briefly on Windows' transient lock errors. Why: a file watcher (the dev
+ * server's, an editor's) or antivirus can hold `ui.gen.ts` open for a few milliseconds, and the
+ * rename then fails with EPERM (seen in this suite while a dev server watched the folder).
+ * graceful-fs does the same. After the last attempt the error is real and is thrown.
+ */
+function renameWithRetry(from: string, to: string): void {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      renameSync(from, to)
+      return
+    } catch (error) {
+      if (!isNodeError(error) || error.code === undefined || !TRANSIENT_RENAME_ERRORS.has(error.code) || attempt >= RENAME_ATTEMPTS) throw error
+      sleepSync(RENAME_BACKOFF_MS * attempt)
+    }
+  }
+}
+
+/** Block for a few milliseconds (the CLI is synchronous by design; this only runs on a retry). */
+function sleepSync(milliseconds: number): void {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, milliseconds)
 }
 
 function readIfExists(path: string): string | undefined {

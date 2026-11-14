@@ -7,6 +7,7 @@
 import { Link } from '@tanstack/react-router'
 import { IconChevronRight } from '@tabler/icons-react'
 import type { ReactElement, ReactNode } from 'react'
+import { BackButton, type BackButtonProps } from './BackButton.tsx'
 
 /**
  * One breadcrumb. The last one is the current page (no link).
@@ -30,6 +31,8 @@ export interface PageHeaderProps {
   readonly crumbs: readonly Crumb[]
   readonly description?: ReactNode
   readonly actions?: ReactNode
+  /** Pages below the top level pass a back control (DESIGN.md §4 "Back control"). */
+  readonly back?: BackButtonProps
 }
 
 /**
@@ -38,7 +41,7 @@ export interface PageHeaderProps {
  * @example
  * <PageHeader title="Posts" crumbs={[{ label: 'Dashboard', to: '/' }, { label: 'Posts' }]} actions={<NewButton />} />
  */
-export function PageHeader({ title, crumbs, description, actions }: PageHeaderProps): ReactElement {
+export function PageHeader({ title, crumbs, description, actions, back }: PageHeaderProps): ReactElement {
   return (
     <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
       <div className="min-w-0">
@@ -52,7 +55,10 @@ export function PageHeader({ title, crumbs, description, actions }: PageHeaderPr
             ))}
           </ol>
         </nav>
-        <h1 className="truncate text-2xl font-semibold tracking-tight">{title}</h1>
+        <div className="flex min-w-0 items-center gap-2">
+          {back !== undefined && <BackButton {...back} />}
+          <h1 className="truncate text-2xl font-semibold tracking-tight">{title}</h1>
+        </div>
         {description !== undefined && <p className="mt-1 text-sm text-muted-foreground">{description}</p>}
       </div>
       {actions !== undefined && <div className="flex flex-wrap gap-2">{actions}</div>}

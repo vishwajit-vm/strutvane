@@ -25,6 +25,7 @@ import { useRegistry } from '../registry.tsx'
 import { validateDetailSearch } from '../route-search.ts'
 import { FieldValue } from './cells.tsx'
 import { DeleteButton } from './DeleteButton.tsx'
+import { CopyButtons, RecordPager, useRelationCounts } from './RecordNavigation.tsx'
 import { ListView } from './ListView.tsx'
 import { LoadError, ResourceGate } from './states.tsx'
 
@@ -75,14 +76,18 @@ function RecordDetail({ resource, row }: { readonly resource: ResolvedResourceUi
   const current = tabs.some((tab) => tab.relation.name === search.tab) ? (search.tab ?? DETAILS_TAB) : DETAILS_TAB
   const params = { resource: resource.metadata.route, key: recordRouteKey(resource, row) }
   const selectTab = (tab: string): void => void navigate({ to: '/$resource/$key', params, search: tab === DETAILS_TAB ? {} : { tab }, replace: true })
+  const counts = useRelationCounts(tabs, recordId(resource, row))
 
   return (
     <div className="space-y-6">
       <PageHeader
         title={title}
         crumbs={[{ label: 'Home', to: '/' }, { label: resource.label.plural, to: '/$resource', params: { resource: resource.metadata.route } }, { label: title }]}
+        back={{ label: `Back to ${resource.label.plural}`, parent: { to: '/$resource', params: { resource: resource.metadata.route } } }}
         actions={
           <>
+            <RecordPager resource={resource} row={row} />
+            <CopyButtons resource={resource} row={row} />
             {can('update', resource.name) && (
               <Link to="/$resource/$key/edit" params={params} className={buttonVariants()}>
                 <IconPencil aria-hidden="true" />
@@ -93,7 +98,7 @@ function RecordDetail({ resource, row }: { readonly resource: ResolvedResourceUi
           </>
         }
       />
-      <Tabs tabs={[{ id: DETAILS_TAB, label: 'Details' }, ...tabs.map((tab) => ({ id: tab.relation.name, label: tab.target.label.plural }))]} current={current} onSelect={selectTab} />
+      <Tabs tabs={[{ id: DETAILS_TAB, label: 'Details' }, ...tabs.map((tab) => ({ id: tab.relation.name, label: tab.target.label.plural, count: counts.data?.get(tab.relation.name) }))]} current={current} onSelect={selectTab} />
       <Card role="tabpanel" id={`panel-${current}`} aria-labelledby={`tab-${current}`} tabIndex={0} className="p-5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
         {current === DETAILS_TAB ? <FieldList resource={resource} row={row} /> : <RelationPanel tab={tabs.find((tab) => tab.relation.name === current)} parentId={recordId(resource, row)} />}
       </Card>
@@ -101,7 +106,14 @@ function RecordDetail({ resource, row }: { readonly resource: ResolvedResourceUi
   )
 }
 
-function Tabs({ tabs, current, onSelect }: { readonly tabs: readonly { readonly id: string; readonly label: string }[]; readonly current: string; readonly onSelect: (id: string) => void }): ReactElement {
+/** One tab: an id, its label and, for relation tabs, how many rows it holds. */
+interface TabItem {
+  readonly id: string
+  readonly label: string
+  readonly count?: number | undefined
+}
+
+function Tabs({ tabs, current, onSelect }: { readonly tabs: readonly TabItem[]; readonly current: string; readonly onSelect: (id: string) => void }): ReactElement {
   const refs = useRef(new Map<string, HTMLButtonElement>())
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>): void => {
     const index = tabs.findIndex((tab) => tab.id === current)
@@ -136,6 +148,15 @@ function Tabs({ tabs, current, onSelect }: { readonly tabs: readonly { readonly 
           )}
         >
           {tab.label}
+          {tab.count !== undefined && (
+            <>
+              <span aria-hidden="true" className={cn('ml-2 rounded-full px-2 py-0.5 text-xs font-semibold', tab.id === current ? 'bg-primary-foreground text-primary' : 'bg-primary-soft text-primary-soft-foreground')}>
+                {tab.count}
+              </span>
+              {/* Spoken as "Posts, 14": accessible names drop spaces between inline children. */}
+              <span className="sr-only">, {tab.count}</span>
+            </>
+          )}
         </button>
       ))}
     </div>
