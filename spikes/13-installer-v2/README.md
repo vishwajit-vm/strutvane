@@ -9,7 +9,7 @@ design names has a recovery and an exit code, and `npm run setup` continues from
 unfinished step. Verified on Windows 11 / PowerShell 5.1 / Node 24.21.0 / npm 11.19.0 /
 Docker 29.8.2 on 2026-11-14.
 
-**Evidence:** 106 tests (+1 placeholder skipped when Docker is missing), `npm test` green:
+**Evidence:** 124 tests (+1 placeholder skipped when Docker is missing), `npm test` green:
 - question flows with a scripted prompter, flags/CI mode, npm's swallowed flags;
 - the step runner with a fake spawner: success, every failure, recovery choices, resume;
 - Windows argument safety with a real child process;
@@ -55,10 +55,23 @@ exit code: 0
 (Plain output because there is no terminal: the "… step" start lines are omitted here. In a real
 terminal the same steps show clack spinners, and the admin's one-time password is shown once.)
 
+**Since the design prompt (2026-11-15)** the same run writes 4 more files (`config/ui.ts`,
+`resources/ui/theme.css` and the design stub's two files) and the Ready box gains two lines (from
+the in-process tests, not a re-recorded Docker run):
+
+```text
+   Design       crisp (@strutvane/design-crisp)
+   Restyle:     resources/ui/theme.css, or switch: node strut design:use vivid
+   npm create strutvane@latest acme-portal -- --stack full --ui admin --design crisp --auth email ...
+```
+
+Try a design: `node src/cli.ts my-app --design vivid --db sqlite --yes`.
+
 ## What it does
 
 **Questions** (each has a flag; `--yes`, `CI` or no TTY = defaults): name · stack (full / api) ·
-React UI starter (admin / blank) · sign-in (email / none) · features (registration,
+React UI starter (admin / blank) · **design** (`--design crisp|vivid`, **Crisp** default; full
+stack only, `--design` with `--stack api` is refused like `--ui`) · sign-in (email / none) · features (registration,
 verification, 2fa; **none by default**) · teams · database (**MySQL** default; **PostgreSQL
 pre-selected with teams**; SQLite) · **"Set up with Docker or without Docker?"** (Docker
 pre-selected for MySQL/PostgreSQL) · without Docker and a server DB: host, port, name, user,
@@ -151,6 +164,11 @@ inside the container), Host allowlist · F-20 owner/app PostgreSQL roles, every 
 - The installer depends on `@clack/prompts`; F-12 wants create-strutvane bundled with zero
   runtime dependencies.
 - Redis/Valkey service: not added (the brief says "later").
+- **Design packages** (`@strutvane/design-crisp|vivid`) are local `file:` stubs, pinned like the
+  stub framework; `node strut design:use <name>` is named in the generated files but not
+  implemented in the stub CLI. The generated package.json has no `@strutvane/ui` dependency yet
+  (the spike never generated one). That npm leaves a swallowed `--design` in `npm_config_design`
+  is assumed from `--ui`, not re-verified with a real npm.
 - The stub framework (`stubs/strutvane-framework`) stands in for spike 12's `node strut`
   registry and spike 10's schema builder; only what the installer calls is implemented.
 

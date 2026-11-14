@@ -15,6 +15,7 @@ import {
   type Answers,
   type AuthFeature,
   DATABASES,
+  DESIGN_NAMES,
   type ProjectOptions,
   resolveOptions,
   STACKS,
@@ -200,6 +201,8 @@ function answersFrom(options: Record<string, unknown>): Answers {
   set('name', typeof options['name'] === 'string' ? options['name'] : undefined)
   set('stack', pick(options['stack'], STACKS))
   set('ui', pick(options['ui'], UI_STARTERS))
+  // Older setup.json files have no design: resolveOptions then falls back to the default.
+  set('design', pick(options['design'], DESIGN_NAMES))
   set('auth', pick(options['auth'], AUTH_MODES))
   set('features', features)
   set('teams', bool(options['teams']))

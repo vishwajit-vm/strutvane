@@ -5,7 +5,7 @@
  * @module
  */
 import { join } from 'node:path'
-import { DATABASE_LABELS, type ProjectOptions } from './options.ts'
+import { DATABASE_LABELS, designInfo, type Design, otherDesign, type ProjectOptions } from './options.ts'
 import { parseEnv } from './env-file.ts'
 import type { StepId } from './setup-state.ts'
 import { readEnvFile } from './steps/env-io.ts'
@@ -16,11 +16,12 @@ import type { ShowOnce } from './steps/types.ts'
  *
  * @example
  * equivalentCommand(options)
- * // 'npm create strutvane@latest my-app -- --stack full --ui admin --auth email --features registration --no-teams --db mysql --docker --testing vitest --git --yes'
+ * // 'npm create strutvane@latest my-app -- --stack full --ui admin --design crisp --auth email --features registration --no-teams --db mysql --docker --testing vitest --git --yes'
  */
 export function equivalentCommand(options: ProjectOptions): string {
   const flags = [`--stack ${options.stack}`]
   if (options.ui !== undefined) flags.push(`--ui ${options.ui}`)
+  if (options.design !== undefined) flags.push(`--design ${options.design}`)
   flags.push(`--auth ${options.auth}`)
   if (options.auth === 'email') {
     flags.push(`--features ${options.features.length === 0 ? 'none' : options.features.join(',')}`)
@@ -34,6 +35,16 @@ export function equivalentCommand(options: ProjectOptions): string {
   }
   flags.push(`--testing ${options.testing}`, options.git ? '--git' : '--no-git', '--yes')
   return `npm create strutvane@latest ${options.name} -- ${flags.join(' ')}`
+}
+
+/**
+ * The "Restyle" next step: where your own colours go, and how to switch to another design.
+ * Why in the summary: the design was picked in a few seconds, so say right away it is not final.
+ */
+function restyleLine(design: Design): string {
+  const other = otherDesign(design)
+  const switchHint = other === undefined ? '' : `, or switch: node strut design:use ${other}`
+  return `${'Restyle:'.padEnd(13)}resources/ui/theme.css${switchHint}`
 }
 
 /** How the database reads in the summary. */
@@ -58,6 +69,7 @@ function databaseLine(options: ProjectOptions, env: Map<string, string>): string
 export function readyLines(options: ProjectOptions, showOnce: readonly ShowOnce[]): string[] {
   const env = parseEnv(readEnvFile(options.directory))
   const lines = [`${'App'.padEnd(13)}${env.get('APP_URL') ?? ''}`, `${'Database'.padEnd(13)}${databaseLine(options, env)}`]
+  if (options.design !== undefined) lines.push(`${'Design'.padEnd(13)}${options.design} (${designInfo(options.design).packageName})`)
   if (options.docker) lines.push(`${'Mail inbox'.padEnd(13)}http://localhost:${env.get('FORWARD_MAILPIT_PORT') ?? '8025'}`)
   if (options.auth === 'email') {
     const email = env.get('SEED_ADMIN_EMAIL') ?? ''
@@ -73,6 +85,7 @@ export function readyLines(options: ProjectOptions, showOnce: readonly ShowOnce[
     '',
     `${'Every day:'.padEnd(13)}cd ${options.name}; npm run dev`,
     `${'Commands:'.padEnd(13)}node strut help`,
+    ...(options.design === undefined ? [] : [restyleLine(options.design)]),
     `${'Teammates:'.padEnd(13)}npm run setup   (after git clone)`,
     '',
     'The same project without questions:',

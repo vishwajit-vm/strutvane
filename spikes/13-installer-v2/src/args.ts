@@ -13,6 +13,8 @@ import {
   type Answers,
   type AuthFeature,
   DATABASES,
+  DEFAULTS,
+  DESIGN_NAMES,
   STACKS,
   TEST_SETUPS,
   UI_STARTERS,
@@ -64,6 +66,7 @@ export const FLAGS = {
   name: { type: 'string' },
   stack: { type: 'string' },
   ui: { type: 'string' },
+  design: { type: 'string' },
   auth: { type: 'string' },
   features: { type: 'string' },
   teams: { type: 'boolean' },
@@ -98,6 +101,7 @@ export function parseCommandLine(argv: readonly string[]): ParsedArgs {
   if (name !== undefined) answers.name = name
   assign(answers, 'stack', oneOf('--stack', values.stack, STACKS, problems))
   assign(answers, 'ui', oneOf('--ui', values.ui, UI_STARTERS, problems))
+  assign(answers, 'design', oneOf('--design', values.design, DESIGN_NAMES, problems))
   assign(answers, 'auth', oneOf('--auth', values.auth, AUTH_MODES, problems))
   assign(answers, 'features', featureList(values.features, problems))
   assign(answers, 'teams', values.teams)
@@ -220,6 +224,9 @@ function assign<K extends keyof Answers>(
  * process.stdout.write(helpText('0.0.0-spike'))
  */
 export function helpText(version: string): string {
+  // Built from DESIGN_NAMES so a new design shows up here without touching this text.
+  const designFlag = `--design ${DESIGN_NAMES.join('|')}`.padEnd(27)
+  const designLine = `  ${designFlag}${'Look of the React UI (a design package)'.padEnd(45)}[${DEFAULTS.design}]`
   return `create-strutvane ${version}: create a new Strutvane app
 
 Usage
@@ -230,6 +237,7 @@ Usage
 Questions you can answer with flags
   --stack full|api           Full-stack (API + React UI) or API only      [full]
   --ui admin|blank           React UI starter: admin screens or blank     [admin]
+${designLine}
   --auth email|none          Email + password sign-in, or no sign-in      [email]
   --features <list>|none     registration,verification,2fa                [none]
   --teams / --no-teams       Teams (each customer company sees its data)  [no]

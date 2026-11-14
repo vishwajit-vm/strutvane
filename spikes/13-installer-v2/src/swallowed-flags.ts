@@ -31,6 +31,9 @@ const NPM_KEYS: Readonly<Record<string, readonly string[]>> = Object.freeze({
   name: ['npm_config_name'],
   stack: ['npm_config_stack'],
   ui: ['npm_config_ui'],
+  // Not checked against a real npm yet: npm has no config that `design` abbreviates, so it should
+  // land in npm_config_design like --ui does.
+  design: ['npm_config_design'],
   auth: ['npm_config_auth', 'npm_config_auth_type'],
   features: ['npm_config_features'],
   teams: ['npm_config_teams'],

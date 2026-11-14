@@ -13,6 +13,7 @@ const EVERY_ANSWER = {
   name: 'my-app',
   stack: 'full',
   ui: 'admin',
+  design: 'crisp',
   auth: 'email',
   features: ['registration', '2fa'],
   teams: false,
@@ -26,7 +27,7 @@ describe('questions', () => {
   it('asks everything in Laravel order when no flags are given', async () => {
     const { prompter, asked } = scriptedPrompter(EVERY_ANSWER)
     const answers = await askMissing({}, prompter, context)
-    expect(asked).toEqual(['name', 'stack', 'ui', 'auth', 'features', 'teams', 'database', 'docker', 'testing', 'git'])
+    expect(asked).toEqual(['name', 'stack', 'ui', 'design', 'auth', 'features', 'teams', 'database', 'docker', 'testing', 'git'])
     expect(answers).toEqual({ ...EVERY_ANSWER, docker: true })
   })
 
@@ -52,7 +53,7 @@ describe('questions', () => {
 
     const own = scriptedPrompter({ ...EVERY_ANSWER, docker: 'host', dbHost: '', dbPort: '3307', dbName: 'shop', dbUser: '', dbPassword: "pa ss'#word" })
     const answers = await askMissing({}, own.prompter, context)
-    expect(own.asked).toEqual(['name', 'stack', 'ui', 'auth', 'features', 'teams', 'database', 'docker', 'dbHost', 'dbPort', 'dbName', 'dbUser', 'dbPassword', 'testing', 'git'])
+    expect(own.asked).toEqual(['name', 'stack', 'ui', 'design', 'auth', 'features', 'teams', 'database', 'docker', 'dbHost', 'dbPort', 'dbName', 'dbUser', 'dbPassword', 'testing', 'git'])
     // Enter accepts the suggestion; the password is kept for .env only.
     expect(answers).toMatchObject({ docker: false, dbHost: '127.0.0.1', dbPort: 3307, dbName: 'shop', dbUser: 'my_app', dbPassword: "pa ss'#word" })
   })
@@ -66,7 +67,7 @@ describe('questions', () => {
   it('never asks what was given as a flag', async () => {
     const { prompter, asked } = scriptedPrompter(EVERY_ANSWER)
     await askMissing({ name: 'given', database: 'sqlite', docker: false, git: false }, prompter, context)
-    expect(asked).toEqual(['stack', 'ui', 'auth', 'features', 'teams', 'testing'])
+    expect(asked).toEqual(['stack', 'ui', 'design', 'auth', 'features', 'teams', 'testing'])
   })
 
   it('rejects a folder that already has files, at the name question', async () => {

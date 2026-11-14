@@ -50,7 +50,7 @@ describe('CI mode (--yes and flags)', () => {
     expect(migrate?.redact).toEqual(['Abcd-Efgh-Jkmn-Pqrs'])
     expect(output()).not.toContain('Abcd-Efgh-Jkmn-Pqrs')
     expect(output()).toContain('not shown here. Set one with: node strut user:password admin@acme.test')
-    expect(output()).toContain('npm create strutvane@latest acme -- --stack full --ui admin --auth email --features none --no-teams --db mysql --docker --testing vitest --git --yes')
+    expect(output()).toContain('npm create strutvane@latest acme -- --stack full --ui admin --design crisp --auth email --features none --no-teams --db mysql --docker --testing vitest --git --yes')
     expect(output()).toMatch(/Mail inbox\s+http:\/\/localhost:8025/)
     const state: unknown = JSON.parse(readFileSync(join(cwd, 'acme', '.strutvane', 'setup.json'), 'utf8'))
     expect(JSON.stringify(state)).not.toMatch(/secret-0|Abcd-Efgh/) // no secret ever in setup.json
@@ -167,6 +167,7 @@ describe('interactive mode', () => {
       name: 'acme',
       stack: 'full',
       ui: 'admin',
+      design: 'vivid',
       auth: 'email',
       features: ['2fa'],
       teams: false,

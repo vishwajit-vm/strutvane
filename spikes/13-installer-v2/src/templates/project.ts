@@ -8,7 +8,7 @@
  * @module
  */
 import { readFileSync } from 'node:fs'
-import type { ProjectOptions } from '../options.ts'
+import { type Design, designInfo, otherDesign, type ProjectOptions } from '../options.ts'
 import { appFiles, type GeneratedFile } from './app-files.ts'
 import { dockerFiles } from './compose.ts'
 import { buildEnvSections, renderEnv, type TypedSecrets } from './env.ts'
@@ -45,6 +45,7 @@ export function renderProject(options: ProjectOptions, typed: TypedSecrets = {})
     { path: 'README.md', content: readme(options) },
     { path: 'AGENTS.md', content: agents(options) },
     ...stubFramework(),
+    ...stubDesign(options),
     ...appFiles(options),
     ...dockerFiles(options),
   ]
@@ -84,9 +85,24 @@ export function driverDependency(options: ProjectOptions): { readonly name: stri
   return { name, version: locked.version }
 }
 
-/** The app's dependencies: the framework (a local stub in the spike) and the database driver. */
+/**
+ * Where the spike's stand-in for a design package lives. The design is pinned the same way as
+ * `@strutvane/framework` (a local `file:` stub), so `npm ci` keeps working offline; a release pins
+ * the real package exactly, like the database drivers.
+ *
+ * @example
+ * designStubFolder('crisp') // 'stubs/strutvane-design-crisp'
+ */
+export function designStubFolder(design: Design): string {
+  return `stubs/strutvane-design-${design}`
+}
+
+/** The app's dependencies: the framework and the design (local stubs in the spike), and the driver. */
 function dependencies(options: ProjectOptions): Record<string, string> {
   const result: Record<string, string> = { '@strutvane/framework': 'file:stubs/strutvane-framework' }
+  if (options.design !== undefined) {
+    result[designInfo(options.design).packageName] = `file:${designStubFolder(options.design)}`
+  }
   const driver = driverDependency(options)
   if (driver !== undefined) result[driver.name] = driver.version
   return result
@@ -119,11 +135,23 @@ function lockfile(options: ProjectOptions): string {
         engines: { node: '>=24.3' },
       },
       'node_modules/@strutvane/framework': { resolved: 'stubs/strutvane-framework', link: true },
+      ...designPackages(options),
       ...driverPackages(options),
       'stubs/strutvane-framework': { name: '@strutvane/framework', version: STUB_VERSION },
     },
   }
   return `${JSON.stringify(lock, null, 2)}\n`
+}
+
+/** The design's lock entries: a link to its local stub folder, exactly like the framework's. */
+function designPackages(options: ProjectOptions): Record<string, LockEntry> {
+  if (options.design === undefined) return {}
+  const { packageName } = designInfo(options.design)
+  const folder = designStubFolder(options.design)
+  return {
+    [`node_modules/${packageName}`]: { resolved: folder, link: true },
+    [folder]: { name: packageName, version: STUB_VERSION },
+  }
 }
 
 /** The locked packages of the chosen driver (resolved URLs and integrity hashes from npm). */
@@ -171,6 +199,33 @@ function stubFramework(): GeneratedFile[] {
     },
     { path: 'stubs/strutvane-framework/index.js', content: staticFile('stub-framework/index.js') },
     { path: 'stubs/strutvane-framework/cli.js', content: staticFile('stub-framework/cli.js') },
+  ]
+}
+
+/**
+ * The spike's stand-in for the chosen design package (none for an API-only project). The real
+ * package brings tokens, fonts, the shell and component skins; the stub only names itself, which
+ * is enough to prove the dependency installs.
+ */
+function stubDesign(options: ProjectOptions): GeneratedFile[] {
+  if (options.design === undefined) return []
+  const { value, packageName } = designInfo(options.design)
+  const folder = designStubFolder(options.design)
+  return [
+    {
+      path: `${folder}/package.json`,
+      content: `${JSON.stringify(
+        { name: packageName, version: STUB_VERSION, private: true, type: 'module', exports: { '.': './index.js' } },
+        null,
+        2,
+      )}\n`,
+    },
+    {
+      path: `${folder}/index.js`,
+      content: `// SPIKE STUB of ${packageName} (spike 13). The real package replaces this folder.
+export const design = { name: '${value}' }
+`,
+    },
   ]
 }
 
@@ -256,5 +311,21 @@ ${docker}
 - \`routes/web.ts\`, \`routes/api.ts\`: routes
 - \`database/\`: migrations, seeders, factories
 - \`config/\`: settings (values come from \`.env\`)
-${options.ui !== undefined ? '- `resources/ui/`: the React UI\n' : ''}`
+${options.ui !== undefined ? '- `resources/ui/`: the React UI\n' : ''}${designSection(options)}`
+}
+
+/** The README's "Design" section: which design is installed, how to restyle it, how to switch. */
+function designSection(options: ProjectOptions): string {
+  if (options.design === undefined) return ''
+  const other = otherDesign(options.design)
+  const switchLine =
+    other === undefined
+      ? ''
+      : `\nTo switch design later: \`node strut design:use ${other}\` (it swaps the package and updates\n\`config/ui.ts\`; your \`resources/ui/theme.css\` stays as it is).\n`
+  return `
+## Design
+
+The React UI uses the **${options.design}** design (\`${designInfo(options.design).packageName}\`, set in
+\`config/ui.ts\`). Your own brand colour, font and corner radius go in \`resources/ui/theme.css\`.
+${switchLine}`
 }

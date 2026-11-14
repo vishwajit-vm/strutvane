@@ -226,11 +226,13 @@ describe('Docker mode files (everything in containers, like Sail)', () => {
       const lock = JSON.parse(file(project, 'package-lock.json')) as { packages: Record<string, { version?: string; integrity?: string }> }
       expect(lock.packages[`node_modules/${driver}`]?.version).toBe(version)
       for (const [path, entry] of Object.entries(lock.packages)) {
-        if (path.startsWith('node_modules/') && path !== 'node_modules/@strutvane/framework') expect(entry.integrity, path).toMatch(/^sha512-/)
+        // Local stubs (framework, design) are links without a hash; everything from the registry has one.
+        if (path.startsWith('node_modules/') && !path.startsWith('node_modules/@strutvane/')) expect(entry.integrity, path).toMatch(/^sha512-/)
       }
     }
     expect(JSON.parse(file(renderProject(options({ database: 'sqlite' })), 'package.json')).dependencies).toEqual({
       '@strutvane/framework': 'file:stubs/strutvane-framework',
+      '@strutvane/design-crisp': 'file:stubs/strutvane-design-crisp',
     })
   })
 

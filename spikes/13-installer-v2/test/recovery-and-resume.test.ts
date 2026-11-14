@@ -73,7 +73,7 @@ describe('npm install failures', () => {
 describe('Docker failures', () => {
   it('Docker missing (interactive): "Continue without Docker (SQLite)" switches the project and the app still starts', async () => {
     const { prompter, asked } = scriptedPrompter({ database: 'mysql', docker: 'docker', 'recover:database': 'sqlite', review: 'create', dev: false })
-    const result = await create(['--stack', 'full', '--ui', 'admin', '--auth', 'email', '--features', 'none', '--no-teams', '--testing', 'vitest', '--git'], {
+    const result = await create(['--stack', 'full', '--ui', 'admin', '--design', 'vivid', '--auth', 'email', '--features', 'none', '--no-teams', '--testing', 'vitest', '--git'], {
       docker: () => ({ code: -1, notFound: true, output: 'spawn docker ENOENT' }),
     }, { interactiveTerminal: true, prompter })
     expect(result.code).toBe(0)
@@ -86,7 +86,8 @@ describe('Docker failures', () => {
     expect(parseEnv(readFileSync(join(result.directory, '.env.example'), 'utf8')).get('DB_CONNECTION')).toBe('sqlite')
     expect(existsSync(join(result.directory, 'docker'))).toBe(false)
     expect(existsSync(join(result.directory, 'database', 'database.sqlite'))).toBe(true)
-    expect(loadState(result.directory).options).toMatchObject({ database: 'sqlite', docker: false })
+    // The design flag survives the switch and lands in setup.json, so a resume keeps it.
+    expect(loadState(result.directory).options).toMatchObject({ database: 'sqlite', docker: false, design: 'vivid' })
     // strut.js stops forwarding into a container, and install/migrate ran on this computer.
     expect(JSON.parse(readFileSync(join(result.directory, '.strutvane', 'env.json'), 'utf8')).mode).toBe('host')
     expect(env.get('MAIL_MAILER')).toBe('log')

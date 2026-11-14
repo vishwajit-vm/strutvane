@@ -19,6 +19,9 @@ import {
   DEFAULTS,
   defaultDatabase,
   DEFAULT_DATABASE_PORTS,
+  type Design,
+  DESIGNS,
+  designInfo,
   dockerByDefault,
   resolveOptions,
   type Stack,
@@ -68,6 +71,9 @@ const UI_CHOICES: readonly Choice<UiStarter>[] = [
   { value: 'admin', label: 'Admin app', hint: 'React screens generated from your models' },
   { value: 'blank', label: 'Blank React + Vite app' },
 ]
+
+// Straight from DESIGNS: a new design package appears in the question without code changes here.
+const DESIGN_CHOICES: readonly Choice<Design>[] = DESIGNS.map(({ value, label }) => ({ value, label }))
 
 const AUTH_CHOICES: readonly Choice<AuthMode>[] = [
   { value: 'email', label: 'Email + password' },
@@ -185,6 +191,26 @@ const QUESTIONS: readonly Question[] = [
       return { ...answers, ui: answerOrThrow(value) }
     },
     describe: (a) => `React, ${UI_LABELS[a.ui ?? DEFAULTS.ui]}`,
+  },
+  {
+    // Asked right after the UI starter: the design only exists where there is a React UI.
+    key: 'design',
+    title: 'Design',
+    applies: (a) => stackOf(a) === 'full',
+    ask: async (prompter, answers) => {
+      const value = await prompter.select({
+        id: 'design',
+        message: 'Which design for the React UI? (switch any time later)',
+        options: DESIGN_CHOICES,
+        initialValue: DEFAULTS.design,
+      })
+      return { ...answers, design: answerOrThrow(value) }
+    },
+    // Name and package, so the review says exactly what will be installed.
+    describe: (a) => {
+      const design = a.design ?? DEFAULTS.design
+      return `${design} (${designInfo(design).packageName})`
+    },
   },
   {
     key: 'auth',
@@ -323,7 +349,7 @@ const QUESTIONS: readonly Question[] = [
  *
  * @example
  * const answers = await askMissing({ name: 'my-app', database: 'sqlite' }, prompter, context)
- * // asks stack, ui, auth, features, teams, testing, git (not name, database or docker)
+ * // asks stack, ui, design, auth, features, teams, testing, git (not name, database or docker)
  */
 export async function askMissing(
   given: Answers,

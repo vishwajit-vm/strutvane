@@ -9,7 +9,7 @@
  *
  * @module
  */
-import type { ProjectOptions } from '../options.ts'
+import { DESIGN_NAMES, designInfo, otherDesign, type ProjectOptions } from '../options.ts'
 
 /** A generated file: POSIX path relative to the project root, and its text. */
 export interface GeneratedFile {
@@ -278,7 +278,77 @@ function uiFiles(options: ProjectOptions): GeneratedFile[] {
 export const starter = '${options.ui ?? 'blank'}'
 `,
     },
+    ...designFiles(options),
   ]
+}
+
+/**
+ * The design choice: `config/ui.ts` (which design package styles the UI) and
+ * `resources/ui/theme.css` (the developer's own overrides, owned code the design never touches).
+ *
+ * Why two files: switching design rewrites only the one line in config/ui.ts, so a brand colour
+ * set in theme.css survives the switch and every design upgrade.
+ */
+function designFiles(options: ProjectOptions): GeneratedFile[] {
+  if (options.design === undefined) return []
+  const { packageName } = designInfo(options.design)
+  const other = otherDesign(options.design)
+  const switchHint =
+    other === undefined
+      ? ''
+      : `//
+// Switch to another design later with one command (it swaps the package and updates this file):
+//   node strut design:use ${other}
+// Designs available: ${DESIGN_NAMES.join(', ')}.
+`
+  return [
+    {
+      path: 'config/ui.ts',
+      content: `// The look of the React UI. The screens come from @strutvane/ui (behaviour only); the design
+// package ${packageName} gives them their colours, fonts, layout shell and component styles.
+${switchHint}//
+// Your own brand colour, font or corner radius? Do not edit the design package: put your overrides
+// in resources/ui/theme.css. That file is yours, so it stays when you switch or upgrade the design.
+export default {
+  design: '${options.design}',
+}
+`,
+    },
+    { path: 'resources/ui/theme.css', content: themeCss(packageName) },
+  ]
+}
+
+/**
+ * The owned theme file: every override is commented out, so a fresh app looks exactly like the
+ * chosen design until the developer uncomments a line. Token names follow @strutvane/ui
+ * (spike 14: one accent knob `--brand-hue`, `--font-sans`, `--radius`).
+ */
+function themeCss(packageName: string): string {
+  return `/*
+ * Your theme overrides. This file is yours: upgrades and \`node strut design:use\` never change it.
+ *
+ * The design (${packageName}, chosen in config/ui.ts) sets every token below. It loads first and
+ * this file loads after it, so whatever you set here wins. Uncomment a line and change its value
+ * to restyle the whole app; anything left commented keeps the design's own value.
+ */
+
+:root {
+  /* Brand colour: buttons, links, focus rings and the active menu item. It is an OKLCH hue from
+     0 to 360 (250 = blue, 150 = green, 25 = red); the design derives every shade from it and keeps
+     text contrast readable (WCAG AA) for any hue. */
+  /* --brand-hue: 250; */
+
+  /* Font for the whole UI. Load a web font in resources/ui/index.html first, or use one the
+     computer already has. */
+  /* --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif; */
+
+  /* Corner radius of cards, inputs and buttons: 0 for square corners, 0.75rem for soft ones. */
+  /* --radius: 0.5rem; */
+}
+
+/* Dark mode: the same tokens, set only for the dark theme. */
+/* .dark { --brand-hue: 250; } */
+`
 }
 
 const HEALTH_TEST = `// A first feature test: the health controller answers "ok". Run: npm test

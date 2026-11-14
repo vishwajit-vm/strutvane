@@ -20,6 +20,58 @@ export const UI_STARTERS = ['admin', 'blank'] as const
 /** One of {@link UI_STARTERS}. */
 export type UiStarter = (typeof UI_STARTERS)[number]
 
+/**
+ * One design package: the look (colours, fonts, shell, component skins) that sits on top of
+ * `@strutvane/ui`, which only brings behaviour.
+ */
+export interface DesignInfo {
+  /** What the user types (`--design crisp`) and what `config/ui.ts` stores. */
+  readonly value: string
+  /** The npm package that ships this design. */
+  readonly packageName: string
+  /** The line shown in the question (74 characters or fewer, like every label). */
+  readonly label: string
+}
+
+/**
+ * The first-party designs (project lead decision, 2026-11-15). The FIRST entry is the default.
+ *
+ * Why one array: flags, the question, the review screen, the help text and the generated files
+ * all read this list, so adding a future design is one new entry here and nothing else.
+ */
+export const DESIGNS = [
+  { value: 'crisp', packageName: '@strutvane/design-crisp', label: 'Crisp   Clean, minimal and business-first (recommended)' },
+  { value: 'vivid', packageName: '@strutvane/design-vivid', label: 'Vivid   Colourful, modern dashboards' },
+] as const satisfies readonly DesignInfo[]
+/** One design name from {@link DESIGNS}, such as `'crisp'`. */
+export type Design = (typeof DESIGNS)[number]['value']
+/** Just the design names, in order (`['crisp', 'vivid']`), for flag checks and help text. */
+export const DESIGN_NAMES: readonly Design[] = Object.freeze(DESIGNS.map((design) => design.value))
+
+/**
+ * Everything known about one design.
+ *
+ * @example
+ * designInfo('vivid').packageName // '@strutvane/design-vivid'
+ */
+export function designInfo(design: Design): DesignInfo {
+  const found = DESIGNS.find((entry) => entry.value === design)
+  // Unreachable while `Design` is derived from DESIGNS; kept so a bad cast fails loudly.
+  if (found === undefined) throw new Error(`Unknown design "${design}"`)
+  return found
+}
+
+/**
+ * Another design to suggest in "how to switch" hints (the first other one in the list), or
+ * `undefined` when only one design exists.
+ *
+ * @example
+ * otherDesign('crisp') // 'vivid'
+ */
+export function otherDesign(design: Design): Design | undefined {
+  return DESIGN_NAMES.find((name) => name !== design)
+}
+
 /** How people sign in. */
 export const AUTH_MODES = ['email', 'none'] as const
 /** One of {@link AUTH_MODES}. */
@@ -50,6 +102,7 @@ export interface Answers {
   readonly name?: string
   readonly stack?: Stack
   readonly ui?: UiStarter
+  readonly design?: Design
   readonly auth?: AuthMode
   readonly features?: readonly AuthFeature[]
   readonly teams?: boolean
@@ -98,6 +151,8 @@ export interface ProjectOptions {
   readonly stack: Stack
   /** `undefined` for an API-only project. */
   readonly ui: UiStarter | undefined
+  /** The design package for the React UI; `undefined` for an API-only project (no UI to style). */
+  readonly design: Design | undefined
   readonly auth: AuthMode
   /** Always empty when `auth` is `'none'`. */
   readonly features: readonly AuthFeature[]
@@ -125,6 +180,8 @@ export interface ProjectOptions {
 export const DEFAULTS = Object.freeze({
   stack: 'full',
   ui: 'admin',
+  // The first design in DESIGNS (Crisp), so the default and the list can never disagree.
+  design: DESIGNS[0].value,
   auth: 'email',
   // Registration is off by default (security review F-02): only invited accounts sign in until the
   // developer opts in to public sign-up.
@@ -219,6 +276,7 @@ export function resolveOptions(answers: Answers, cwd: string): ProjectOptions {
 
   const stack = answers.stack ?? DEFAULTS.stack
   const ui = resolveUi(stack, answers.ui, problems)
+  const design = resolveDesign(stack, answers.design, problems)
   const auth = answers.auth ?? DEFAULTS.auth
   const features = resolveFeatures(auth, answers.features, problems)
   const teams = resolveTeams(auth, answers.teams, problems)
@@ -233,6 +291,7 @@ export function resolveOptions(answers: Answers, cwd: string): ProjectOptions {
     directory: resolve(cwd, name),
     stack,
     ui,
+    design,
     auth,
     features,
     teams,
@@ -248,6 +307,13 @@ export function resolveOptions(answers: Answers, cwd: string): ProjectOptions {
 function resolveUi(stack: Stack, ui: UiStarter | undefined, problems: string[]): UiStarter | undefined {
   if (stack === 'full') return ui ?? DEFAULTS.ui
   if (ui !== undefined) problems.push('an API-only project has no UI: drop --ui, or use --stack full')
+  return undefined
+}
+
+/** A design styles the React UI, so API-only projects refuse an explicit `--design` like `--ui`. */
+function resolveDesign(stack: Stack, design: Design | undefined, problems: string[]): Design | undefined {
+  if (stack === 'full') return design ?? DEFAULTS.design
+  if (design !== undefined) problems.push('an API-only project has no UI to style: drop --design, or use --stack full')
   return undefined
 }
 
