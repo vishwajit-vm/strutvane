@@ -163,14 +163,14 @@ TENANCY_RESOLVE=subdomain,header,session
 
 ### 2.7 Seed data
 
-- **System roles** (renameable):
-  - `admin`: every permission in its scope.
-  - `member`: view + create, and update/delete **own** records (row condition `ownerId = actor.id` where an owner field exists).
+- **System roles** (renameable; the same names `sv make:policy` writes, [09 §3](09-cli-reference.md#3-generators-make)):
+  - `admin`: `'*'`, which reaches every model except the `wildcardExclude` resources (§4.4). Its exact grants on those (user management and, with the audit extra, reading audit events) carry `scope: 'global'`, so only a platform administrator (the role held outside any tenant, like the seed admin) gets them, never a tenant's own `admin`.
+  - `member`: view + create, and update/delete **own** records (`{ action, own: true }`, compiled to `ownerId = actor.id`; never matches on a model without a text/uuid `ownerId`).
   - `viewer`: view only.
-  - `owner`: tenant owner, including billing, tenant settings and role management. Present only when tenancy is enabled.
+  - `owner`: a tenant's creator, held only inside that tenant (`scope: 'tenant'`, `permissions: ['*']`). Generated only when tenancy is enabled. Its `'*'` reaches only tenant-scoped models (with a `tenantId` column). Tenant internals (memberships, invitations, tenant settings, billing) are `wildcardExclude` resources, so they are granted to `owner` by exact name once they are served as tenant-scoped resources.
 - **Admin user:** created from `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD` and forced to change the password on first login in non-local environments.
 - **Permission catalogue:** built from all registered models and actions (§4.4).
-- **Generated defaults** (`create-strutvane`, `sv add auth`): `config/auth.ts` gets the role map of §4.4, with `member` updates and deletes scoped to the actor's own records (`own: true`), an explicit `defaultRoles` list (empty unless configured), and a `wildcardExclude` list so identity, authorization, tenancy and audit records are granted only by exact permission name, never by a wildcard. Public sign-up is off (`AUTH_ALLOW_REGISTRATION=false`) until the app turns it on.
+- **Generated defaults** (`create-strutvane`, `sv add auth`): `config/auth.ts` is written with `defineAuthConfig` and gets the role map of §4.4, with `member` updates and deletes scoped to the actor's own records (`own: true`), an explicit `defaultRoles` list (empty unless configured), and a `wildcardExclude` list so identity, machine-access, authorization, tenancy and audit records are granted only by exact permission name, never by a wildcard. The list is always complete, even for features that are off, so the protection is in place when they are added later. Public sign-up is off (`AUTH_ALLOW_REGISTRATION=false`) until the app turns it on. `trustedOrigins` is `[APP_URL]` and `trustedProxies` is empty: in a Strutvane app the framework's `trustProxy` already resolves the client address ([05 §3.3](05-developer-experience.md#33-config-files-typed-documented-readable)).
 
 ## 3. Authentication features (via adapters)
 
@@ -261,7 +261,7 @@ export default definePolicy('invoice', { schema: invoiceSchema }, ({ allow, deny
 - **Null actor values fail closed in allow rules** ([ADR-0017](adr/0017-allow-rules-bind-fail-closed-on-null-actor-values.md)). A condition part that depends on a null actor value never widens an allow rule, whatever its polarity (`ne`, `nin`, `not`). Deny rules keep "a null actor value never matches" ([ADR-0008](adr/0008-policy-predicates-two-valued-semantics.md)).
 - **Mistyped record values fail closed.** In-memory evaluation refuses a loaded value that does not fit its column type (for example a `bigint` read as a string) instead of comparing it loosely.
 - **Limits are checked at definition time.** The combined filter of each action (allows OR-ed, denies subtracted) must fit the filter limits when the policy is defined, so a policy that works for single records never fails only on lists.
-- **Role maps and policies combine.** The role maps in `config/auth.ts` (§4.4) are compiled into rules and evaluated together with the policies in `app/policies/`; an explicit `deny` in either still wins.
+- **Role map and policies combine.** The role map in `config/auth.ts` (§4.4) adds allow grants to the policies in `app/policies/`: `allowed = (policy allows OR role map grants) AND NOT policy denies`. An explicit policy `deny` always wins; the role map itself has no denies. Role grants go through the same engine as policy rules, so they compile to SQL for lists and appear in `Decision.reason` (`allow:role:<role>:<permission>`).
 - **Typed predicate builder, not arbitrary JS.** The same rule:
   - evaluates in memory for one record (`can('invoice.approve', invoice)`), and
   - **compiles to SQL `WHERE` clauses** for list endpoints, so lists are never filtered after the fact and pagination counts stay correct.
@@ -270,6 +270,7 @@ export default definePolicy('invoice', { schema: invoiceSchema }, ({ allow, deny
   - Read masking is an allow-list: a record is copied with **only** the schema fields the actor may read, so relations, computed values and internal columns never pass through by accident.
   - Keys that are not schema columns are never writable.
   - `filterableFields(actor)` returns exactly the actor's readable fields. Untrusted filters and sorts are validated against it (`validateFilter(…, { allowedFields })`); any other field is rejected with `INVALID_FILTER`, exactly like an unknown field. Relation paths must be listed explicitly.
+  - The permission provider exposes the same set as `filterableFields(actor, resourceType)`, the optional `PermissionProvider` member the framework uses to narrow client filters, sorts and search ([17 §3](17-integration-map.md#3-container-tokens-who-provides-what-who-uses-it-and-what-happens-if-its-missing)). A resource without a policy uses its registered schema (every column); an unknown resource gets an empty set.
   - `restrictedFields` lists the fields that have a read rule (used for audit masking, §7).
 - **Explainable.** `Decision.reason` names the matched rule. It is shown by `sv auth:explain` and recorded in audit on denials of sensitive actions.
 - **Compliance export.** `sv auth:matrix --format md|csv|json` prints the role × permission matrix.
@@ -283,21 +284,81 @@ export default definePolicy('invoice', { schema: invoiceSchema }, ({ allow, deny
 ### 4.4 Permission auto-sync from models
 
 1. Every model registered in `.strutvane/registry.gen.ts` contributes the standard actions: `viewAny view create update delete restore forceDelete export`.
-2. Every `actions: {}` entry in a resource contributes `<model>.<action>`. Custom permissions can be declared in `config/auth.ts`.
+2. Every `actions: {}` entry in a resource contributes `<model>.<action>`. Permissions that belong to no model will be declared in `config/auth.ts` once the permission catalogue exists; `defineAuthConfig` has no key for them yet.
 3. `pnpm dev` and `sv build` regenerate a typed union: `type Permission = 'invoice.view' | 'invoice.approve' | …`. A typo in `can('invoce.view')` is a compile error.
 4. `sv auth:permissions:sync` (run automatically by `sv migrate`) reconciles the DB catalogue:
-   - It inserts new permissions and maps them to roles using `config/auth.ts` defaults (admin = `*`, member = view/create/own-update, viewer = view).
+   - It inserts new permissions and maps them to roles using the `config/auth.ts` role map (admin = `*`, member = view/create plus own update/delete, viewer = view).
    - It **never deletes** permissions that have assignments. Those are marked `orphaned` and reported, and `--prune` is required to remove them.
+
+Until the persistent catalogue exists, the provider evaluates the role map straight from `config/auth.ts` at boot, with the rules below.
+
+#### The role map (normative)
+
+- **Permissions.** Each role lists `'<resource>.<action>'` patterns, where either part may be `*`; `'*'` alone (or `'*.*'`) is every action on every resource. Each entry is an allow for actors holding the role. The object form is `{ action, own?, scope? }`.
+- **Combination.** `allowed = (policy allows OR role map grants) AND NOT policy denies`. An explicit policy `deny` always wins. A resource without a policy is decided by the role map alone.
+- **Own records.** `{ action, own: true }` compiles to `ownerId = actor.id` through the policy-to-SQL path (the same filter as a policy's `row.ownerId.eq(actor.id)`), so lists stay filtered in SQL. It never matches when the resource's schema has no `text`/`uuid` `ownerId` column or is unknown, and a null actor id never matches ([ADR-0008](adr/0008-policy-predicates-two-valued-semantics.md)).
+- **Scope.** `scope: 'any' | 'global' | 'tenant'` on a role (default `'any'`) or on one permission (overrides the role's), with the same meaning as in policies (§4.2): `'global'` grants count only outside tenants (platform roles), `'tenant'` grants only inside the active tenant. The generated `admin` grants on users and audit events are `scope: 'global'`; `owner` is `scope: 'tenant'`.
+- **Bounded wildcards.** Resource wildcards (`*` and `*.<action>`):
+  - never match a resource listed in `wildcardExclude` (identity, authorization, tenancy and audit records). Those get exact-name grants only (`'user.view'`), and `'<resource>.*'` on an excluded resource is a boot error;
+  - held inside a tenant, reach only models whose schema has a `tenantId` column. Exact grants are not bounded this way.
+- **`newModelDefaults`.**
+  - `'inherit-role-patterns'` (default): resource wildcards (`'*.view'`, `'*'`) cover models the role map does not name.
+  - `'admin-only'`: only a full `'*'` grant (by convention `admin`) reaches a model the role map does not name; every other role needs an exact grant (`'invoice.view'`, `'invoice.*'`) or a policy rule. Partial resource wildcards (`'*.view'`) are then a boot error, because they could never apply.
+  - Until the permission catalogue exists, "new model" means "a model not named in the role map".
+- **No roles configured** means no grants: the policies alone decide, deny by default.
+- **Validation at boot.** The provider compiles the role map (`compileRoleMap`) before loading policies. An unknown option, a malformed pattern or role name, an invalid `scope` or `own` value, `'<resource>.*'` on an excluded resource, or a partial wildcard under `'admin-only'` throws `PolicyDefinitionError` and the app does not boot.
+- **Typed config.** `defineAuthConfig` (from `@strutvane/auth`) types `config/auth.ts` against `AuthConfig`: unknown top-level keys are compile errors. It returns the same deep-frozen object as core's `defineConfig`. The boot-time validation still runs for configs written without TypeScript.
+- **Schemas for resources without a policy.** `createPermissionProvider(policies, { roles, schemas })` accepts model schemas for resources that have no policy. Without one, the schema is unknown, so `own` grants and wildcards held inside a tenant never match that resource.
+
+The generated file (`create-strutvane`; excerpt with tenancy on and the audit extra off):
 
 ```ts
 // config/auth.ts (excerpt)
+import { defineAuthConfig } from '@strutvane/auth'
+import { env } from '../env.ts'
+
 export default defineAuthConfig({
+  registration: env.AUTH_ALLOW_REGISTRATION,
   roles: {
-    admin:  { permissions: ['*'] },
-    member: { permissions: ['*.viewAny', '*.view', '*.create', { action: '*.update', own: true }, { action: '*.delete', own: true }] },
+    admin: {
+      permissions: [
+        '*',
+        { action: 'user.viewAny', scope: 'global' },
+        { action: 'user.view', scope: 'global' },
+        { action: 'user.update', scope: 'global' },
+        { action: 'user.delete', scope: 'global' },
+        // with the audit extra: auditEvent.viewAny and auditEvent.view, also scope 'global'
+      ],
+    },
+    member: {
+      permissions: [
+        '*.viewAny',
+        '*.view',
+        '*.create',
+        { action: '*.update', own: true },
+        { action: '*.delete', own: true },
+      ],
+    },
     viewer: { permissions: ['*.viewAny', '*.view'] },
+    owner: { scope: 'tenant', permissions: ['*'] },   // only when tenancy is on
   },
-  newModelDefaults: 'inherit-role-patterns',   // or 'admin-only' for stricter orgs
+  wildcardExclude: [
+    // Identity
+    'user', 'account', 'session', 'verification', 'mfaFactor', 'passkey', 'impersonationSession',
+    // Machine access
+    'apiToken', 'serviceAccount', 'oauthClient', 'ssoConnection', 'scimToken',
+    // Authorization
+    'role', 'rolePermission', 'roleInherit', 'assignment', 'permission',
+    // Tenancy
+    'tenant', 'tenantDomain', 'membership', 'invitation', 'team', 'teamMember',
+    // Audit
+    'auditEvent',
+  ],
+  newModelDefaults: 'inherit-role-patterns' as const,   // or 'admin-only' for stricter orgs
+  defaultRoles: [] as string[],
+  seedAdmin: { email: env.SEED_ADMIN_EMAIL, password: env.SEED_ADMIN_PASSWORD, role: 'admin' },
+  trustedOrigins: [env.APP_URL],
+  trustedProxies: [] as string[],
 })
 ```
 
@@ -433,6 +494,8 @@ UI hiding is **convenience, never enforcement**. The API re-checks every request
 | `createAuth(config)` | Build the auth service (standalone) |
 | `@strutvane/auth/provider` | Service provider auto-registered by the installer (framework mode) |
 | `definePolicy`, `can`, `cannot`, `authorize`, `filterFor`, `fieldMask` | Authorization |
+| `defineAuthConfig`, `AuthConfig` | Typed `config/auth.ts` (unknown top-level keys are compile errors) |
+| `compileRoleMap`, `createPermissionProvider(policies, { roles, schemas })` | Role map (§4.4) and the contracts `PermissionProvider`, including `filterableFields(actor, resourceType)` |
 | `requirePermission`, `requireRole`, `requireRecentAuth` | Middleware/guards |
 | `currentActor`, `currentTenant`, `withTenant`, `withSystemActor` | Context (AsyncLocalStorage) |
 | `audit.record`, `audit.query` | Audit |

@@ -135,7 +135,7 @@ If `auth` is *not* installed, the framework uses a `PermissionProvider` from con
 |----------|---------|
 | `Actor` | `{ id, type: user\|service\|system, tenantId?, roles, permissions?, attrs }` |
 | `TenantContext` | `{ id, strategy: shared\|schema\|database, connection?, region? }` |
-| `PermissionProvider` / `Decision` | `can(actor, action, resource?, ctx?) → { allowed, reason, filter? }`; `filterFor(actor, action, model) → QueryFilter` |
+| `PermissionProvider` / `Decision` | `can(actor, action, resource?, ctx?) → { allowed, reason, filter? }`; `filterFor(actor, action, model) → QueryFilter`; optional `filterableFields(actor, model) → Set<field>` (fields a client may filter, sort and search on) |
 | `QueryFilter` AST | Portable predicate tree: auth → backend SQL; UI filter chips → API |
 | `ListQuery` | Wire protocol: `filter[field][op]=`, `sort=-a,b`, `page[size]`, `page[cursor]` / `page[number]`, `include`, `fields`, `search` |
 | `ResourceManifest` | Models, fields (type, label, validation, widget), relations, actions, permissions per actor. Served at `/.well-known/strutvane.json` and as `x-strutvane-*` OpenAPI extensions. |

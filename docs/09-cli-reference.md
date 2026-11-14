@@ -6,7 +6,7 @@ The CLI is the "artisan" of Strutvane: one entry point for creating projects, ad
 |------|-------|
 | npm package | `strutvane` (unscoped launcher, bin `strutvane`), implemented in `@strutvane/cli` |
 | Starter | `create-strutvane` → `npm create strutvane@latest` |
-| In projects | `package.json` script `"sv": "strutvane"` → `pnpm sv <command>` (also `npm run sv --`, `yarn sv`, `bun sv`) |
+| In projects | `package.json` script `"sv": "strutvane-cli"` (the bin of the project's own `@strutvane/cli`) → `pnpm sv <command>` (also `npm run sv --`, `yarn sv`, `bun sv`). `pnpm sv help` therefore lists the project's commands; the global `strutvane` launcher answers `help` itself (§1.1) |
 | Without install | `npx strutvane <command>` / `pnpm dlx strutvane <command>` |
 
 ## 1. Core rules
@@ -93,7 +93,7 @@ All generators:
 |---------|---------|-----------|
 | `make:model <Name> [fields…]` | `app/models/<name>.model.ts` (+ policy, factory, seeder, test, permissions; API + UI auto-registered) | Field syntax `name:type[:modifier…]`; `--all` (resource + policy + factory + seeder + test), `--no-api`, `--no-ui`, `--tenant`, `--no-tenant`, `--audit`, `--soft-deletes`, `--timestamps`, `--seed <n>`, `--from-table <table>` |
 | `make:resource <Model>` | `app/resources/<name>.resource.ts` (L1/L2 API + UI behaviour) | `--actions approve,send`, `--hooks beforeCreate,afterUpdate` |
-| `make:policy <Model>` | `app/policies/<name>.policy.ts` | `--template owner\|tenant-admin\|readonly` |
+| `make:policy <Model>` | `app/policies/<name>.policy.ts` (deny-by-default; role names from `config/auth.ts`, see below) | `--template default\|owner\|tenant-admin\|readonly` |
 | `make:action <Model> <action>` | Adds an action to the resource (route + permission + UI button) | `--input`, `--bulk`, `--confirm` |
 | `make:migration <name>` | Hand-written migration with schema builder (data migrations, special DDL) | `--sql` (raw SQL file), `--table <t>` |
 | `make:seeder <Name>` | `database/seeders/<name>.seeder.ts` | `--model <Model>`, `--count` |
@@ -112,6 +112,15 @@ All generators:
 | `make:page <path>` | Custom UI page in `web/pages/` (auto-routed) | `--resource`, `--layout` |
 | `make:widget <Name>` | Dashboard widget | `--type stat\|chart\|table` |
 | `make:plugin <name>` | Plugin package skeleton (see §11) | `--with-installer`, `--with-generator` |
+
+**`make:policy` templates.** Policies use the role vocabulary of the generated `config/auth.ts` ([07 §2.7](07-package-auth.md#27-seed-data)): `admin`, `member`, `viewer` and `owner` (a tenant's creator, held only inside that tenant). The role map grants on top of these rules, and a policy `deny` still wins ([07 §4.4](07-package-auth.md#44-permission-auto-sync-from-models)).
+
+| Template | Rules |
+|----------|-------|
+| `default` | `viewer`, `member`, `admin` read (`viewAny`, `view`); `admin` writes (`create`, `update`, `delete`, `export`, plus `restore`/`forceDelete` with soft deletes) |
+| `owner` | `member` and `admin` list and create; `member` views, updates and deletes only records whose `ownerId` is the actor (needs an `ownerId` field); `admin` views and writes everything |
+| `tenant-admin` | Tenant administrators manage: `admin` or `owner` with `scope: 'tenant'` write; all four roles read, also with `scope: 'tenant'` |
+| `readonly` | `viewer`, `member`, `admin` read; nothing else is allowed |
 
 ### 3.1 Field syntax (CLI)
 

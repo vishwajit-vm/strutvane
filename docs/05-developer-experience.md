@@ -91,6 +91,7 @@ APP_ENV=local                 # local | test | staging | production
 APP_KEY=                      # 32-byte base64. Generate: pnpm sv key:generate
 APP_URL=http://localhost:3000
 APP_PORT=3000
+TRUST_PROXY=0                 # reverse-proxy hops to trust; set only behind a proxy you control
 APP_DEBUG=true                # never true in production (boot refuses)
 APP_TIMEZONE=UTC
 APP_LOCALE=en
@@ -189,6 +190,25 @@ export default defineDatabaseConfig({
   migrations: { directory: 'database/migrations', table: 'strutvane_migrations' },
 })
 ```
+
+```ts
+// config/app.ts (generated, excerpt)
+export default defineConfig({
+  url: env.APP_URL,
+  publicUrl: env.APP_URL,      // the public origin behind any proxy (links, cookies, origin checks)
+  trustProxy: env.TRUST_PROXY, // reverse-proxy hops whose X-Forwarded-* headers are trusted (0 = none)
+})
+
+// config/auth.ts (generated, excerpt; the full role map is in 07 §4.4)
+export default defineAuthConfig({
+  // roles, wildcardExclude, newModelDefaults, defaultRoles, seedAdmin …
+  trustedOrigins: [env.APP_URL], // origins allowed to call the state-changing auth endpoints
+  trustedProxies: [] as string[], // empty in a Strutvane app: trustProxy already resolves the client address
+})
+```
+
+- **`TRUST_PROXY`** is a hop count (default `0`: direct connections, no `X-Forwarded-*` header is believed). Set it to the number of proxies in front of the app only when you control them (for example `1` for your own load balancer or ingress); otherwise clients could choose the IP address rate limits key on and the protocol the app sees. `publicUrl` comes from `APP_URL`.
+- **`config/auth.ts`** is typed by `defineAuthConfig` from `@strutvane/auth`, so a misspelt top-level key is a compile error rather than a silently ignored setting ([07 §4.4](07-package-auth.md#44-permission-auto-sync-from-models)).
 
 ## 4. Models: field name + type, the rest is ours
 
@@ -291,7 +311,7 @@ When a model exists and `pnpm dev` is running (watch mode) or `sv build` runs:
    ```
 
    Each route goes through validation, authorization (policy + field rules + tenant scope), hooks, audit, events, problem+json errors and OpenAPI docs.
-3. **Permissions.** `invoice.viewAny|view|create|update|delete|restore|forceDelete|export` plus custom actions are synced to the auth permission catalogue. The default role mapping comes from `config/auth.ts`, e.g. admin = all, member = view+create+update own.
+3. **Permissions.** `invoice.viewAny|view|create|update|delete|restore|forceDelete|export` plus custom actions are synced to the auth permission catalogue. The role map in `config/auth.ts` grants on top of the model's policy: `admin` = all, `member` = view + create + update/delete own, `viewer` = view, and with tenancy `owner` = all inside the tenant it created. A policy `deny` always wins ([07 §4.4](07-package-auth.md#44-permission-auto-sync-from-models)).
 4. **OpenAPI 3.1** at `/openapi.json` and interactive docs at `/docs`. A typed client SDK (`.strutvane/client.gen.ts`) is used by the UI and can be exported for other apps (`sv api:client --out ../mobile/src/api`).
 5. **UI.** Routes and pages, all permission-aware:
    - `/invoices`: data table with search, filter chips, sort, column toggles, pagination, bulk actions, export, saved views
@@ -394,6 +414,8 @@ pnpm sv queue:work | schedule:run | cache:clear
 pnpm sv up | sv down        # local Docker services (git-ignored compose file)
 pnpm test | pnpm build | pnpm start
 ```
+
+`pnpm sv` runs the project-local CLI (`"sv": "strutvane-cli"`, the bin of `@strutvane/cli` in devDependencies), so `pnpm sv help` lists the project's commands, including those contributed by installed packages. A global `strutvane` launcher delegates project commands to the same local CLI but answers `help` itself, describing the launcher ([09 §1.1](09-cli-reference.md#11-global-launcher-delegates-to-the-local-version)).
 
 The full command reference is in [09](09-cli-reference.md).
 

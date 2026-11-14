@@ -33,7 +33,7 @@
 
 | Token (contract) | Provided by | Used by | If no package provides it |
 |---|---|---|---|
-| `PermissionProvider` | auth | framework (every request), files (downloads), ui-server | `local` env: allow-all with a loud warning banner. Any other env: **boot refuses to start** unless `security.publicApi: true` is set explicitly |
+| `PermissionProvider` | auth | framework (every request; the optional `filterableFields` member narrows client filters, sorts and search), files (downloads), ui-server | `local` env: allow-all with a loud warning banner. Any other env: **boot refuses to start** unless `security.publicApi: true` is set explicitly |
 | `TenantResolver` | auth | framework, files (key prefix), queue (job context) | Single-tenant mode. Tenant-scoped models refuse to boot |
 | `IdentityEngine` | auth (Better Auth / OIDC / native adapters) | auth only | — (internal to auth) |
 | `AuditSink` | auth (DB table) / logs (future) | framework, files, auth | Audit events are logged as structured log lines (nothing is silently dropped) |
@@ -43,6 +43,9 @@
 | `Logger` | core (default: structured, redacting, stdout); **logs** replaces it with the full implementation (files/DB/OTel, viewer) | every package | Always present (core default). With `@strutvane/logs` absent, logs go to stdout and there is no viewer ([RFC-0004](rfcs/0004-logs-package.md)) |
 | `Queue`, `Cache`, `Mailer` | framework | auth (emails, sessions), files (variants), notify (future) | `sync` / `memory` / `log` drivers in dev |
 | `Clock`, `IdGenerator` | core | everyone (testable time, UUIDv7) | Always present (core) |
+
+- **`PermissionProvider.filterableFields(actor, resourceType)`** is an optional member of the contract (contracts `c0161e8`). When a provider implements it, the framework intersects the returned set with its own client-queryable fields (which already exclude `hidden` fields) and rejects filters, sorts and search on any other field; when it is absent, the framework uses its own set. `@strutvane/auth` returns exactly the fields the actor may read ([07 §4.2](07-package-auth.md#42-policies-generated-per-model-owned-by-you)).
+- **The role map adds no connection.** `config/auth.ts` roles are compiled inside auth and reach the framework only through this token (`can`, `filterFor`, `filterableFields`); the framework never reads role names.
 
 ## 4. Hooks: where packages plug into each other's pipelines
 
