@@ -116,6 +116,26 @@ export function assertSelectScoped(ast: SelectAst, bypass: ReadonlySet<string>):
   }
   for (const item of ast.select) if (item.kind === 'subquery') assertSelectScoped(item.query, bypass)
   for (const query of nestedQueries(ast.where)) assertSelectScoped(query, bypass)
+  assertRawConditionsScoped(ast.where)
+}
+
+/**
+ * Raw conditions (`whereRaw`) inside a builder query get the same rule as hand-written statements:
+ * in a tenant context, one that names a tenant table is refused unless it came from
+ * {@link unsafeRaw}. Without this, the builder's own "checked" mark on the compiled statement
+ * would wave through a `whereRaw` of `EXISTS (SELECT 1 FROM projects WHERE name = …)`: an existence
+ * oracle over every tenant's rows.
+ */
+function assertRawConditionsScoped(nodes: readonly WhereNode[]): void {
+  if (tenantColumn() === undefined || currentTenant() === undefined) return
+  for (const node of nodes) {
+    if (node.kind === 'group') assertRawConditionsScoped(node.nodes)
+    if (node.kind !== 'raw' || checked.has(node.fragment)) continue
+    const [first] = tenantTablesIn(node.fragment)
+    if (first !== undefined) {
+      throw new TenantScopeMissingError(first, 'a raw condition (whereRaw) names a tenant table, and raw SQL cannot be checked for a tenant condition; use whereHas, or wrap the fragment in unsafeRaw(reason, …)')
+    }
+  }
 }
 
 /**
@@ -194,7 +214,8 @@ function tenantTablesIn(fragment: SqlFragment): string[] {
   const found = new Set<string>()
   for (const part of fragment.parts) {
     for (const table of sensitive) {
-      if (part.kind === 'identifier' && part.name === table) found.add(table)
+      // Case-insensitive: SQLite (always) and MySQL on Windows/macOS resolve `PROJECTS` to `projects`.
+      if (part.kind === 'identifier' && part.name.toLowerCase() === table.toLowerCase()) found.add(table)
       if (part.kind === 'text' && new RegExp(`\\b${table}\\b`, 'i').test(part.text)) found.add(table)
     }
   }

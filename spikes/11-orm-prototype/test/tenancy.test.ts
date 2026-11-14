@@ -18,9 +18,11 @@ import {
 import type { UnsafeTenancyEvent } from '#orm/orm/config'
 import { TenantScopeMissingError, unsafeRaw } from '#orm/orm/tenant-scope'
 import { Label } from '#app/models/label'
+import { Post } from '#app/models/post'
 import { Project } from '#app/models/project'
 import { Task } from '#app/models/task'
 import { TeamProject } from '#app/models/team-project'
+import { User } from '#app/models/user'
 import { execute } from './support/ddl.ts'
 import { type Engine, engines, engineTitle, useEngine } from './support/engines.ts'
 
@@ -163,6 +165,40 @@ function suite(engine: Engine): void {
     // Global tables are fine; and outside a request (migrations, jobs) raw SQL is allowed.
     await asA(() => db.run(sql`SELECT COUNT(*) AS n FROM ${sql.id('users')}`))
     await db.run(sql`SELECT COUNT(*) AS n FROM ${sql.id('projects')}`)
+  })
+
+  test('raw conditions inside a builder query are guarded like hand-written SQL (no tenant oracle through whereRaw)', async () => {
+    await seedTwoTenants()
+    const author = await User.forceCreate({ name: 'Ann', email: 'ann@example.test', is_admin: false })
+    await Post.forceCreate({ title: 'Public', author_id: author.id })
+    // A global root table with a raw EXISTS over another tenant's rows: before the fix the builder
+    // marked the whole statement as checked, so this answered "does B have a project named X?".
+    const oracle = (): Promise<number> =>
+      asA(() => Post.query().whereRaw(sql`EXISTS (SELECT 1 FROM ${sql.id('projects')} WHERE ${sql.id('name')} = ${'Borealis secret'})`).count())
+    await expect(oracle()).rejects.toBeInstanceOf(TenantScopeMissingError)
+    // Plain text mentions and other spellings of the name are refused too (SQLite and MySQL on
+    // Windows/macOS treat table names case-insensitively).
+    await expect(asA(() => Post.query().whereRaw(sql`EXISTS (SELECT 1 FROM tasks)`).count())).rejects.toBeInstanceOf(TenantScopeMissingError)
+    await expect(asA(() => Post.query().whereRaw(sql`EXISTS (SELECT 1 FROM ${sql.id('PROJECTS')})`).count())).rejects.toBeInstanceOf(TenantScopeMissingError)
+    await expect(asA(() => connection().run(sql`SELECT COUNT(*) AS n FROM ${sql.id('Projects')}`))).rejects.toBeInstanceOf(TenantScopeMissingError)
+    // Nested: a raw condition inside a whereHas constraint and inside a where group.
+    await expect(
+      asA(() => Project.query().whereHas('tasks', (query) => query.whereRaw(sql`EXISTS (SELECT 1 FROM ${sql.id('labels')})`)).count()),
+    ).rejects.toBeInstanceOf(TenantScopeMissingError)
+    await expect(asA(() => Post.query().where((query) => query.whereRaw(sql`EXISTS (SELECT 1 FROM ${sql.id('labels')})`)).count())).rejects.toBeInstanceOf(
+      TenantScopeMissingError,
+    )
+    // The ORM's own text conditions on a tenant table keep working, and so does an audited bypass.
+    expect(await asA(() => Project.query().search('apollo', ['name']).filter('name', 'startsWith', 'Ap').count())).toBe(1)
+    const events: UnsafeTenancyEvent[] = []
+    configureOrm({ onUnsafeTenancy: (event) => events.push(event) })
+    const audited = await asA(() =>
+      Post.query()
+        .whereRaw(unsafeRaw('cross-tenant report', sql`EXISTS (SELECT 1 FROM ${sql.id('projects')} WHERE ${sql.id('name')} = ${'Borealis secret'})`))
+        .count(),
+    )
+    expect(audited).toBe(1)
+    expect(events).toEqual([{ kind: 'raw', tables: ['projects'], reason: 'cross-tenant report' }])
   })
 
   test('unsafeWithoutTenancy needs a reason, is audited, and is a real bypass without RLS', async () => {

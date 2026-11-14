@@ -254,7 +254,9 @@ export class Builder<TClass extends AnyModelClass, TResult> {
     const ref = this.#column(column)
     const folded = prefix.toLowerCase()
     // substr counts characters on every engine, so compare against the character count.
-    const fragment = concat(text('substr(lower('), columnSql(ref), text('), 1, '), value([...folded].length), text(') = '), grammar.textParameter(folded))
+    // Built by the ORM from a checked column of this query: marked so the raw-condition guard
+    // (which refuses raw SQL naming tenant tables) doesn't mistake the alias for a raw reference.
+    const fragment = markScoped(concat(text('substr(lower('), columnSql(ref), text('), 1, '), value([...folded].length), text(') = '), grammar.textParameter(folded)))
     this.#where.push({ kind: 'raw', conjunction: 'and', fragment })
     return this
   }
@@ -749,7 +751,7 @@ export class Builder<TClass extends AnyModelClass, TResult> {
     const grammar = this.#model.connection().grammar
     // Fold both sides to lower case so matching is case-insensitive on every engine and collation.
     const haystack = concat(text('lower('), columnSql(ref), text(')'))
-    return concat(grammar.position(haystack, grammar.textParameter(needle.toLowerCase())), text(' > 0'))
+    return markScoped(concat(grammar.position(haystack, grammar.textParameter(needle.toLowerCase())), text(' > 0')))
   }
 
   #defaultTimestamp(): ColumnOf<TableOf<TClass>> {
