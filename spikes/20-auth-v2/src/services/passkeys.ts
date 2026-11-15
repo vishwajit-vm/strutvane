@@ -107,7 +107,7 @@ function isCredentialJson(value: unknown): value is { readonly id: string; reado
 
 /** Build the {@link PasskeyService}. */
 export function passkeyService(deps: AuthDeps): PasskeyService {
-  const nonceCookie = cookieName(deps, 'sv_webauthn')
+  const nonceCookie = cookieName(deps, 'webauthn')
   const rp = (): PasskeyConfig => {
     const config = deps.config.passkeys
     if (!config) throw new AuthError('NOT_FOUND')

@@ -198,8 +198,8 @@ describe.each(STORES)('email link sign-in (%s store)', (store) => {
     await h.user('ada@acme.test')
     const b = new Browser()
     await h.auth.emailLink.request(b.req, { email: 'ada@acme.test' })
-    expect(b.get('__Host-sv_link')).toBeDefined()
-    expect(b.get('sv_link')).toBeUndefined()
+    expect(b.get('__Host-strutvane_link')).toBeDefined()
+    expect(b.get('strutvane_link')).toBeUndefined()
   })
 
   it('attack: a FORWARDED link does not sign in the recipient, and does not burn the link', async () => {

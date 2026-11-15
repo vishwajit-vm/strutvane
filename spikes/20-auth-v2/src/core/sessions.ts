@@ -25,7 +25,7 @@ const TOUCH_EVERY_MS = 60_000
 
 /** The name of the session cookie for this app. */
 export function sessionCookie(deps: AuthDeps): string {
-  return cookieName(deps, 'sv_session')
+  return cookieName(deps, 'session')
 }
 
 /** The global role allowed to impersonate (and protected from being impersonated). */

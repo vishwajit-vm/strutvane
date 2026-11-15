@@ -4,7 +4,7 @@ import { sessionCookie } from '../src/core/sessions.ts'
 import { AUTH_MESSAGES, AuthError } from '../src/errors.ts'
 import { Browser, FAST_HASHER, harness, PASSWORD, rejectsWith, STORES } from './helpers/harness.ts'
 
-const COOKIE = 'sv_session'
+const COOKIE = 'strutvane_session'
 
 describe.each(STORES)('email + password (%s store)', (store) => {
   describe('registration', () => {
@@ -391,7 +391,7 @@ describe.each(STORES)('email + password (%s store)', (store) => {
       const h = harness({ store, config: { appUrl: 'https://app.example.com' } })
       await h.user()
       const b = await h.signedIn('ada@acme.test')
-      expect(b.get('__Host-sv_session')).toBeDefined()
+      expect(b.get('__Host-strutvane_session')).toBeDefined()
       expect(b.get(COOKIE)).toBeUndefined()
     })
   })
@@ -399,7 +399,7 @@ describe.each(STORES)('email + password (%s store)', (store) => {
 
 describe('session cookie helper', () => {
   it('names the cookie per scheme', () => {
-    expect(COOKIE).toBe('sv_session')
+    expect(COOKIE).toBe('strutvane_session')
     expect(typeof sessionCookie).toBe('function')
   })
 })

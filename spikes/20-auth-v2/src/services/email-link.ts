@@ -59,7 +59,7 @@ export interface EmailLinkService {
 
 /** The browser-binding cookie name. */
 export function linkNonceCookie(deps: AuthDeps): string {
-  return cookieName(deps, 'sv_link')
+  return cookieName(deps, 'emailLink')
 }
 
 /** Build the {@link EmailLinkService}. */

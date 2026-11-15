@@ -69,9 +69,9 @@ describe.each(STORES)('teams (%s store)', (store) => {
     await rejectsWith(() => h.auth.teams.accept(eve.req, { token }), 'INVALID_TOKEN')
     await rejectsWith(() => h.auth.teams.accept(eve.req, { token: 'A'.repeat(43) }), 'INVALID_TOKEN')
     const vic = await h.signedIn('vic@acme.test')
-    const before = vic.get('sv_session')
+    const before = vic.get('strutvane_session')
     expect(await h.auth.teams.accept(vic.req, { token })).toEqual({ id: team.id, name: 'Acme', role: 'viewer' })
-    expect(vic.get('sv_session')).not.toBe(before) // privilege change → rotation
+    expect(vic.get('strutvane_session')).not.toBe(before) // privilege change → rotation
     expect((await h.auth.teams.current(vic.req))?.id).toBe(team.id)
     await rejectsWith(() => h.auth.teams.accept(vic.req, { token }), 'INVALID_TOKEN')
     const late = await invite(h, ada, team.id, 'eve@acme.test')
@@ -132,9 +132,9 @@ describe.each(STORES)('teams (%s store)', (store) => {
     const personal = await h.auth.teams.current(ada.req)
     const acme = await h.auth.teams.create(ada.req, { name: 'Acme' })
     expect((await h.auth.teams.list(ada.req)).map((t) => t.name).sort()).toEqual(['Acme', "ada's team"])
-    const before = ada.get('sv_session')
+    const before = ada.get('strutvane_session')
     await h.auth.teams.switch(ada.req, { teamId: personal?.id })
-    expect(ada.get('sv_session')).not.toBe(before)
+    expect(ada.get('strutvane_session')).not.toBe(before)
     expect((await h.auth.teams.current(ada.req))?.id).toBe(personal?.id)
     expect(h.eventsOf('team.switched')).toHaveLength(1)
     const inv = await h.auth.teams.invite(ada.req, { teamId: acme.id, email: 'z@acme.test', role: 'member' })

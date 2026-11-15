@@ -120,7 +120,7 @@ describe('HTTP adapter', () => {
     const login = await handle(https('POST', '/login', { body: { email: 'ada@acme.test', password: PASSWORD } }), { ip: '192.0.2.1' })
     expect(login.status).toBe(200)
     const setCookie = login.headers.getSetCookie()[0] ?? ''
-    expect(setCookie).toMatch(/^__Host-sv_session=[A-Za-z0-9_-]{43}; Path=\/; HttpOnly; SameSite=Lax; Secure$/)
+    expect(setCookie).toMatch(/^__Host-strutvane_session=[A-Za-z0-9_-]{43}; Path=\/; HttpOnly; SameSite=Lax; Secure$/)
     expect(login.headers.get('cache-control')).toBe('no-store')
     const me = await handle(https('GET', '/user', { cookie: cookiesOf(login) }), { ip: '192.0.2.1' })
     expect(((await me.json()) as { user: { email: string } }).user.email).toBe('ada@acme.test')

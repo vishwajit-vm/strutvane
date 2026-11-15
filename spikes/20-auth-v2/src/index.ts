@@ -7,6 +7,7 @@
  * @module
  */
 export { type Auth, type AuthPorts, type AuthState, createAuth, type SystemService } from './auth.ts'
+export { COOKIE_NAMES, type CookieKind } from './core/deps.ts'
 export {
   type AuthConfig,
   type AuthConfigInput,

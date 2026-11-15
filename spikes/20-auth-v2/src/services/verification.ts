@@ -62,7 +62,7 @@ export async function remindToVerify(deps: AuthDeps, user: UserRecord): Promise<
 
 /** The cookie that binds a registration to the browser that made it (CONSISTENCY #122). */
 export function registrationCookie(deps: AuthDeps): string {
-  return cookieName(deps, 'strutvane_register')
+  return cookieName(deps, 'registration')
 }
 
 /**

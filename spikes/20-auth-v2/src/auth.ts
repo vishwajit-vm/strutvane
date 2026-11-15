@@ -7,7 +7,7 @@
 import type { AuthConfig } from './config.ts'
 import { createKeyRing } from './crypto/keys.ts'
 import { newId } from './crypto/random.ts'
-import { type AuthDeps, createBackground } from './core/deps.ts'
+import { type AuthDeps, COOKIE_NAMES, type CookieKind, createBackground, resolveCookieName } from './core/deps.ts'
 import { activeSession, readSession } from './core/sessions.ts'
 import { type ChallengeMethod, challengeMethods } from './core/sign-in.ts'
 import { AuthError } from './errors.ts'
@@ -94,6 +94,11 @@ export interface SystemService {
 /** Everything `createAuth` returns. */
 export interface Auth {
   readonly config: AuthConfig
+  /**
+   * Every cookie name this core uses, resolved for the app's scheme (`__Host-strutvane_session`
+   * on https). The ONE source the framework's CSRF check and session middleware read (#105).
+   */
+  readonly cookieNames: Readonly<Record<CookieKind, string>>
   /** The signed-in user, or `null` for guests (a pending 2FA sign-in is a guest). */
   state(req: AuthRequest): Promise<AuthState | null>
   /** When a sign-in waits for its second factor: the methods it can use; otherwise `null`. */
@@ -146,8 +151,12 @@ export function createAuth(ports: AuthPorts): Auth {
   }
   const teams = teamService(deps)
 
+  const cookieNames = Object.freeze(
+    Object.fromEntries(Object.keys(COOKIE_NAMES).map((kind) => [kind, resolveCookieName(ports.config.secureCookies, kind as CookieKind)])) as Record<CookieKind, string>,
+  )
   const auth: Auth = {
     config: ports.config,
+    cookieNames,
     async state(req: AuthRequest): Promise<AuthState | null> {
       const active = await activeSession(deps, req)
       if (!active) return null

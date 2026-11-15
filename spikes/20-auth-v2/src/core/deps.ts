@@ -80,7 +80,7 @@ export type EventInput = DistributiveOmit<AuthEvent, 'at' | 'ip' | 'actorId' | '
  * row (not from what a service passes), so no event can forget it while impersonating.
  */
 async function actorOf(deps: AuthDeps, req: AuthRequest | undefined): Promise<string | null> {
-  const raw = parseSecret(req?.cookies.get(cookieName(deps, 'sv_session')))
+  const raw = parseSecret(req?.cookies.get(cookieName(deps, 'session')))
   if (raw === undefined) return null
   const session = await deps.store.findSession(deps.keys.digest('session', raw))
   if (!session || session.state !== 'active') return null
@@ -123,7 +123,28 @@ export function accountKey(deps: AuthDeps, normalizedEmail: string): string {
   return deps.keys.digest('email-digest', normalizedEmail).slice(0, 32)
 }
 
-/** A cookie name, `__Host-` prefixed on https so a sibling subdomain cannot set or shadow it. */
-export function cookieName(deps: AuthDeps, base: string): string {
-  return deps.config.secureCookies ? `__Host-${base}` : base
+/**
+ * Every cookie the auth core sets, in ONE place (CONSISTENCY #24, #105). The framework's CSRF
+ * check, its session middleware and this core must agree on these names; reading them from here
+ * (resolved per scheme: `auth.cookieNames`) is what keeps them from drifting apart.
+ */
+export const COOKIE_NAMES = Object.freeze({
+  session: 'strutvane_session',
+  emailLink: 'strutvane_link',
+  device: 'strutvane_device',
+  webauthn: 'strutvane_webauthn',
+  registration: 'strutvane_register',
+} as const)
+
+/** Which cookie: a key of {@link COOKIE_NAMES} (a free-form name does not compile). */
+export type CookieKind = keyof typeof COOKIE_NAMES
+
+/** A cookie's name for this app: `__Host-` prefixed on https, so a sibling host cannot set or shadow it. */
+export function cookieName(deps: AuthDeps, kind: CookieKind): string {
+  return resolveCookieName(deps.config.secureCookies, kind)
+}
+
+/** {@link cookieName} without the deps: what `auth.cookieNames` is built from. */
+export function resolveCookieName(secure: boolean, kind: CookieKind): string {
+  return secure ? `__Host-${COOKIE_NAMES[kind]}` : COOKIE_NAMES[kind]
 }

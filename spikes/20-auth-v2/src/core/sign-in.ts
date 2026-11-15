@@ -24,7 +24,7 @@ export type SignInResult =
 
 /** The "remember this device" cookie name. */
 export function deviceCookie(deps: AuthDeps): string {
-  return cookieName(deps, 'sv_device')
+  return cookieName(deps, 'device')
 }
 
 /** True when two-factor is on for the app AND confirmed by this user. */

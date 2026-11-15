@@ -22,7 +22,7 @@ export interface CookieOptions {
  * @example
  * ```ts
  * const jar = fetchCookieJar(request) // the example adapter's implementation
- * jar.get('sv_session')
+ * jar.get(auth.cookieNames.session) // 'strutvane_session', or '__Host-strutvane_session' on https
  * ```
  */
 export interface CookieJar {
