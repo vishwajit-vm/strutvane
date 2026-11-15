@@ -190,3 +190,9 @@ The docs pass found places where the blueprint and the spikes disagree. When a m
 |---|---|---|---|
 | 120 | Flags that npm swallows without a trace | Rename `--auth` to `--sign-in` and `--ci`/`--no-ci` to `--ci-workflow`/`--no-ci-workflow`. npm consumes the old names silently even after `npm create …`. The old names stay accepted after `--` and print a one-line rename hint. Docs and the question table use the new names. | spike 13, docs |
 | 121 | Atomic migrations | A migration's statements and its `migrations` record are written in one transaction where the engine allows it (PostgreSQL, SQLite). On MySQL/MariaDB, each statement is recorded as it completes, so a re-run resumes inside the migration (blueprint §2.4). | spike 10, framework |
+
+## Ninth pass (refines #114, 2026-11-15)
+
+| # | Topic | Decision | Owner |
+|---|---|---|---|
+| 122 | Pre-hijacking without punishing normal sign-ups | Registration binds the account to the registering browser with a `__Host-` nonce cookie (same pattern as the email-link binding). When the verification link is opened **in that same browser**, the password the user chose is kept: no extra step. When it's opened **in a different browser**, or through an email-link sign-in, the pre-verification password and every session and token are cleared and the owner sets a new password (#114). A completed password reset also marks the address verified. | spike 20, auth |
