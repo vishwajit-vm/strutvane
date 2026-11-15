@@ -160,6 +160,16 @@ describe('flags: one for every question (CI mode)', () => {
   })
 })
 
+// Regression (class: a name that is valid here but not where it is used). "~" passed the check,
+// but npm refuses it for new packages, `cd ~app` (printed in the summary) goes to another user's
+// home folder, and the Docker Compose project name "-app" derived from "~app" is invalid.
+describe('project names that break npm, the shell or Docker', () => {
+  it('refuses "~" anywhere in the name', () => {
+    for (const name of ['~', '~app', 'my~app', 'app~']) expect(validateProjectName(name).join(' '), name).toMatch(/only contain letters, digits/)
+    expect(validateProjectName('my-app.v2_x')).toEqual([])
+  })
+})
+
 describe('flags swallowed by npm (options before "--")', () => {
   it('finds our flags in npm_config_* variables, including npm\'s --auth → auth-type expansion', () => {
     const env = {

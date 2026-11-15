@@ -33,8 +33,10 @@ export function validateProjectName(name: string): string[] {
   if (/[/\\]/.test(name)) problems.push('the project name cannot contain "/" or "\\"')
   // Checked on the name without spaces and slashes, so one bad character is reported only once.
   const rest = name.replace(/\s/g, '').replace(/[/\\]/g, '')
-  if (!/^[a-z0-9._~-]*$/i.test(rest)) {
-    problems.push('the project name may only contain letters, digits, "-", ".", "_" and "~"')
+  // No "~": npm refuses it in new package names, a leading "~" is the home folder in every shell
+  // ("cd ~app" goes to user app's home), and Docker Compose project names cannot start with it.
+  if (!/^[a-z0-9._-]*$/i.test(rest)) {
+    problems.push('the project name may only contain letters, digits, "-", "." and "_"')
   }
   if (name.endsWith('.')) problems.push('the project name cannot end with "." (Windows drops it)')
   if (NPM_BLOCKED.has(name.toLowerCase())) problems.push(`"${name}" is not allowed by npm`)
