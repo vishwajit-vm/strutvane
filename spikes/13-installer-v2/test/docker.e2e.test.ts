@@ -163,6 +163,70 @@ describe.skipIf(!dockerWorks)('real Docker mode (everything in containers)', () 
   }, 600_000)
 })
 
+/** Images and containers this file builds for the production image test (removed in afterAll). */
+const images: string[] = []
+const productionContainers: string[] = []
+afterAll(() => {
+  for (const name of productionContainers) spawnSync('docker', ['rm', '-f', name], { encoding: 'utf8', timeout: 60_000 })
+  for (const image of images) spawnSync('docker', ['rmi', '-f', image], { encoding: 'utf8', timeout: 60_000 })
+}, 120_000)
+
+/** Run docker, failing the test with its output when it fails. */
+function dockerOk(args: string[], timeout = 300_000): string {
+  const result = spawnSync('docker', args, { encoding: 'utf8', timeout })
+  if (result.status !== 0) throw new Error(`docker ${args.join(' ')}: ${result.stdout}${result.stderr}`)
+  return result.stdout.trim()
+}
+
+// ADR-0021: the committed production Dockerfile, built and run for real. Before this test the
+// image built but crashed at start (sources missing), listened on 127.0.0.1 inside the container,
+// waited 10 s for SIGKILL on `docker stop`, and gave the app user write access to its own code.
+describe.skipIf(!dockerWorks)('the generated production image (ADR-0021)', () => {
+  it('runs as non-root, holds no .env or secret, passes its HEALTHCHECK, survives --read-only and stops cleanly on SIGTERM', async () => {
+    const root = tempFolder('s13-prod-')
+    const name = `s13-prod-${process.pid.toString(36)}-${Math.random().toString(36).slice(2, 6)}`
+    const install = spawnSync(process.execPath, [CLI, name, '--yes', '--no-docker', '--db', 'sqlite', '--deploy', 'docker', '--no-git', '--no-dev'], {
+      cwd: root,
+      env: cleanEnvironment(),
+      encoding: 'utf8',
+      timeout: 600_000,
+    })
+    expect(install.status, `${install.stdout}${install.stderr}`).toBe(0)
+    const directory = join(root, name)
+    const secrets = parseEnv(readFileSync(join(directory, '.env'), 'utf8'))
+    const image = `${name}:audit`
+    images.push(image)
+    dockerOk(['build', '-t', image, directory], 600_000)
+
+    // No layer holds .env, and no secret value from .env appears anywhere in the image.
+    // (process.env in the HEALTHCHECK command is code, not a file.)
+    expect(dockerOk(['history', '--no-trunc', '--format', '{{.CreatedBy}}', image])).not.toMatch(/(?<!process)\.env\b/)
+    const scan = dockerOk(['run', '--rm', '--entrypoint', 'sh', image, '-c', 'id -u; find / -xdev -name ".env*" 2>/dev/null; grep -rl -e "$0" -e "$1" /app 2>/dev/null; echo end', secrets.get('APP_KEY') ?? 'x', secrets.get('AUTH_SECRET') ?? 'x'])
+    expect(scan.split('\n')).toEqual(['1000', 'end'])
+    expect(dockerOk(['run', '--rm', '--entrypoint', 'sh', image, '-c', 'touch /app/build/server.js 2>&1 || echo read-only'])).toMatch(/read-only/)
+
+    // Run it like a host would: settings as environment variables, the port published by us.
+    const container = `${name}-run`
+    productionContainers.push(container)
+    dockerOk(['run', '-d', '--read-only', '--name', container, '-p', '127.0.0.1::3000', '-e', 'APP_KEY=from-the-platform', image])
+    const port = Number(dockerOk(['port', container, '3000/tcp']).split('\n')[0]?.split(':').at(-1))
+    const deadline = Date.now() + 90_000
+    let health = ''
+    while (Date.now() < deadline) {
+      health = dockerOk(['inspect', '--format', '{{.State.Health.Status}}', container])
+      if (health === 'healthy' || health === 'unhealthy') break
+      await new Promise((resolve) => setTimeout(resolve, 1000))
+    }
+    expect(health, dockerOk(['logs', container])).toBe('healthy')
+    expect(await get(port, '/up')).toEqual({ status: 200, body: 'up' })
+
+    const started = Date.now()
+    dockerOk(['stop', '-t', '10', container])
+    expect(Date.now() - started).toBeLessThan(6000) // SIGTERM handled; not the 10 s kill
+    expect(dockerOk(['inspect', '--format', '{{.State.ExitCode}}', container])).toBe('0')
+  }, 900_000)
+})
+
 describe.skipIf(dockerWorks)('real Docker mode', () => {
   it('is skipped: Docker is not available on this machine', () => {
     writeFileSync(join(tempFolder(), 'skipped.txt'), 'docker not available')

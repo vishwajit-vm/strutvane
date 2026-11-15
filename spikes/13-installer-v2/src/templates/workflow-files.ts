@@ -153,10 +153,11 @@ ${common}
  */
 function dockerfile(options: ProjectOptions): string {
   const node = `node:${CONTAINER_NODE_MAJOR}-bookworm-slim`
-  return `# syntax=docker/dockerfile:1
-# Production image for ${options.name} (ADR-0021: committed because you chose "Docker image").
+  return `# Production image for ${options.name} (ADR-0021: committed because you chose "Docker image").
 # Secrets are never copied in: .dockerignore excludes every .env* file, and the platform passes
 # settings as environment variables when the container starts. Regenerate: node strut docker:prod
+# No "# syntax=" line on purpose: it would fetch an unpinned build frontend from a registry on
+# every build; nothing here needs more than the builder's own Dockerfile support.
 
 # 1. Build: install everything (dev dependencies too) and compile to build/.
 FROM ${node} AS build
@@ -175,17 +176,20 @@ COPY package.json package-lock.json .npmrc ./
 COPY stubs/ ./stubs/
 RUN npm ci --omit=dev --ignore-scripts
 
-# 3. Run: only build/ and production dependencies, as the image's non-root "node" user.
+# 3. Run: only build/ and production dependencies, as the image's non-root "node" user. The files
+#    stay owned by root, so the app cannot change its own code (it also runs with --read-only).
 FROM ${node}
 ENV NODE_ENV=production
+# Listen on the container's network; you decide where it is published (docker run -p ...).
+ENV APP_HOST=0.0.0.0
 WORKDIR /app
-COPY --from=deps --chown=node:node /app/node_modules ./node_modules
-COPY --from=deps --chown=node:node /app/stubs ./stubs
-COPY --from=build --chown=node:node /app/build ./build
-COPY --chown=node:node package.json ./
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/stubs ./stubs
+COPY --from=build /app/build ./build
+COPY package.json ./
 USER node
 EXPOSE 3000
-HEALTHCHECK --interval=30s --timeout=3s --start-period=15s --retries=3 \\
+HEALTHCHECK --interval=30s --timeout=3s --start-period=15s --start-interval=2s --retries=3 \\
   CMD node -e "fetch('http://127.0.0.1:' + (process.env.APP_PORT || 3000) + '/up').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"
 CMD ["node", "build/server.js"]
 `

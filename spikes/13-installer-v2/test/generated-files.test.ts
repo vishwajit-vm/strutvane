@@ -183,6 +183,18 @@ describe('container files (ADR-0021: committed only when chosen)', () => {
     expect(runStage.indexOf('USER node')).toBeLessThan(runStage.indexOf('CMD'))
   })
 
+  // Regression (class: an image that builds but does not run as deployed). Found by building and
+  // running the generated image for real: it crashed (sources missing from build/), listened on
+  // 127.0.0.1 only inside the container, ignored SIGTERM, and fetched an unpinned "syntax" frontend.
+  it('the Dockerfile: listens on the container network, keeps code root-owned, no remote build frontend', () => {
+    const dockerfile = file(files({ deploy: 'docker' }), 'Dockerfile')
+    const runStage = dockerfile.slice(dockerfile.lastIndexOf('\nFROM '))
+    expect(runStage).toMatch(/^ENV APP_HOST=0\.0\.0\.0$/m)
+    expect(dockerfile).not.toMatch(/^#\s*syntax=/m)
+    expect(runStage).not.toContain('--chown') // the app user may read its code, never change it
+    expect(dockerfile).toMatch(/HEALTHCHECK [^\n]*--start-interval=/)
+  })
+
   it('container files never contain or copy a secret, and never copy .env', () => {
     const project = files({ deploy: 'docker', devContainer: true, database: 'postgres', ai: true })
     for (const path of ['Dockerfile', '.dockerignore', '.devcontainer/devcontainer.json', '.devcontainer/compose.yaml']) {

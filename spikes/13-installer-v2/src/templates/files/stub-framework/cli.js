@@ -6,7 +6,7 @@
 // Exit codes: 0 ok, 1 failed, 3 database unreachable (the installer offers Retry / Skip for 3).
 import { spawnSync } from 'node:child_process'
 import { randomBytes, scryptSync } from 'node:crypto'
-import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { createServer } from 'node:http'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -16,10 +16,16 @@ import { createSchema, sqlValue } from './index.js'
 
 const UNREACHABLE = 3
 
-/** Read .env with Node's own parser (the same one as `node --env-file`). */
+/**
+ * The settings: real environment variables, with `.env` (read by Node's own parser, the same one
+ * as `node --env-file`) on top when it exists. A production container has no `.env`: its host
+ * passes everything as environment variables (ADR-0021), so they must count too.
+ */
 function readEnv(root) {
   const file = join(root, '.env')
-  return existsSync(file) ? parseEnv(readFileSync(file, 'utf8')) : {}
+  const fromFile = existsSync(file) ? parseEnv(readFileSync(file, 'utf8')) : {}
+  const fromProcess = Object.fromEntries(Object.entries(process.env).filter(([, value]) => typeof value === 'string'))
+  return { ...fromProcess, ...fromFile }
 }
 
 /** A friendly failure: what went wrong and how to fix it. */
@@ -113,9 +119,12 @@ function readablePassword() {
 
 /** Seeding is for development: refuse anywhere that looks like a real deployment (security review F-18). */
 function assertDevelopment(env) {
-  if (['production', 'staging'].includes(env.APP_ENV)) {
+  // Either source saying production is enough: a deployment may set APP_ENV in its environment
+  // while an old .env copied along still says "local".
+  const deployed = [env.APP_ENV, process.env.APP_ENV].find((value) => ['production', 'staging'].includes(value))
+  if (deployed !== undefined) {
     throw new CommandError(
-      `Refusing to seed with APP_ENV=${env.APP_ENV}: seeded accounts are for development only. ` +
+      `Refusing to seed with APP_ENV=${deployed}: seeded accounts are for development only. ` +
         'Create a production admin with: node strut user:create --password-env',
     )
   }
@@ -183,18 +192,23 @@ function allowedHosts(env) {
   return hosts
 }
 
-/** Serve the app on 127.0.0.1:APP_PORT until Ctrl+C. */
-async function dev(root, env) {
+/**
+ * Serve the app on APP_HOST:APP_PORT until Ctrl+C or SIGTERM. APP_HOST is 127.0.0.1 unless set:
+ * 0.0.0.0 inside a container (compose and the production Dockerfile set it; the host publishes
+ * the port). On SIGTERM/SIGINT the server stops taking connections, finishes, and exits 0, so
+ * `docker stop` takes a moment, not its 10-second kill timeout.
+ */
+async function serve(root, env, label) {
   const { default: app } = await import(pathToFileURL(join(root, 'bootstrap', 'app.ts')).href)
   const port = Number(env.APP_PORT || 3000)
   const hosts = allowedHosts(env)
   const server = createServer(async (request, response) => {
     // A web page you visit could point its own domain at 127.0.0.1 (DNS rebinding); the Host
-    // header then names that domain. Only answer our own names.
+    // header then names that domain. Only answer our own names (APP_URL's host in production).
     const host = (request.headers.host ?? '').replace(/:\d+$/, '')
     if (!hosts.has(host)) {
       response.writeHead(403, { 'content-type': 'application/problem+json' })
-      response.end(JSON.stringify({ title: 'Forbidden host', status: 403, detail: `Host "${host}" is not allowed in development.` }))
+      response.end(JSON.stringify({ title: 'Forbidden host', status: 403, detail: `Host "${host}" is not allowed. Set APP_URL to the address people use.` }))
       return
     }
     const { status, body } = await app.handle(request.method, new URL(request.url, 'http://localhost').pathname)
@@ -206,27 +220,48 @@ async function dev(root, env) {
     server.once('error', (error) =>
       reject(new CommandError(error.code === 'EADDRINUSE' ? `Port ${port} is in use. Change APP_PORT in .env.` : error.message)),
     )
-    // Loopback only on this computer; 0.0.0.0 inside the app container (compose publishes the
-    // port on the host's 127.0.0.1 only), set by APP_HOST in docker/compose.yaml.
-    server.listen(port, process.env.APP_HOST || '127.0.0.1', resolve)
+    server.listen(port, env.APP_HOST || '127.0.0.1', resolve)
   })
-  process.stdout.write(`\n  ${env.APP_NAME}  development\n  App + API   http://localhost:${port}\n  Press Ctrl+C to stop\n`)
-  await new Promise(() => {}) // run until the process is stopped
+  process.stdout.write(`\n  ${env.APP_NAME ?? 'app'}  ${label}\n  App + API   http://localhost:${port}\n  Press Ctrl+C to stop\n`)
+  await new Promise((resolve) => {
+    const stop = () => {
+      server.close(() => resolve(undefined))
+      server.closeIdleConnections()
+      // Requests still running get a few seconds, then the rest are cut.
+      setTimeout(() => server.closeAllConnections(), 5000).unref()
+    }
+    process.once('SIGTERM', stop)
+    process.once('SIGINT', stop)
+  })
+  return 0
 }
 
-/** Spike only: the "production server" reuses the dev server. The real build bundles and runs `vite build`. */
+/** The app's runtime sources the production server loads (the real build bundles them). */
+const RUNTIME_FOLDERS = ['bootstrap', 'app', 'routes', 'config']
+
+/**
+ * Spike only: the "production build" copies the runtime sources into build/ and writes a server
+ * that serves them, so build/ (plus production dependencies) is all an image needs. The real
+ * build bundles and runs `vite build`.
+ */
 function build(root) {
-  mkdirSync(join(root, 'build'), { recursive: true })
+  const out = join(root, 'build')
+  rmSync(out, { recursive: true, force: true })
+  mkdirSync(out, { recursive: true })
+  for (const folder of RUNTIME_FOLDERS) {
+    if (existsSync(join(root, folder))) cpSync(join(root, folder), join(out, folder), { recursive: true })
+  }
   writeFileSync(
-    join(root, 'build', 'server.js'),
+    join(out, 'server.js'),
     [
+      '// Production server (spike build): serves the sources copied next to this file.',
       "import { fileURLToPath } from 'node:url'",
       "const { run } = await import('@strutvane/framework/cli')",
-      "process.exitCode = await run(['dev'], { root: fileURLToPath(new URL('..', import.meta.url)) })",
+      "process.exitCode = await run(['serve'], { root: fileURLToPath(new URL('.', import.meta.url)) })",
       '',
     ].join('\n'),
   )
-  process.stdout.write('Built build/server.js (start it with: npm start)\n')
+  process.stdout.write('Built build/ (start it with: npm start)\n')
   return 0
 }
 
@@ -277,8 +312,9 @@ export async function run(argv, { root }) {
         await resetPassword(root, env, rest[0])
         return 0
       case 'dev':
-        await dev(root, env)
-        return 0
+        return await serve(root, env, 'development')
+      case 'serve':
+        return await serve(root, env, process.env.NODE_ENV === 'production' ? 'production' : 'server')
       case 'build':
         return build(root)
       case 'test': {

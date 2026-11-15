@@ -244,9 +244,13 @@ inside the container), Host allowlist · F-20 owner/app PostgreSQL roles, every 
   answers drive package.json, the lockfile and the config files only; the packages themselves are
   not built. Commands the generated files mention but the stub CLI lacks: `design:use`,
   `token:create`, `docker:prod`, `install:<name>`, `add`.
-- **The Dockerfile and the dev container were not built or run** (content tested only); the
-  build/runtime stages reference `stubs/`, which a release drops. The dev container has no
-  database service (SQLite works; server databases need your own DB_* settings).
+- **The production Dockerfile is built and run for real** (`docker.e2e.test.ts`, 2026-11-15):
+  uid 1000, no `.env` in any layer or file, no secret value in `/app`, code not writable by the
+  app user, HEALTHCHECK healthy on `/up`, runs with `--read-only`, `docker stop` exits 0 in
+  about a second (SIGTERM handled). The first real build found it crashed at start (sources
+  missing from `build/`), listened on 127.0.0.1 inside the container and ignored SIGTERM; fixed.
+  The stages still reference `stubs/`, which a release drops. **The dev container was not built
+  or run**; it has no database service (SQLite works; server databases need your own DB_*).
 - **The clack `groupMultiselect` / `autocompleteMultiselect` pickers** (question 22) were not
   driven in a real terminal; the flows are proven with the scripted prompter only.
 - **Swallowed new flags** (`--design`, `--security`, `--cache-store`, ...) are detected from

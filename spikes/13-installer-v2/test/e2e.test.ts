@@ -7,7 +7,7 @@
  * `npm run setup` (real npm) finishes the job after the identity is set.
  */
 import { type ChildProcess, spawn, spawnSync } from 'node:child_process'
-import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { cpSync, existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { request } from 'node:http'
 import { join } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
@@ -190,6 +190,37 @@ describe('real end-to-end run (SQLite, no Docker)', () => {
     // DNS rebinding defence (security review F-19).
     expect((await get(port, '/', 'evil.example')).status).toBe(403)
     dev.kill()
+  })
+
+  // Regression (class: a build that only runs inside the source tree). The production image ships
+  // only build/, production dependencies and package.json; the old build pointed back at the
+  // project's sources, so the image crashed at start. Here: copy exactly what the image copies,
+  // with no .env, and serve from settings given as environment variables only.
+  it('the production build runs alone: only build/ + dependencies, settings from the environment', async () => {
+    const env = cleanEnvironment(gitConfig)
+    expect(run(process.execPath, ['strut.js', 'build'], directory, env).code).toBe(0)
+    const image = tempFolder('s13-image-')
+    for (const part of ['build', 'node_modules', 'stubs', 'package.json']) cpSync(join(directory, part), join(image, part), { recursive: true, verbatimSymlinks: true })
+    expect(existsSync(join(image, '.env'))).toBe(false)
+    const port = 39_000 + Math.floor(Math.random() * 500)
+    const server = spawn(process.execPath, ['build/server.js'], { cwd: image, env: { ...env, NODE_ENV: 'production', APP_PORT: String(port), APP_NAME: 'acme-e2e' }, windowsHide: true })
+    children.push(server)
+    await new Promise<void>((resolve, reject) => {
+      let output = ''
+      const timer = setTimeout(() => reject(new Error(`server did not start: ${output}`)), 20_000)
+      const seen = (chunk: Buffer) => {
+        output += chunk.toString()
+        if (output.includes('http://localhost:')) {
+          clearTimeout(timer)
+          resolve()
+        }
+      }
+      server.stdout.on('data', seen)
+      server.stderr.on('data', seen)
+    })
+    expect((await get(port, '/api/v1/health', `localhost:${port}`)).body).toBe('{"status":"ok"}')
+    expect((await get(port, '/', 'evil.example')).status).toBe(403)
+    server.kill()
   })
 
   it('the setup log exists and holds no generated secret', () => {
