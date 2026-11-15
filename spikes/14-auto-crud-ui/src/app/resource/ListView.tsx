@@ -74,6 +74,9 @@ export function ListView({ resource, params, onChange, compact = false }: ListVi
   const noun = resource.label.plural.toLowerCase()
   const filtered = params.search.trim() !== '' || activeFilterCount(params.filters, params.trashed) > 0
   const clearAll = (): void => onChange({ search: '', filters: {}, trashed: 'without', page: 1 })
+  // For a list URL the server refuses (an unknown field or operator, an over-long search).
+  const resetAll = (): void => onChange({ search: '', filters: {}, trashed: 'without', page: 1, sort: resource.defaultSort })
+  const lastPage = query.data?.meta.lastPage ?? 1
 
   const body = (
     <div className="space-y-4">
@@ -89,11 +92,21 @@ export function ListView({ resource, params, onChange, compact = false }: ListVi
         {query.data === undefined ? '' : `${query.data.meta.total} ${noun} found`}
       </p>
       {query.isError ? (
-        <LoadError what={noun} error={query.error} onRetry={() => void query.refetch()} />
+        <LoadError what={noun} error={query.error} onRetry={() => void query.refetch()} onReset={{ label: 'Reset search, filters and sort', run: resetAll }} />
       ) : query.data === undefined ? (
         <LoadingRows resource={resource} />
       ) : query.data.meta.total === 0 ? (
         <EmptyState resource={resource} filtered={filtered} onClear={clearAll} />
+      ) : rows.length === 0 && params.page > lastPage ? (
+        // A stale or edited URL (?page=99): there ARE rows, just not on this page.
+        <div className="rounded-xl border border-dashed px-4 py-10 text-center">
+          <p className="font-medium">
+            Page {params.page} is past the end: there {lastPage === 1 ? 'is 1 page' : `are ${lastPage} pages`}.
+          </p>
+          <Button variant="outline" className="mt-4" onClick={() => onChange({ page: lastPage })}>
+            Go to the last page ({lastPage})
+          </Button>
+        </div>
       ) : (
         <>
           <ResourceTable resource={resource} rows={rows} columns={columns} density={view.prefs.density} highlight={params.search} sort={params.sort} related={related.data} busy={query.isPlaceholderData} onSort={(field) => onChange({ sort: nextSort(params.sort, field, resource.defaultSort), page: 1 })} />

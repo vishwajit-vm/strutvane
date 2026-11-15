@@ -47,6 +47,17 @@ export interface LoadErrorProps {
   readonly what: string
   readonly error: unknown
   readonly onRetry: () => void
+  /**
+   * Offered instead of Retry when the server refused the request itself (a 4xx such as an unknown
+   * sort field in a pasted URL): retrying the same request can never work.
+   */
+  readonly onReset?: { readonly label: string; readonly run: () => void }
+}
+
+/** Worth retrying unchanged: network failures, timeouts, rate limits and server errors. */
+function retryable(error: unknown): boolean {
+  if (!(error instanceof ApiError)) return true
+  return error.status === 0 || error.status === 408 || error.status === 429 || error.status >= 500
 }
 
 /**
@@ -55,7 +66,7 @@ export interface LoadErrorProps {
  * @example
  * {query.isError && <LoadError what="posts" error={query.error} onRetry={() => query.refetch()} />}
  */
-export function LoadError({ what, error, onRetry }: LoadErrorProps): ReactElement {
+export function LoadError({ what, error, onRetry, onReset }: LoadErrorProps): ReactElement {
   const detail = error instanceof ApiError ? error.message : 'Something unexpected happened.'
   const issues = error instanceof ApiError ? error.issues : []
   return (
@@ -68,9 +79,15 @@ export function LoadError({ what, error, onRetry }: LoadErrorProps): ReactElemen
           ))}
         </ul>
       )}
-      <Button variant="outline" size="sm" className="mt-2" onClick={onRetry}>
-        Retry
-      </Button>
+      {onReset !== undefined && !retryable(error) ? (
+        <Button variant="outline" size="sm" className="mt-2" onClick={onReset.run}>
+          {onReset.label}
+        </Button>
+      ) : (
+        <Button variant="outline" size="sm" className="mt-2" onClick={onRetry}>
+          Retry
+        </Button>
+      )}
     </Alert>
   )
 }

@@ -99,6 +99,31 @@ describe('typed filters', () => {
   })
 })
 
+describe('hostile or stale list URLs', () => {
+  it('a page past the end says so and offers the last page, instead of an empty table', async () => {
+    const app = renderApp({ path: '/posts?page=99' })
+    const go = await screen.findByRole('button', { name: /Go to the last page/ })
+    expect(screen.queryByRole('table')).toBeNull()
+    await app.user.click(go)
+    await waitForTable('Posts')
+    expect(Number(lastListQuery(app.requests, 'posts')['page'])).toBeLessThan(99)
+  })
+
+  it('a request the server refuses (4xx) offers a reset, not a Retry that can never work', async () => {
+    const app = renderApp({ path: '/posts?sort=-no_such_field' })
+    const reset = await screen.findByRole('button', { name: 'Reset search, filters and sort' })
+    expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull()
+    await app.user.click(reset)
+    await waitForTable('Posts')
+  })
+
+  it('a server error (5xx) still offers Retry', async () => {
+    let fail = true
+    renderApp({ path: '/tags', transport: (mock) => async (request) => (fail && request.method === 'GET' && new URL(request.url).pathname === '/api/tags' ? ((fail = false), new Response('{}', { status: 503 })) : mock.handle(request)) })
+    expect(await screen.findByRole('button', { name: 'Retry' })).toBeInTheDocument()
+  })
+})
+
 describe('states', () => {
   it('says "no match" with a clear button when filters hide everything', async () => {
     const app = renderApp({ path: '/posts?search=zzzz' })

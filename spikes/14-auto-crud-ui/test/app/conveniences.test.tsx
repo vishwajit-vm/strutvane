@@ -198,6 +198,37 @@ describe('lists', () => {
     expect([...document.querySelectorAll('mark')].every((mark) => mark.textContent?.toLowerCase() === 'pric')).toBe(true)
   })
 
+  it('highlights the right letters even when lower-casing changes the text length (İ)', async () => {
+    const { Highlighted } = await import('../../src/app/resource/ResourceTable.tsx')
+    const { render } = await import('@testing-library/react')
+    const { container } = render(<Highlighted text="İstanbul pricing" term="pric" />)
+    expect([...container.querySelectorAll('mark')].map((mark) => mark.textContent)).toEqual(['pric'])
+    const second = render(<Highlighted text="a.b (a.b)" term="a.b" />)
+    expect([...second.container.querySelectorAll('mark')].map((mark) => mark.textContent)).toEqual(['a.b', 'a.b'])
+  })
+
+  it('the delete dialog cannot be cancelled while the delete is on its way', async () => {
+    let release: () => void = () => undefined
+    const gate = new Promise<void>((resolve) => (release = resolve))
+    const app = renderApp({
+      path: '/posts',
+      transport: (mock) => async (request) => {
+        if (request.method === 'DELETE') await gate
+        return mock.handle(request)
+      },
+    })
+    await waitForTable('Posts')
+    await app.user.click(screen.getByRole('button', { name: 'Delete Shipping: notes' }))
+    const dialog = screen.getByRole('alertdialog')
+    await app.user.click(within(dialog).getByRole('button', { name: 'Delete post' }))
+    expect(within(dialog).getByRole('button', { name: 'Cancel' })).toBeDisabled()
+    await app.user.keyboard('{Escape}')
+    // "Cancel" that cancels nothing would be a lie: the dialog stays until the answer arrives.
+    expect(screen.getByRole('alertdialog')).toBeInTheDocument()
+    release()
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
+  })
+
   it('offers Undo after moving a record to the trash', async () => {
     const app = renderApp({ path: '/posts' })
     await waitForTable('Posts')

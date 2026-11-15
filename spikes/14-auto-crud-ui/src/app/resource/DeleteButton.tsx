@@ -87,6 +87,11 @@ export function DeleteButton({ resource, row, onDeleted, variant = 'icon' }: Del
     setOpen(false)
     setTyped('')
   }
+  // While the DELETE is on its way, "Cancel" would cancel nothing (the delete still lands and its
+  // toast appears): Cancel and Escape wait for the answer.
+  const closeUnlessDeleting = (): void => {
+    if (!remove.isPending) close()
+  }
 
   return (
     <>
@@ -94,7 +99,7 @@ export function DeleteButton({ resource, row, onDeleted, variant = 'icon' }: Del
         <IconTrash aria-hidden="true" />
         {variant === 'full' && 'Delete'}
       </Button>
-      <Dialog open={open} onClose={close} role="alertdialog" labelledBy={titleId} describedBy={descriptionId} initialFocus={cancel}>
+      <Dialog open={open} onClose={closeUnlessDeleting} role="alertdialog" labelledBy={titleId} describedBy={descriptionId} initialFocus={cancel}>
         <span aria-hidden="true" className="mb-4 flex size-12 items-center justify-center rounded-full bg-destructive-soft text-destructive">
           <IconTrash className="size-6" />
         </span>
@@ -119,7 +124,7 @@ export function DeleteButton({ resource, row, onDeleted, variant = 'icon' }: Del
         )}
         <div className="mt-5 flex justify-end gap-2">
           {/* Cancel gets focus first: the safe answer is the default one. */}
-          <Button ref={cancel} variant="outline" onClick={close}>
+          <Button ref={cancel} variant="outline" disabled={remove.isPending} onClick={closeUnlessDeleting}>
             Cancel
           </Button>
           <Button variant="destructive" disabled={remove.isPending || !confirmed} onClick={() => remove.mutate()}>

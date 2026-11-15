@@ -242,19 +242,20 @@ function RowActions({ resource, row }: { readonly resource: ResolvedResourceUi; 
 export function Highlighted({ text, term }: { readonly text: string; readonly term: string }): ReactElement {
   if (term === '') return <>{text}</>
   const parts: ReactElement[] = []
-  const lower = text.toLowerCase()
-  const needle = term.toLowerCase()
+  // Match on the ORIGINAL text: indexes found in text.toLowerCase() do not line up with text when
+  // lower-casing changes the length ("İ" becomes two code units), so the wrong letters were marked.
+  const pattern = new RegExp(term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'giu')
   let start = 0
-  let index = lower.indexOf(needle)
-  while (index !== -1) {
+  for (const match of text.matchAll(pattern)) {
+    const index = match.index
+    if (match[0] === '') break
     if (index > start) parts.push(<span key={`t${start}`}>{text.slice(start, index)}</span>)
     parts.push(
       <mark key={`m${index}`} className="rounded-sm bg-warning-soft px-0.5 text-foreground">
-        {text.slice(index, index + needle.length)}
+        {match[0]}
       </mark>,
     )
-    start = index + needle.length
-    index = lower.indexOf(needle, start)
+    start = index + match[0].length
   }
   if (start < text.length) parts.push(<span key={`t${start}`}>{text.slice(start)}</span>)
   return <>{parts}</>
