@@ -118,6 +118,17 @@ describe('scrypt hasher', () => {
   it('refuses weak parameters at construction', () => {
     expect(() => createScryptHasher({ params: { logN: 10, r: 8, p: 1 } })).toThrow(RangeError)
   })
+  it('attack: a tampered row cannot buy a huge cost through r and p (each within its own range)', async () => {
+    const hasher = createScryptHasher({ params: { logN: 14, r: 8, p: 1 } })
+    // logN 16 is "allowed", but r=32 and p=16 make it 32x the work of the default (2^25 vs 2^20).
+    const t0 = performance.now()
+    expect(await hasher.verify('x', `$scrypt$ln=16,r=32,p=16$${'A'.repeat(22)}$${'A'.repeat(86)}`)).toBe(false)
+    expect(performance.now() - t0).toBeLessThan(2_000)
+    // The same budget binds the hasher's own parameters, so it never writes a hash it would refuse.
+    expect(() => createScryptHasher({ params: { logN: 16, r: 32, p: 16 } })).toThrow(RangeError)
+    expect(() => createScryptHasher({ params: { logN: 20, r: 16, p: 1 } })).toThrow(RangeError)
+    expect(() => createScryptHasher({ params: { logN: 20, r: 8, p: 1 } })).not.toThrow()
+  })
   it('default parameters are OWASP 2^17 (time measured for the README)', async () => {
     const hasher = createScryptHasher()
     const t0 = performance.now()

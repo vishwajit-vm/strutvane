@@ -72,6 +72,25 @@ export interface PasswordHasher {
   verifyDummy(password: string): Promise<false>
 }
 
+/**
+ * The most work and memory one verification may cost, for stored rows AND for the hasher's own
+ * parameters (so it never writes a hash it would refuse). Why a product bound and not per-field
+ * ranges: `logN`, `r` and `p` multiply, so ranges that each look sane (logN 16, r 32, p 16) still
+ * allow 32x the default work from one tampered row, a CPU denial of service per sign-in attempt.
+ * - work `N * r * p` at most 2^23 (logN 20, r 8, p 1; the default is 2^20);
+ * - memory `128 * N * r` at most 1 GiB.
+ */
+const MAX_WORK = 2 ** 23
+const MAX_MEMORY = 2 ** 30
+
+/** True when `params` are within the budget above (and each field is a sane integer). */
+export function scryptParamsWithinBudget(params: ScryptParams): boolean {
+  const { logN, r, p } = params
+  if (![logN, r, p].every(Number.isInteger) || logN < 10 || logN > 20 || r < 1 || r > 32 || p < 1 || p > 16) return false
+  const N = 2 ** logN
+  return N * r * p <= MAX_WORK && 128 * N * r <= MAX_MEMORY
+}
+
 const FORMAT = /^\$scrypt\$ln=(\d{1,2}),r=(\d{1,2}),p=(\d{1,2})\$([A-Za-z0-9+/]{22})\$([A-Za-z0-9+/]{86})$/
 const KEY_BYTES = 64
 
@@ -87,8 +106,7 @@ function parse(stored: string): Parsed | undefined {
   if (ln === undefined || r === undefined || p === undefined || salt === undefined || key === undefined) return undefined
   const params = { logN: Number(ln), r: Number(r), p: Number(p) }
   // Refuse absurd parameters instead of letting a tampered row pin the CPU or memory.
-  if (params.logN < 10 || params.logN > 20 || params.r < 1 || params.r > 32 || params.p < 1 || params.p > 16)
-    return undefined
+  if (!scryptParamsWithinBudget(params)) return undefined
   return { ...params, salt: Buffer.from(salt, 'base64'), key: Buffer.from(key, 'base64') }
 }
 
@@ -118,6 +136,8 @@ export function createScryptHasher(
 ): PasswordHasher {
   const params = options.params ?? DEFAULT_SCRYPT
   if (params.logN < 14 || params.logN > 20) throw new RangeError('scrypt logN must be between 14 and 20')
+  if (!scryptParamsWithinBudget(params))
+    throw new RangeError('scrypt parameters exceed the verification budget (N*r*p <= 2^23, 128*N*r <= 1 GiB)')
   const legacy = options.legacy ?? []
 
   const hash = async (password: string): Promise<string> => {
