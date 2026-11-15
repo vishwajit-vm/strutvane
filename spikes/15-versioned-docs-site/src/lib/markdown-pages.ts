@@ -7,7 +7,9 @@ import context from 'virtual:strutvane-docs/context'
 import { toPlainMarkdown, type LlmsGroup } from '../../scripts/lib/markdown-export.ts'
 import { absoluteUrl, markdownPath, pagePath } from '../../scripts/lib/paths.ts'
 import { buildingVersion } from '../../scripts/lib/site-context.ts'
-import { supportTableMarkdown } from '../../scripts/lib/support-table.ts'
+import { packagesMarkdown } from '../../scripts/lib/packages-data.ts'
+import { releaseLinesMarkdown, supportTableMarkdown } from '../../scripts/lib/support-table.ts'
+import { packagesData } from './packages.ts'
 
 /** One docs page from the collection. */
 export type DocsEntry = CollectionEntry<'docs'>
@@ -23,7 +25,8 @@ export function docsTitle(): string {
 }
 
 /**
- * One page as clean Markdown, with data components (the support table) filled in.
+ * One page as clean Markdown, with data components (the support table, the release lines and
+ * the package catalogue) filled in.
  *
  * @example
  * ```ts
@@ -37,7 +40,11 @@ export function entryToMarkdown(entry: DocsEntry): string {
     body: entry.body ?? '',
     url: absoluteUrl(context.site, pagePath(context.base, context.building, entry.id)),
     isMdx: entry.filePath?.endsWith('.mdx') ?? false,
-    components: { SupportTable: supportTableMarkdown(context.supportTable, buildingVersion(context).line) },
+    components: {
+      SupportTable: supportTableMarkdown(context.supportTable, buildingVersion(context).line),
+      ReleaseLines: releaseLinesMarkdown(context.supportTable),
+      PackageCatalogue: packagesMarkdown(packagesData, (slug) => absoluteUrl(context.site, pagePath(context.base, context.building, slug))),
+    },
   })
 }
 

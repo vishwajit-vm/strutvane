@@ -5,7 +5,7 @@ description: "Make your app an OAuth 2.1 provider (authorization code with PKCE,
 
 Make your app an OAuth 2.1 provider (authorization code with PKCE, client credentials, device flow).
 
-Strutvane's equivalent of Laravel Passport. Phase 4.
+Strutvane's equivalent of Laravel Passport. Phase 5.
 
 Once it is released, you add it to an existing app with one command:
 

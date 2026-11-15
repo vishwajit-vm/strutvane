@@ -5,7 +5,7 @@ description: "Encrypted database and storage backups with retention, restore dri
 
 Encrypted database and storage backups with retention, restore drills and monitoring.
 
-Strutvane's equivalent of the community spatie/laravel-backup. Phase 6.
+Strutvane's equivalent of the community spatie/laravel-backup. Phase 4.
 
 Once it is released, you add it to an existing app with one command:
 

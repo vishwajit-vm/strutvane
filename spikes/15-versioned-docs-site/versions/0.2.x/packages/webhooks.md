@@ -5,7 +5,7 @@ description: "Signed outgoing webhooks with retries and a delivery log, and sign
 
 Signed outgoing webhooks with retries and a delivery log, and signature checks for incoming ones.
 
-Strutvane's equivalent of the Spatie webhook packages. Phase 4.
+Strutvane's equivalent of the Spatie webhook packages. Phase 5.
 
 Once it is released, you add it to an existing app with one command:
 

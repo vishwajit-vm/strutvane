@@ -85,3 +85,52 @@ export function supportTableMarkdown(table: SupportTable, readingLine: string | 
   })
   return [header, ...rows].join('\n')
 }
+
+/** One row of the "lines, branches and dist-tags" table on the Versioning page. */
+export interface ReleaseLineRow {
+  readonly version: string
+  readonly branch: string
+  readonly distTag: string
+  readonly install: string
+  readonly docs: string
+  readonly node: string
+  readonly statusLabel: string
+}
+
+/**
+ * Where each line lives: its branch, the npm dist-tag that installs it, the command that creates
+ * an app on it, and its docs path. Rendered from `versions.json`, newest line first, so the
+ * Versioning page can never disagree with the release script (ADR-0020 §6).
+ *
+ * An end-of-life line has no install command: the starter refuses it unless `--allow-eol` is given.
+ *
+ * @example
+ * ```ts
+ * releaseLineRows(table)[0] // { version: '0.2', branch: '0.2.x', distTag: 'latest', install: 'npm create strutvane@latest my-app', … }
+ * ```
+ */
+export function releaseLineRows(table: SupportTable): ReleaseLineRow[] {
+  return table.lines.map((line) => ({
+    version: line.line,
+    branch: line.branch,
+    distTag: line.distTag,
+    install: line.status === 'eol' ? `npm create strutvane@${line.line} my-app -- --allow-eol` : line.line === table.current ? 'npm create strutvane@latest my-app' : `npm create strutvane@${line.line} my-app`,
+    docs: line.docs,
+    node: nodeText(line.node),
+    statusLabel: STATUS_LABELS[line.status],
+  }))
+}
+
+/**
+ * The same table as Markdown, for "Copy as Markdown" and `llms.txt`.
+ *
+ * @example
+ * ```ts
+ * releaseLinesMarkdown(table) // '| Line | Branch | npm dist-tag | … |\n|---|…'
+ * ```
+ */
+export function releaseLinesMarkdown(table: SupportTable): string {
+  const header = '| Line | Branch | npm dist-tag | Create an app | Docs | Node | Status |\n|---|---|---|---|---|---|---|'
+  const rows = releaseLineRows(table).map((row) => `| ${row.version} | \`${row.branch}\` | \`${row.distTag}\` | \`${row.install}\` | \`${row.docs}\` | ${row.node} | ${row.statusLabel} |`)
+  return [header, ...rows].join('\n')
+}

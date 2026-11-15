@@ -5,7 +5,7 @@ description: "Per-tenant OIDC and SAML single sign-on, SCIM provisioning and dom
 
 Per-tenant OIDC and SAML single sign-on, SCIM provisioning and domain verification.
 
-Strutvane's equivalent of the WorkOS starter-kit variant. Phase 4.
+Strutvane's equivalent of the WorkOS starter-kit variant. Phase 5.
 
 Once it is released, you add it to an existing app with one command:
 

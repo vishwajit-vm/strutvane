@@ -5,7 +5,7 @@ description: "Playwright fixtures: a fresh database, `actingAs`, teams, page obj
 
 Playwright fixtures: a fresh database, `actingAs`, teams, page objects for generated screens and accessibility checks.
 
-Strutvane's equivalent of Laravel Dusk. Phase 6.
+Strutvane's equivalent of Laravel Dusk. Phase 7.
 
 Once it is released, you add it to an existing app with one command:
 

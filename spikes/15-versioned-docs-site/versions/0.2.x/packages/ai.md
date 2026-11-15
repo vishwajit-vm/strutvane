@@ -5,7 +5,7 @@ description: "Provider-agnostic LLM calls, typed structured output, embeddings a
 
 Provider-agnostic LLM calls, typed structured output, embeddings and agents with policy-bound tools.
 
-Strutvane's equivalent of the Laravel AI SDK. Phase 6.
+Strutvane's equivalent of the Laravel AI SDK. Phase 7.
 
 Once it is released, you add it to an existing app with one command:
 

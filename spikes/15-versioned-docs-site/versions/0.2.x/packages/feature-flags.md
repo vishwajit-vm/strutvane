@@ -5,7 +5,7 @@ description: "Typed feature flags per user, team or plan, with an operator UI."
 
 Typed feature flags per user, team or plan, with an operator UI.
 
-Strutvane's equivalent of Laravel Pennant. Phase 4.
+Strutvane's equivalent of Laravel Pennant. Phase 5.
 
 Once it is released, you add it to an existing app with one command:
 

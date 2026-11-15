@@ -5,7 +5,7 @@ description: "Durable multi-step workflows with human approvals and timers."
 
 Durable multi-step workflows with human approvals and timers.
 
-Laravel has no first-party equivalent. Phase 6.
+Laravel has no first-party equivalent. Phase 7.
 
 Once it is released, you add it to an existing app with one command:
 

@@ -1,7 +1,9 @@
 ---
 title: Package Catalogue
-description: How Strutvane is built for 100+ packages, how one catalogue feeds the installer, node strut install and these docs, and which first-party packages are planned for which phase.
+description: How Strutvane is built for 100+ packages, how one catalogue feeds the installer, node strut install and these docs, and the status of every first-party package (in development, planned, shelved or retired).
 ---
+
+import PackageCatalogue from '@docs-components/PackageCatalogue.astro'
 
 Strutvane's core is small on purpose. Everything else (a log viewer, billing, search, charts) is a **package**: a separate npm package that adds one feature to your app and installs itself completely with one command. There will be **more than 100** of them over time, so everything that deals with "the list of packages" is driven by data, not by code that names each package.
 
@@ -159,49 +161,25 @@ Designs also pass `designConformance()` (see [Designs](../../designs/)).
 
 Community packages are named `strutvane-<name>`, use the same manifest and get a **verified** badge in the catalogue once they pass the same kits.
 
-## First-party packages and their phases
+## Every first-party package
 
-A **phase** is a step of the roadmap: phase 1 is 0.2, phase 2 is 0.3, phase 3 leads to 1.0, and phases 4 to 8 come after. The order inside "Later" isn't final.
+These cards come from **one data file** (`src/data/packages.json` in the docs repository). The same file feeds this page, its Markdown export and the release notes, so a package can never be "planned" here and "retired" somewhere else. Every card says its **status** in words:
 
-| Package | What it does | Phase |
-|---|---|---|
-| [`@strutvane/framework`](../framework/) | The framework itself, with the `node strut` command | 1 |
-| [`@strutvane/auth`](../auth/) | Sign-in, 2FA, passkeys, tokens, teams | 1 |
-| [`@strutvane/ui`](../ui/) | The React admin: screens, sidebar, behaviour | 1 |
-| `@strutvane/design-crisp` | The default design (see [Designs](../../designs/)) | 1 |
-| `@strutvane/design-vivid` | The colourful design | 1 |
-| [`create-strutvane`](../create-strutvane/) | The installer | 1 |
-| [`strutvane`](../strutvane/) | The small `npx strutvane` command | 1 |
-| [`@strutvane/log-viewer`](../log-viewer/) | Logs screen at `/_strutvane/logs` | 1 |
-| [`@strutvane/redis`](../redis/) | Redis drivers for cache, queue and sessions | 2 |
-| [`@strutvane/queue-dashboard`](../queue-dashboard/) | Jobs, retries and failures | 2 |
-| [`@strutvane/social-login`](../social-login/) | Sign in with Google, Microsoft, GitHub, Apple | 2 |
-| [`@strutvane/agent-tools`](../agent-tools/) | AGENTS.md, skills and docs for AI coding assistants | 2 |
-| [`@strutvane/files`](../files/) | S3-compatible storage and uploads | 3 |
-| [`@strutvane/search`](../search/) | Full-text search engines | 3 |
-| [`@strutvane/import-export`](../import-export/) | CSV and Excel import and export | 3 |
-| [`@strutvane/inspector`](../inspector/) | Requests, queries and mail while you develop | 3 |
-| [`@strutvane/observability`](../observability/) | OpenTelemetry export | 3 |
-| `@strutvane/health` | Health checks and a status page | 3 |
-| `@strutvane/charts` | Charts suggested from your tables (see [Charts](../../charts/)) | 3 |
-| [`@strutvane/dashboards`](../dashboards/) | Dashboard pages | 3 |
-| [`@strutvane/sso`](../sso/) | Enterprise SSO for your customers | Later |
-| [`@strutvane/oauth-server`](../oauth-server/) | OAuth 2.1 server | Later |
-| [`@strutvane/mcp-server`](../mcp-server/) | Let AI agents use your app | Later |
-| [`@strutvane/feature-flags`](../feature-flags/) | Feature flags | Later |
-| [`@strutvane/webhooks`](../webhooks/) | Signed webhooks | Later |
-| [`@strutvane/billing`](../billing/) | Subscriptions and plans | Later |
-| [`@strutvane/realtime`](../realtime/) | Live updates | Later |
-| [`@strutvane/notification-channels`](../notification-channels/) | Slack, SMS and push | Later |
-| [`@strutvane/ai`](../ai/) | AI models in your app | Later |
-| [`@strutvane/workflows`](../workflows/) | Approval flows and state machines | Later |
-| [`@strutvane/browser-testing`](../browser-testing/) | Playwright browser tests | Later |
-| [`@strutvane/backup`](../backup/) | Database and file backups | Later |
+| Status | What it means |
+|---|---|
+| **Available** | Released on npm, with a stable version on `latest`. Nothing is available yet: 0.2 hasn't been released. |
+| **Preview** | Published for trying out (the `next` dist-tag); it may still change. |
+| **In development** | Being built for the current line (phase 1, which is 0.2). |
+| **Planned** | On the roadmap for a later phase. The installer offers it only once it's published. |
+| **Shelved** | Explored, then put aside. It may come back later. |
+| **Retired** | No longer part of Strutvane. The card says what to use instead. |
 
-Also planned, without a page yet: activity log, settings, media library, tags, comments, PDF, privacy, API explorer, GraphQL, invoicing, translations and more. Each gets a page when its work starts.
+A **phase** is a step of the roadmap: phase 1 is 0.2, phase 2 is 0.3, phase 3 leads to 1.0, and phases 4 to 8 come after 1.0. Use the two filters to narrow the list; each card links to its docs page and repository when they exist. Link to one package with its anchor, for example [`#pkg-auth`](#pkg-auth).
+
+<PackageCatalogue />
 
 :::caution[Planned after 0.2]
-Every package above phase 1 is planned after 0.2. The installer only offers a package once it is published, so in 0.2 the "Extra features" question offers only what has shipped.
+Every package in phase 2 or later is planned after 0.2. The installer only offers a package once it is published, so in 0.2 the "Extra features" question offers only what has shipped.
 :::
 
 ## Common mistakes

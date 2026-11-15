@@ -128,7 +128,7 @@ const debug = config('app.debug')  // boolean
 import { defineConfig } from '@strutvane/framework'
 
 export default defineConfig((env) => ({
-  default: env.oneOf('DB_CONNECTION', ['mysql', 'postgres', 'sqlite'], 'mysql'),
+  default: env.oneOf('DB_CONNECTION', ['mysql', 'mariadb', 'pgsql', 'sqlite'], 'mysql'),
   connections: {
     mysql: {
       driver: 'mysql',
@@ -146,7 +146,7 @@ export default defineConfig((env) => ({
 }))
 ```
 
-**What you'll see:** `config('database.default')` is typed as `'mysql' | 'postgres' | 'sqlite'`, and `config('database.connections.mysql.port')` is a `number`.
+**What you'll see:** `config('database.default')` is typed as `'mysql' | 'mariadb' | 'pgsql' | 'sqlite'`, and `config('database.connections.mysql.port')` is a `number`.
 
 :::caution[Coming in 0.2]
 `defineConfig`, the `env` readers and `config()` are proven in the application-core prototype (spike 12). The exact import path inside `@strutvane/framework` may still change.
@@ -189,16 +189,27 @@ The installer and its `.env` writer are proven in a prototype (spike 13). Keys m
 
 | Key | What it's for | Default in a new app |
 |---|---|---|
-| `DB_CONNECTION` | `mysql`, `postgres` or `sqlite`. | `mysql` |
-| `DB_HOST`, `DB_PORT` | Where the database server is. With Docker, `DB_HOST=db` (the container's name) and the database's own port. | `127.0.0.1` / `3306` (Docker: `db` / `3306` or `5432`) |
+| `DB_CONNECTION` | `mysql`, `mariadb`, `pgsql` or `sqlite`. `postgres` is accepted as another name for `pgsql`. The installer writes `mariadb` when it finds a MariaDB server (XAMPP ships one). | `mysql` |
+| `DB_HOST`, `DB_PORT` | Where the database server is. With Docker, `DB_HOST=db` (the container's name) and the database's own port. | `127.0.0.1` / `3306` (PostgreSQL `5432`; Docker: `db`) |
 | `DB_DATABASE` | The database name, or the file for SQLite. | your project name (SQLite: `database/database.sqlite`) |
 | `DB_TEST_DATABASE` | A separate database for `npm test`, so tests never touch your local data. | `<name>_test` (SQLite: `database/testing.sqlite`) |
-| `DB_USERNAME`, `DB_PASSWORD` | How the app signs in to the database. With Docker the password is **generated**; with your own server it's the one you typed. | per answer |
-| `DB_MIGRATION_USERNAME`, `DB_MIGRATION_PASSWORD` | **PostgreSQL in Docker only.** Migrations run as an "owner" role, while the app connects as a plain role that can't bypass row-level security. Password **generated**. | `<name>_owner` |
+| `DB_USERNAME`, `DB_PASSWORD` | How the app signs in to the database. With Docker the password is **generated**; with your own server it's the one you typed. An empty password is accepted for a server on your own computer (XAMPP's `root`), with a warning. | `root` (PostgreSQL `postgres`); Docker: your project name |
+| `DB_URL` | The whole connection in one line, as cloud providers give it: `mysql://user:password@host:3306/my_app`. When it's set, it wins over the separate keys above. A secret, because it contains the password. | not set |
+| `DB_SOCKET` | A Unix socket instead of host and port (MySQL, MariaDB or PostgreSQL on macOS and Linux). | not set |
+| `DB_SSLMODE` | Encrypt the connection: `disable`, `prefer`, `require`, `verify-ca` or `verify-full` (PostgreSQL's names, as in Laravel). Use `require` or stricter for a remote or cloud database. | not set (no TLS for a local server) |
+| `DB_SSL_CA` | The path to your provider's CA certificate, for `verify-ca` and `verify-full`. | not set |
+| `DB_MIGRATION_USERNAME`, `DB_MIGRATION_PASSWORD` | **PostgreSQL.** Migrations run as an "owner" role, while the app connects as a plain role that can't bypass row-level security. With Docker the installer creates both roles; on your own server it creates them when your account may, or prints the SQL. Password **generated** in Docker. | `<name>_owner` |
 | `DB_ROOT_PASSWORD` | **Docker only.** The database image needs an administrator password; the app never uses it. **Generated.** | generated |
 
-:::note[`postgres` or `pgsql`?]
-The two prototypes don't agree yet on PostgreSQL's name: the installer writes `DB_CONNECTION=postgres`, the application core reads `pgsql` (Laravel's name). One name will be chosen before 0.2; the other may stay as an alias.
+```ini title=".env (a cloud database)"
+DB_CONNECTION=pgsql
+DB_URL=postgres://my_app_app:the-password@db.example.com:5432/my_app
+DB_SSLMODE=verify-full
+DB_SSL_CA=storage/certs/provider-ca.pem
+```
+
+:::caution[Coming in 0.2]
+Decided on 2026-11-15 and not built yet: `mariadb` (and detecting it), `pgsql` as the written name (the installer prototype still writes `postgres`), `DB_URL`, `DB_SOCKET`, `DB_SSLMODE`, `DB_SSL_CA`, the empty-password warning and the PostgreSQL roles on your own server. The values accepted by `DB_SSLMODE` follow Laravel's PostgreSQL setting; how they map onto MySQL and MariaDB isn't written down yet.
 :::
 
 ### Mail
@@ -221,19 +232,17 @@ These exist only when you chose **with Docker**. See [Docker](../docker/).
 
 ### Auth
 
-Written when people sign in (not with "No sign-in").
+Which sign-in features are on lives in `config/auth.ts`, which the installer writes from your answers, not in `.env` keys. The only auth key in `.env` is the first admin's address:
 
 | Key | What it's for | Default in a new app |
 |---|---|---|
-| `AUTH_SECRET` | A secret for the sign-in features. **Generated.** | generated |
-| `AUTH_MODE` | `email` (email and password) or `magic-link` (email link only). | `email` |
-| `AUTH_REGISTRATION` | Public sign-up. Off means only invited accounts can sign in. | `false` |
-| `AUTH_EMAIL_VERIFICATION` | New accounts confirm their email address. | `true` |
-| `AUTH_TWO_FACTOR` | Two-factor sign-in with an authenticator app and recovery codes. | `true` |
-| `AUTH_PASSKEYS` | Sign-in with passkeys. | `false` |
 | `SEED_ADMIN_EMAIL` | The first admin's email, used by the default seeder. | `admin@<name>.test` |
 
-There is **no `SEED_ADMIN_PASSWORD`**. The first admin's password is never written to any file: the installer shows a generated one once, or you type one. See [Seeding](../seeding/).
+There is **no `SEED_ADMIN_PASSWORD`**. The first admin's password is never written to any file: the installer shows a generated one once, or you type one. See [Seeding](../seeding/). There is no `AUTH_SECRET` either: `APP_KEY` is the one root secret, and auth derives its own keys from it.
+
+:::caution[Coming in 0.2]
+The installer prototype (spike 13) still writes `AUTH_SECRET`, `AUTH_MODE`, `AUTH_REGISTRATION`, `AUTH_EMAIL_VERIFICATION`, `AUTH_TWO_FACTOR` and `AUTH_PASSKEYS`. Those keys are removed: the features move into `config/auth.ts` (decided on 2026-11-15). See [Authentication](../authentication/).
+:::
 
 ### Teams and AI
 
@@ -264,7 +273,7 @@ The logging keys are decided (ADR-0022) but **designed, not built yet**: the ins
 
 ### Which secrets are generated
 
-`APP_KEY`, `AUTH_SECRET`, and with Docker `DB_PASSWORD`, `DB_ROOT_PASSWORD` and `DB_MIGRATION_PASSWORD` (PostgreSQL). Each is 32 random bytes, written to `.env` only, always empty in `.env.example`. If `npm run setup` finds a placeholder such as `APP_KEY=changeme`, it replaces it. On macOS and Linux, `.env` is created readable only by you.
+`APP_KEY`, and with Docker `DB_PASSWORD`, `DB_ROOT_PASSWORD` and `DB_MIGRATION_PASSWORD` (PostgreSQL). Each is 32 random bytes, written to `.env` only, always empty in `.env.example`. If `npm run setup` finds a placeholder such as `APP_KEY=changeme`, it replaces it. On macOS and Linux, `.env` is created readable only by you.
 
 ## With Docker or without Docker
 

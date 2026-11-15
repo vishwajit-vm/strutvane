@@ -42,7 +42,7 @@ describe(`writing guide (${current.id})`, () => {
       'orm-soft-deletes', 'orm-slugs', 'orm-transactions', 'orm-tenancy',
       'lifecycle', 'container', 'providers', 'helpers', 'routing', 'middleware', 'csrf', 'controllers', 'requests',
       'validation', 'responses', 'errors', 'authorization', 'cli-reference',
-      'docker', 'logging', 'security', 'designs', 'authentication', 'charts', 'packages/catalogue',
+      'docker', 'logging', 'security', 'designs', 'authentication', 'charts', 'packages/catalogue', 'versioning',
     ]) {
       assert.ok(slugs.has(slug), `${slug} should be a full page, not a stub`)
     }

@@ -5,7 +5,7 @@ description: "Subscriptions, seats, invoices and one-off payments (Stripe, Paddl
 
 Subscriptions, seats, invoices and one-off payments (Stripe, Paddle) per team.
 
-Strutvane's equivalent of Laravel Cashier. Phase 5.
+Strutvane's equivalent of Laravel Cashier. Phase 6.
 
 Once it is released, you add it to an existing app with one command:
 

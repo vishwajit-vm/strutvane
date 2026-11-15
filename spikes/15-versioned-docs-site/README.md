@@ -111,18 +111,30 @@ Measured on 2026-11-14 at `laravel.com/docs/13.x/installation` (1440 × 900, dar
 
 | Path | What it is |
 |---|---|
-| `versions.json` | The support table (ADR-0020 format) |
+| `versions.json` | The support table (ADR-0020 format): feeds the switcher, banners, the support table and the Versioning page's lines/branches/dist-tags table |
+| `src/data/packages.json` | The package catalogue: every first-party package, its status (available, preview, in development, planned, shelved, retired), phase, since, replacement and docs link. Feeds the Package Catalogue page, its Markdown export and the What's-new checks |
 | `docs.sources.ts` | Site title, repositories, and where each branch's content comes from |
 | `versions/<branch>/` | Content of one version: `navigation.json` + pages (`.md`/`.mdx`) |
 | `astro.config.ts`, `src/content.config.ts` | One Starlight site, parameterised by `DOCS_VERSION` |
-| `src/components/` | Overrides: `Header` (wordmark, search, version switcher), `Sidebar` (drawer switcher on phones), `Banner`, `PageTitle` and `PageSidebar` (both use `PageTools`: Copy as Markdown), plus `SupportTable` for MDX |
+| `src/components/` | Overrides: `Header` (wordmark, search, version switcher), `Sidebar` (drawer switcher on phones), `Banner`, `PageTitle` and `PageSidebar` (both use `PageTools`: Copy as Markdown), plus the data components for MDX: `SupportTable` and `ReleaseLines` (from `versions.json`) and `PackageCatalogue` (from `src/data/packages.json`, with filters) |
 | `src/styles/docs.css` | The theme: palette, type scale, menu, callouts, code blocks |
 | `docs/WRITING-GUIDE.md` | How every page is written |
 | `src/pages/` | Endpoints: `[...slug].md`, `llms.txt`, `llms-full.txt` |
 | `src/route-middleware.ts` | Per-version edit links and canonical URLs |
 | `scripts/lib/` | Pure, tested logic: versions, navigation, site context, redirects, Markdown export, link checker, git sources |
 | `scripts/{build,dev,preview,check-links}.ts` | The npm scripts |
-| `test/` | `node:test` unit tests, plus `site.test.ts` on the built output |
+| `test/` | `node:test` unit tests, plus `site.test.ts` on the built output and `packages-data.test.ts`, the packages-data completeness check (hub doc 19, gate R7) |
+
+## Release checklist (every change, same commit)
+
+Hub doc 19 (gate R7) makes the docs part of every change. **Any new feature, deprecation, retirement, repository archive or version bump updates all four of these in the same change**, never in a follow-up:
+
+1. **The packages data**, `src/data/packages.json`: the entry's `status`, `phase`, `since` (the line the new status starts in), `replacement` (required when retired), `repo` and `docs`. A new package gets a new entry.
+2. **What's new**, the `## What's new in Strutvane 0.N` section of `versions/<branch>/releases.mdx`: link every entry whose `since` is that line (`../packages/catalogue/#pkg-<id>`), under "New", `### Deprecated in 0.N` or `### Removed and retired in 0.N (with replacements)`.
+3. **The versions data**, `versions.json`: release dates, support windows, status and dist-tag of every line. The support table, the banners and the Versioning page's tables are generated from it.
+4. **The upgrade guide**, `versions/<branch>/upgrade.md`: before and after code and the likelihood of impact for anything that changes how an app is written. A deprecation also gets a line on the [Deprecations](versions/0.2.x/deprecations.md) page.
+
+`npm test` enforces what a machine can check. `test/packages-data.test.ts` fails when an entry is malformed, a retired entry has no replacement, one of the 47 master-list packages is missing, a docs link points at no page, What's new doesn't link an entry marked `since` the current line, or (after `npm run build`) an entry has no rendered card or is missing from the Markdown export. No "Coming in" marker may stay on anything announced as shipped.
 
 ## Releasing a new docs version (the workflow this enables)
 

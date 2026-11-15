@@ -5,7 +5,7 @@ description: "SMS, Slack, Microsoft Teams, web push and WhatsApp channels, plus 
 
 SMS, Slack, Microsoft Teams, web push and WhatsApp channels, plus a user preference centre.
 
-Strutvane's equivalent of the community laravel-notification-channels. Phase 5.
+Strutvane's equivalent of the community laravel-notification-channels. Phase 6.
 
 Once it is released, you add it to an existing app with one command:
 

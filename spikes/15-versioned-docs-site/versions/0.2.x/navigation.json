@@ -5,6 +5,10 @@
       "label": "Prologue",
       "items": [
         "releases",
+        {
+          "slug": "versioning",
+          "label": "Versioning & Support"
+        },
         "upgrade",
         "deprecations",
         "contributions"
@@ -42,8 +46,12 @@
         "container",
         "providers",
         {
+          "slug": "facades",
+          "label": "Facades"
+        },
+        {
           "slug": "helpers",
-          "label": "Helpers, Not Facades"
+          "label": "Helpers"
         }
       ]
     },
@@ -56,6 +64,10 @@
         "controllers",
         "requests",
         "validation",
+        {
+          "slug": "precognition",
+          "label": "Precognition"
+        },
         "responses",
         "errors",
         "logging"
@@ -66,12 +78,32 @@
       "items": [
         "strut-console",
         "cache",
+        {
+          "slug": "concurrency",
+          "label": "Concurrency"
+        },
         "events",
         "storage",
         "http-client",
         "localization",
         "mail",
+        {
+          "slug": "maintenance-mode",
+          "label": "Maintenance Mode"
+        },
         "notifications",
+        {
+          "slug": "optimization",
+          "label": "Optimization"
+        },
+        {
+          "slug": "processes",
+          "label": "Processes"
+        },
+        {
+          "slug": "prompts",
+          "label": "Prompts"
+        },
         "queues",
         "rate-limiting",
         "scheduling"

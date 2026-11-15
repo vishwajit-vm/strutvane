@@ -5,7 +5,7 @@ description: "A WebSocket server with private and presence channels, and live-up
 
 A WebSocket server with private and presence channels, and live-updating admin tables.
 
-Strutvane's equivalent of Laravel Reverb + Echo. Phase 5.
+Strutvane's equivalent of Laravel Reverb + Echo. Phase 6.
 
 Once it is released, you add it to an existing app with one command:
 

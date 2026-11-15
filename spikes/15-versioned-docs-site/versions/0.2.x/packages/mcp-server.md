@@ -5,7 +5,7 @@ description: "Expose your app to AI agents as MCP tools, resources and prompts, 
 
 Expose your app to AI agents as MCP tools, resources and prompts, under your policies.
 
-Strutvane's equivalent of Laravel MCP. Phase 4.
+Strutvane's equivalent of Laravel MCP. Phase 5.
 
 Once it is released, you add it to an existing app with one command:
 
