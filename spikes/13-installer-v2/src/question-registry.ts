@@ -31,6 +31,9 @@ import {
   aiOf,
   DATABASE_LABELS,
   DEFAULT_DATABASE_PORTS,
+  defaultDatabaseUser,
+  isLocalHost,
+  parseDatabaseUrl,
   DEFAULTS,
   DESIGNS,
   databaseOf,
@@ -356,6 +359,8 @@ interface TextSpec<V> extends Common {
   readonly is: (raw: unknown) => raw is V
   readonly show?: (value: V) => string
   readonly usageValue: string
+  /** Optional settings: an empty answer means "not set" and is left out of the repeat command. */
+  readonly optional?: boolean
 }
 
 function text<K extends AnswerKey>(id: K, spec: TextSpec<Value<K>>): Question {
@@ -393,7 +398,10 @@ function text<K extends AnswerKey>(id: K, spec: TextSpec<Value<K>>): Question {
       }
       return put({}, id, parsed)
     },
-    flagWords: (answers) => [`--${spec.flag}`, show(effective(answers))],
+    flagWords: (answers) => {
+      const shown = show(effective(answers))
+      return spec.optional === true && shown === '' ? [] : [`--${spec.flag}`, shown]
+    },
     packages: () => [],
   }
 }
@@ -416,9 +424,14 @@ interface PasswordSpec {
   readonly when: (answers: Answers) => boolean
   readonly env: string
   readonly minLength: number
+  /**
+   * An extra check with the other answers at hand: returns why the value cannot be used (it is
+   * asked again), or `undefined`. May also print a warning through the prompter.
+   */
+  readonly check?: (value: string, answers: Answers, prompter: Prompter) => string | undefined
 }
 
-function password(id: 'dbPassword' | 'adminPassword', spec: PasswordSpec): Question {
+function password(id: 'dbPassword' | 'dbUrl' | 'adminPassword', spec: PasswordSpec): Question {
   return {
     id,
     row: spec.row,
@@ -434,9 +447,15 @@ function password(id: 'dbPassword' | 'adminPassword', spec: PasswordSpec): Quest
       for (;;) {
         const value = answerOrThrow(await prompter.password({ id, message: spec.message }))
         // Never repeat the value: only say why it cannot be used.
-        const problem = value.length < spec.minLength ? `Please use at least ${spec.minLength} characters.` : envValueProblem(value)
+        const envProblem = envValueProblem(value)
+        const problem =
+          value.length < spec.minLength
+            ? `Please use at least ${spec.minLength} characters.`
+            : envProblem !== undefined
+              ? `This value ${envProblem} (it is stored in .env). Please choose another.`
+              : spec.check?.(value, answers, prompter)
         if (problem === undefined) return put(answers, id, value)
-        prompter.info(problem.endsWith('.') ? problem : `This password ${problem} (it is stored in .env). Please choose another.`)
+        prompter.info(problem)
       }
     },
     // Never the value, not even its length.
@@ -648,6 +667,16 @@ const nameQuestion: Question = {
 const isString = (raw: unknown): raw is string => typeof raw === 'string'
 const isNumber = (raw: unknown): raw is number => typeof raw === 'number'
 const nonEmpty = (raw: string): string | undefined => (raw === '' || /[\s'"`\\]/.test(raw) ? undefined : raw)
+/** A file path (sockets, CA files): no quotes, no line breaks. */
+const pathValue = (raw: string): string | undefined => (/^[^\0\r\n'"`]{1,1024}$/.test(raw) ? raw : undefined)
+/** The connection is given as a URL (the user typed "url" for the host). */
+const viaUrl = (answers: Answers): boolean => answers.dbHost === 'url'
+/** The connection is given as separate host, port, name and user answers. */
+const byHost = (answers: Answers): boolean => needsConnection(answers) && !viaUrl(answers)
+
+/** Shown when a local server is used without a password (XAMPP's default root has none). */
+export const EMPTY_LOCAL_PASSWORD_WARNING =
+  'No database password: fine for XAMPP/WAMP/MAMP/Laragon on this computer, but set one before anyone else can reach this server.'
 
 /** The connection questions only exist when the database is a server the user runs. */
 const serverOf = (answers: Answers): 'mysql' | 'postgres' => (databaseOf(answers) === 'postgres' ? 'postgres' : 'mysql')
@@ -809,16 +838,28 @@ export const QUESTIONS: readonly Question[] = [
       yes: { value: 'docker', label: 'With Docker', hint: `app, ${DATABASE_LABELS[databaseOf(answers)]} and Mailpit in containers (like Sail)` },
       no: { value: 'host', label: 'Without Docker', hint: 'the app runs on this computer' },
     }),
-    default: (answers) => dockerByDefault(databaseOf(answers)),
+    // Docker mode is pre-selected only when Docker is installed and running (never required).
+    default: (answers) => dockerByDefault(databaseOf(answers)) && answers.dockerAvailable !== false,
   }),
   text('dbHost', {
     row: 15, group: 'Data', title: 'Database host', flag: 'db-host', alwaysAsk: true, when: needsConnection,
-    help: 'Your own MySQL/PostgreSQL server (without Docker)', usageValue: '<host>',
-    message: 'Database host (your server)', default: () => '127.0.0.1', parse: nonEmpty, is: isString, invalid: 'is not a host name or IP address',
+    help: 'Your own server: XAMPP, WAMP, MAMP, Laragon, Postgres.app, remote', usageValue: '<host>',
+    message: 'Database host (your own server; type url to paste a connection URL instead)',
+    default: () => '127.0.0.1', parse: nonEmpty, is: isString, invalid: 'is not a host name or IP address',
+  }),
+  // A connection URL is a secret (it holds the password): masked, never a flag (STRUT_DB_URL in CI).
+  password('dbUrl', {
+    row: 15, group: 'Data', title: 'Database URL', when: (a) => needsConnection(a) && viaUrl(a), env: 'STRUT_DB_URL', minLength: 1,
+    message: 'Connection URL, e.g. mysql://user:password@host:3306/my_app (hidden; saved only in .env)',
+    check: (value, answers) => {
+      const parsed = parseDatabaseUrl(value)
+      if (typeof parsed === 'string') return `That URL cannot be used: ${parsed}.`
+      return parsed.database === serverOf(answers) ? undefined : `That URL is for ${DATABASE_LABELS[parsed.database]}, but you chose ${DATABASE_LABELS[serverOf(answers)]}.`
+    },
   }),
   text('dbPort', {
-    row: 15, group: 'Data', title: 'Database port', flag: 'db-port', alwaysAsk: true, when: needsConnection,
-    help: 'Its port', usageValue: '<port>',
+    row: 15, group: 'Data', title: 'Database port', flag: 'db-port', alwaysAsk: true, when: byHost,
+    help: 'Its port (MySQL/MariaDB 3306, MAMP 8889, PostgreSQL 5432)', usageValue: '<port>',
     message: 'Database port',
     default: (answers) => DEFAULT_DATABASE_PORTS[serverOf(answers)],
     parse: (raw) => (/^\d{1,5}$/.test(raw) ? Number(raw) : undefined),
@@ -826,18 +867,47 @@ export const QUESTIONS: readonly Question[] = [
     invalid: 'is not a port number (1 to 65535)',
   }),
   text('dbName', {
-    row: 15, group: 'Data', title: 'Database name', flag: 'db-name', alwaysAsk: true, when: needsConnection,
-    help: 'Its database name', usageValue: '<name>',
-    message: 'Database name', default: (answers) => sqlIdentifier(answers.name ?? 'app'), parse: nonEmpty, is: isString, invalid: 'is not a database name',
+    row: 15, group: 'Data', title: 'Database name', flag: 'db-name', alwaysAsk: true, when: byHost,
+    help: 'Its database (created when missing, if allowed)', usageValue: '<name>',
+    message: 'Database name (created if it does not exist yet)', default: (answers) => sqlIdentifier(answers.name ?? 'app'), parse: nonEmpty, is: isString, invalid: 'is not a database name',
   }),
   text('dbUser', {
-    row: 15, group: 'Data', title: 'Database user', flag: 'db-user', alwaysAsk: true, when: needsConnection,
-    help: 'Its user (password: asked, or STRUT_DB_PASSWORD)', usageValue: '<user>',
-    message: 'Database user', default: (answers) => sqlIdentifier(answers.name ?? 'app'), parse: nonEmpty, is: isString, invalid: 'is not a database user',
+    row: 15, group: 'Data', title: 'Database user', flag: 'db-user', alwaysAsk: true, when: byHost,
+    help: 'Its user: root (MySQL/MariaDB) or postgres (password: asked, or STRUT_DB_PASSWORD)', usageValue: '<user>',
+    message: 'Database user', default: (answers) => defaultDatabaseUser(databaseOf(answers)), parse: nonEmpty, is: isString, invalid: 'is not a database user',
   }),
   password('dbPassword', {
-    row: 15, group: 'Data', title: 'Database password', when: needsConnection, env: 'STRUT_DB_PASSWORD', minLength: 0,
-    message: 'Database password (saved only in .env)',
+    row: 15, group: 'Data', title: 'Database password', when: byHost, env: 'STRUT_DB_PASSWORD', minLength: 0,
+    message: 'Database password (empty is fine for a local XAMPP/WAMP/MAMP root; saved only in .env)',
+    check: (value, answers, prompter) => {
+      if (value !== '') return undefined
+      if (!isLocalHost(answers.dbHost ?? '127.0.0.1')) return 'A database server on another computer needs a password. Please type it.'
+      prompter.info(EMPTY_LOCAL_PASSWORD_WARNING)
+      return undefined
+    },
+  }),
+  text('dbSocket', {
+    row: 15, group: 'Data', title: 'Database socket', flag: 'db-socket', when: byHost, optional: true,
+    help: 'A Unix socket or named pipe instead of host:port', usageValue: '<path>',
+    message: 'Socket or named pipe instead of host and port (usually none)', default: () => '', parse: pathValue, is: isString, invalid: 'is not a plain file path',
+  }),
+  select('dbSslMode', {
+    row: 15, group: 'Data', title: 'Database TLS', flag: 'db-sslmode', when: needsConnection,
+    help: 'disable, prefer, require, verify-ca or verify-full',
+    message: 'Encrypt the connection to your database (TLS)?',
+    choices: [
+      { value: 'prefer', label: 'Prefer: use TLS when the server offers it', short: 'prefer' },
+      { value: 'disable', label: 'Disable (only for a server on this computer)', short: 'disable' },
+      { value: 'require', label: 'Require TLS', short: 'require' },
+      { value: 'verify-ca', label: 'Require TLS and check the certificate authority', short: 'verify-ca' },
+      { value: 'verify-full', label: 'Require TLS, check the authority and the host name', short: 'verify-full' },
+    ],
+    default: () => 'prefer',
+  }),
+  text('dbSslCa', {
+    row: 15, group: 'Data', title: 'Database CA file', flag: 'db-ssl-ca', when: (a) => needsConnection(a) && (a.dbSslMode ?? 'prefer').startsWith('verify'), optional: true,
+    help: 'The CA certificate for verify-ca / verify-full', usageValue: '<path>',
+    message: "The server's CA certificate file (Enter for the system's)", default: () => '', parse: pathValue, is: isString, invalid: 'is not a plain file path',
   }),
   text('adminEmail', {
     row: 16, group: 'Data', title: 'First admin', flag: 'admin-email', when: hasSignIn,

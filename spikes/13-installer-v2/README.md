@@ -95,7 +95,7 @@ all loop over that array; there is no per-question switch.
 | App | `--stack full\|api` (full) · `--design crisp\|vivid` (crisp) · `--ui admin\|blank` (admin) |
 | Sign-in | `--auth email\|magic-link\|none` (email) · `--security 2fa,verification,passkeys,registration` (2fa,verification; registration OFF, F-02) · `--social google,...` (none) · `--sso` (no; needs teams) · `--api tokens\|oauth\|none` (tokens; forced to tokens without sign-in) · `--roles basic\|extended` |
 | Teams | `--teams` (no) · `--tenant switcher\|subdomain` |
-| Data | `--db mysql\|postgres\|sqlite` (mysql; postgres with teams) · `--docker` (yes for server DBs) · `--db-host/--db-port/--db-name/--db-user` · `--admin-email` (admin@&lt;name&gt;.test) · `--admin-password generate\|type` · `--sample-data` (yes for the admin starter) |
+| Data | `--db mysql\|postgres\|sqlite` (mysql; postgres with teams) · `--docker` (yes for server DBs **only when Docker is running**) · `--db-host/--db-port/--db-name/--db-user` (127.0.0.1, 3306/5432, root/postgres) · `--db-socket`, `--db-sslmode` (prefer), `--db-ssl-ca` · `STRUT_DB_URL` · `--admin-email` (admin@&lt;name&gt;.test) · `--admin-password generate\|type` · `--sample-data` (yes for the admin starter) |
 | Infra | `--cache-store database\|redis` · `--storage local\|s3` · `--mailer later\|smtp\|resend\|postmark\|ses` · `--locale en` · `--timezone` (this computer) · `--currency USD` |
 | Features | `--features <catalogue ids>\|none` (log-viewer) · `--feature-option <id>.<question>=<value>` |
 | Quality / Workflow | `--testing vitest\|vitest-playwright\|none` · `--agents` (yes) · `--git` · `--ci` · `--editor` (yes) · `--dev-container` (no) |
@@ -129,6 +129,24 @@ public registration is off; the first admin's password is generated with `crypto
 passed to the seeder through the environment only: never in `.env`, `.env.example`,
 `strutvane.json` or `setup.json` (tested by scanning every written file).
 
+**Your own database server, without Docker** (consistency rows 40-44): MySQL (default), MariaDB
+and PostgreSQL work against XAMPP, WAMP, MAMP, Laragon, Postgres.app, a local install or a remote
+server, exactly like Laravel. Docker is never required: question 14 pre-selects Docker only when
+it is installed and running. Without Docker npm installs first, then `node strut db:prepare` (the
+app's own driver) logs in, tells MySQL from MariaDB (`DB_CONNECTION=mariadb`; the values are
+mysql | mariadb | pgsql | sqlite, postgres accepted as pgsql), creates the database and
+`<db>_test` when allowed or prints the exact one-line SQL and stops with exit 2, and on
+PostgreSQL creates `<app>_owner` / `<app>_app` (NOSUPERUSER, NOBYPASSRLS, generated passwords in
+`.env`; the administrator login is not kept) when the login may CREATEROLE, else prints the SQL
+and warns loudly that a superuser login disables RLS. An empty password is allowed for
+localhost/127.0.0.1/::1 with a warning and refused for remote hosts. A connection URL (type `url`
+as the host, masked; `STRUT_DB_URL` in CI) is parsed and checked, written to `.env` only, and
+never echoed. Errors are plain words mapped from driver codes (refused: "start MySQL in your
+XAMPP/WAMP/MAMP/Laragon control panel", MAMP's 8889 on a Mac; unknown host; wrong password
+ER_ACCESS_DENIED/28P01; missing database; timeout; TLS), and "Change the connection details"
+lets you fix them and retry. Verified for real against MySQL 8.4, MariaDB 11 and PostgreSQL 18
+throw-away servers (`test/own-server.e2e.test.ts`).
+
 **Docker mode runs everything in the app container:** `npm run dev` (= `node strut dev`),
 migrate and every `node strut` command, plus Sail-style pass-throughs `node strut shell` (bash,
 or sh), `node strut npm|npx|node <args>`. Forwarded in Docker mode, run locally in host mode or
@@ -141,12 +159,12 @@ Exit codes: 0 ready, 1 nothing created, 2 created but setup unfinished, 130 canc
 
 | Failure | What happens |
 |---|---|
-| Docker not installed | Continue without Docker (SQLite) / Skip / Stop; CI: exit 2 |
-| Docker installed, engine stopped | Retry / Continue without Docker (SQLite) / Skip / Stop |
+| Docker not installed / engine stopped | Use my own database server (asks the details) / Start or install Docker (shows how, waits) / Use SQLite / Retry / Skip / Stop; CI: exit 2 |
 | Port busy before start / taken at `up` | next free port written to `.env`; at `up` (another program or a second installer won the race): only the port Docker names moves, 1–12 up at random, and `up` is retried, up to 5 tries, each named in a warning (verified: 4 installers at once all finish) |
 | `npm ci` network error / Windows lock | one automatic retry (lock: after 2 s) |
 | `npm ci` other / registry 401/403 | last 20 lines + log path + hint; Retry / Skip / Stop |
-| Own DB server unreachable | TCP check names host:port; Retry / Skip (migrate waits) |
+| Own DB server unreachable / login refused | plain-language cause (control panel, MAMP port, host name, password, TLS); Change the connection details / Retry / Skip (migrate waits) |
+| Own DB server: no right to create the database | the exact one-line SQL for an administrator; exit 2; `npm run setup` continues |
 | `node strut migrate` exit 3 | "database unreachable" with the fix; Retry / Skip |
 | No git identity / git missing | the two `git config` commands / install hint; exit 2 |
 | Secret path not ignored / staged | **no commit**, everything unstaged |

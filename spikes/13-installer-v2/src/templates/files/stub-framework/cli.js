@@ -11,6 +11,7 @@ import { createServer } from 'node:http'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { parseEnv } from 'node:util'
+import { connect, connectionSettings, DatabaseError, dialectOf, prepareDatabase } from './db.js'
 import { createSchema, sqlValue } from './index.js'
 
 const UNREACHABLE = 3
@@ -29,32 +30,9 @@ class CommandError extends Error {
   }
 }
 
-/**
- * Credentials per role. PostgreSQL migrations run as the owner role, everything else as the app
- * role (NOSUPERUSER, NOBYPASSRLS), so row-level security applies to the app.
- */
-function credentials(env, role) {
-  if (role === 'migrate' && env.DB_MIGRATION_USERNAME) {
-    return { user: env.DB_MIGRATION_USERNAME, password: env.DB_MIGRATION_PASSWORD }
-  }
-  return { user: env.DB_USERNAME, password: env.DB_PASSWORD }
-}
-
-/** Errors that mean "the server is not there (yet)" rather than "the SQL is wrong". */
-const UNREACHABLE_CODES = new Set(['ECONNREFUSED', 'ENOTFOUND', 'ETIMEDOUT', 'EHOSTUNREACH', 'EAI_AGAIN', 'PROTOCOL_CONNECTION_LOST'])
-
-/** Load a driver installed with the app, with a fix when it is missing. */
-async function loadDriver(name) {
-  try {
-    return await import(name)
-  } catch {
-    throw new CommandError(`The ${name} package is not installed. Run: npm run setup`)
-  }
-}
-
 /** A database handle: `exec(sql)` runs a statement, `column(sql)` returns the first column as strings. */
 async function openDatabase(root, env, role) {
-  const dialect = env.DB_CONNECTION
+  const dialect = dialectOf(env.DB_CONNECTION)
   if (dialect === 'sqlite') {
     const { DatabaseSync } = await import('node:sqlite')
     const file = join(root, env.DB_DATABASE || 'database/database.sqlite')
@@ -69,40 +47,29 @@ async function openDatabase(root, env, role) {
       close: async () => db.close(),
     }
   }
-  const label = dialect === 'mysql' ? 'MySQL' : 'PostgreSQL'
-  const { user, password } = credentials(env, role)
-  const settings = { host: env.DB_HOST, port: Number(env.DB_PORT), user, password, database: env.DB_DATABASE }
-  const unreachable = (error) =>
-    new CommandError(
-      `Cannot reach ${label} at ${env.DB_HOST}:${env.DB_PORT} (${error.code ?? error.message}). ` +
-        'Start the database (Docker: node strut services:up), check DB_* in .env, then run: npm run setup',
-      UNREACHABLE,
-    )
-  try {
-    if (dialect === 'mysql') {
-      const mysql = await loadDriver('mysql2/promise')
-      const connection = await mysql.createConnection(settings)
-      return {
-        dialect,
-        exec: async (sql) => void (await connection.query(sql)),
-        column: async (sql) => (await connection.query(sql))[0].map((row) => String(Object.values(row)[0])),
-        close: async () => connection.end(),
-      }
-    }
-    const { default: pg } = await loadDriver('pg')
-    const client = new pg.Client(settings)
-    await client.connect()
-    return {
-      dialect,
-      exec: async (sql) => void (await client.query(sql)),
-      column: async (sql) => (await client.query(sql)).rows.map((row) => String(Object.values(row)[0])),
-      close: async () => client.end(),
-    }
-  } catch (error) {
-    if (error instanceof CommandError) throw error
-    if (UNREACHABLE_CODES.has(error.code)) throw unreachable(error)
-    throw new CommandError(`${label} refused the connection: ${error.message}. Check DB_USERNAME and DB_PASSWORD in .env.`)
+  // MySQL, MariaDB or PostgreSQL, in Docker or your own server (see db.js).
+  return connect(connectionSettings(env, role))
+}
+
+/**
+ * `node strut db:prepare [--json]`: what setup runs once against your own server (see db.js).
+ * With --json the report is one line, `STRUT_DB_PREPARE {...}`, for the installer.
+ */
+async function dbPrepare(env, json) {
+  const report = await prepareDatabase({ ...env, ...pick(process.env, ['STRUT_DB_OWNER', 'STRUT_DB_APP', 'STRUT_DB_OWNER_PASSWORD', 'STRUT_DB_APP_PASSWORD']) })
+  if (json) {
+    process.stdout.write(`STRUT_DB_PREPARE ${JSON.stringify(report)}\n`)
+    return 0
   }
+  process.stdout.write(`${report.flavor} ${report.version}: created ${report.created.join(', ') || 'nothing'}\n`)
+  for (const line of report.sql) process.stdout.write(`  An administrator must run: ${line}\n`)
+  for (const line of report.warnings) process.stdout.write(`  WARNING: ${line}\n`)
+  return report.sql.length > 0 ? 2 : 0
+}
+
+/** Only these keys of an object (the role settings setup hands over in the environment). */
+function pick(source, keys) {
+  return Object.fromEntries(keys.filter((key) => source[key] !== undefined).map((key) => [key, source[key]]))
 }
 
 /** Run every migration in database/migrations that has not run yet, in file-name order. */
@@ -268,6 +235,7 @@ const HELP = `Usage: node strut <command>
   dev                    Start the app (API + UI) on 127.0.0.1:APP_PORT
   build                  Build for production (then: npm start)
   migrate [--seed]       Run new migrations (and the seeders)
+  db:prepare             Check your own database server, create the databases (setup runs it)
   db:seed                Run the seeders (development only)
   user:password <email>  Set a new one-time password and show it once
   test                   Run the tests
@@ -300,6 +268,8 @@ export async function run(argv, { root }) {
         await withDatabase(root, env, 'migrate', (db) => migrate(root, db))
         if (rest.includes('--seed')) await withDatabase(root, env, 'app', (db) => seed(root, db, env))
         return 0
+      case 'db:prepare':
+        return await dbPrepare(env, rest.includes('--json'))
       case 'db:seed':
         await withDatabase(root, env, 'app', (db) => seed(root, db, env))
         return 0
@@ -320,7 +290,10 @@ export async function run(argv, { root }) {
         return 1
     }
   } catch (error) {
+    if (error instanceof DatabaseError && rest.includes('--json')) {
+      process.stdout.write(`STRUT_DB_PREPARE ${JSON.stringify({ ok: false, kind: error.kind, message: error.message })}\n`)
+    }
     process.stderr.write(`${error.message}\n`)
-    return error instanceof CommandError ? error.code : 1
+    return error instanceof CommandError || error instanceof DatabaseError ? error.code : 1
   }
 }

@@ -59,7 +59,8 @@ describe('npm install failures', () => {
     expect(failing.output()).toMatch(/npm install failed \(exit code 1\)/)
     expect(failing.output()).toMatch(/npm config get registry.*Full log: .*setup-.*\.log/)
     expect(failing.output()).toContain('cd acme; npm run setup')
-    expect(statusOf(failing.directory)).toMatchObject({ files: 'done', secrets: 'done', ports: 'done', database: 'done', install: 'failed', migrate: 'pending', git: 'pending' })
+    // Without Docker npm runs first; the database step waits for it.
+    expect(statusOf(failing.directory)).toMatchObject({ files: 'done', secrets: 'done', ports: 'done', database: 'pending', install: 'failed', migrate: 'pending', git: 'pending' })
 
     let probes = 0
     const resumed = await resume(failing.directory, {}, { isPortFree: async () => ++probes > 0 })
@@ -105,7 +106,7 @@ describe('Docker failures', () => {
   })
 
   it('Docker stopped (CI): exit 2, database and migrate left for npm run setup', async () => {
-    const result = await create(['--yes'], { docker: (spec) => (spec.args[0] === 'info' ? { code: 1, output: 'error during connect' } : undefined) })
+    const result = await create(['--yes', '--docker'], { docker: (spec) => (spec.args[0] === 'info' ? { code: 1, output: 'error during connect' } : undefined) })
     expect(result.code).toBe(2)
     expect(statusOf(result.directory)).toMatchObject({ database: 'failed', migrate: 'pending' })
   })
@@ -177,10 +178,10 @@ describe('migrate and git failures', () => {
       // Port 1 never answers: a deterministic "server is down".
       ['--stack', 'api', '--auth', 'none', '--db', 'postgres', '--no-docker', '--db-host', '127.0.0.1', '--db-port', '1', '--db-name', 'shop', '--db-user', 'shop', '--testing', 'none', '--git'],
       {},
-      { interactiveTerminal: true, prompter },
+      { interactiveTerminal: true, prompter, probeServer: async () => 'refused' },
     )
     expect(result.code).toBe(2)
-    expect(result.output()).toMatch(/Nothing answers at 127.0.0.1:1/)
+    expect(result.output()).toMatch(/Nothing is listening at 127.0.0.1:1, so PostgreSQL is not running there/)
     expect(result.output()).toMatch(/waiting for database/)
     expect(statusOf(result.directory)).toMatchObject({ database: 'skipped', migrate: 'pending', git: 'done' })
     expect(result.env().get('DB_PASSWORD')).toBe('Hunter-77-pw') // typed once, kept in .env only

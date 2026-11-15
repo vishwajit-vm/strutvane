@@ -234,6 +234,7 @@ function stubPackages(options: ProjectOptions): GeneratedFile[] {
       files.push(
         { path: `${folder}/index.js`, content: staticFile('stub-framework/index.js') },
         { path: `${folder}/cli.js`, content: staticFile('stub-framework/cli.js') },
+        { path: `${folder}/db.js`, content: staticFile('stub-framework/db.js') },
       )
     } else {
       files.push({ path: `${folder}/index.js`, content: `// SPIKE STUB of ${name} (spike 13). The real package replaces this folder.\nexport const stub = ${JSON.stringify(name)}\n` })

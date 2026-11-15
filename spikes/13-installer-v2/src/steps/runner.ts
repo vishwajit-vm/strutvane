@@ -13,7 +13,7 @@
  */
 import { type SetupState, STEP_IDS, type StepId, projectOptions, withStep } from '../setup-state.ts'
 import type { Reporter } from '../reporter.ts'
-import type { ProjectOptions } from '../options.ts'
+import type { Answers, ProjectOptions } from '../options.ts'
 import { teamsNote } from '../options.ts'
 import { databaseStep } from './database.ts'
 import { gitStep } from './git.ts'
@@ -22,7 +22,7 @@ import { migrateStep } from './migrate.ts'
 import { portsStep } from './ports.ts'
 import type { Recoverer } from './recovery.ts'
 import { secretsStep } from './secrets.ts'
-import { switchToSqlite } from './sqlite-fallback.ts'
+import { switchToSqlite, useOwnServer } from './sqlite-fallback.ts'
 import type { ShowOnce, Step, StepContext, StepFailure, StepOutcome } from './types.ts'
 
 /**
@@ -33,6 +33,21 @@ import type { ShowOnce, Step, StepContext, StepFailure, StepOutcome } from './ty
  * SETUP_STEPS.map((s) => s.id) // ['secrets', 'ports', 'database', 'install', 'migrate', 'git']
  */
 export const SETUP_STEPS: readonly Step[] = [secretsStep, portsStep, databaseStep, installStep, migrateStep, gitStep]
+
+/**
+ * The steps in the order these options need: Docker mode starts the containers before npm runs in
+ * them; without Docker, npm installs first, because checking your own server (and creating its
+ * database) uses the app's own driver.
+ *
+ * @example
+ * stepsFor({ ...options, docker: false }).map((s) => s.id) // ['secrets', 'ports', 'install', 'database', 'migrate', 'git']
+ */
+export function stepsFor(options: ProjectOptions): readonly Step[] {
+  return options.docker ? SETUP_STEPS : [secretsStep, portsStep, installStep, databaseStep, migrateStep, gitStep]
+}
+
+/** The connection answers the user gave for their own server (secrets included, never saved). */
+export type ConnectionAnswers = Pick<Answers, 'dbHost' | 'dbPort' | 'dbName' | 'dbUser' | 'dbPassword' | 'dbUrl' | 'dbSocket' | 'dbSslMode' | 'dbSslCa'>
 
 /** What the runner needs from its caller. */
 export interface RunnerSettings {
@@ -46,8 +61,13 @@ export interface RunnerSettings {
   readonly save: (state: SetupState) => void
   /** Timestamps for the state file. */
   readonly now: () => Date
-  /** The steps to run (tests may pass fakes). Default: {@link SETUP_STEPS}. */
+  /** The steps to run (tests may pass fakes). Default: {@link stepsFor} the starting options. */
   readonly steps?: readonly Step[]
+  /**
+   * Asks for your own database server's details (interactive only), for "Use my own database
+   * server" after a Docker problem and "Change the connection details" after a refused login.
+   */
+  readonly askConnection?: (options: ProjectOptions) => Promise<ConnectionAnswers | undefined>
 }
 
 /**
@@ -82,7 +102,7 @@ export async function runSteps(initial: SetupState, settings: RunnerSettings): P
     settings.save(state)
   }
 
-  const steps = settings.steps ?? SETUP_STEPS
+  const steps = settings.steps ?? stepsFor(projectOptions(state, settings.directory))
   // Steps the options did not ask for (git with --no-git) count as done up front, so a run that
   // stops early never lists them as "not done".
   for (const step of steps) {
@@ -91,26 +111,42 @@ export async function runSteps(initial: SetupState, settings: RunnerSettings): P
     }
   }
 
-  for (const step of steps) {
-    if (state.steps[step.id].status === 'done') continue
-    const waiting = step.needs(projectOptions(state, settings.directory)).filter((id) => state.steps[id].status !== 'done')
-    if (waiting.length > 0) {
-      const reason = `${step.title}: waiting for ${waiting.join(', ')} (run npm run setup when fixed)`
-      settings.reporter.step(step.title).skipped(reason)
-      record(step.id, 'pending', reason)
-      continue
+  // The first pass runs every step in order. Switching from Docker to your own server inside the
+  // database step sends that step back to "pending" until npm has installed the app's driver; a
+  // second pass then runs exactly the steps still pending (never one the user chose to skip).
+  const index = (id: StepId) => steps.findIndex((candidate) => candidate.id === id)
+  let stopped = false
+  let requeued = false
+  for (let pass = 0; pass < 2 && !stopped; pass += 1) {
+    if (pass === 1 && !requeued) break
+    for (const step of steps) {
+      const status = state.steps[step.id].status
+      if (status === 'done' || (pass === 1 && status !== 'pending')) continue
+      const waiting = step.needs(projectOptions(state, settings.directory)).filter((id) => state.steps[id].status !== 'done')
+      if (waiting.length > 0) {
+        // A step waiting only for a later step of this same pass will run in the next pass: quiet.
+        const runsLater = pass === 0 && requeued && waiting.every((id) => index(id) > index(step.id))
+        if (!runsLater) settings.reporter.step(step.title).skipped(`${step.title}: waiting for ${waiting.join(', ')} (run npm run setup when fixed)`)
+        record(step.id, 'pending', `waiting for ${waiting.join(', ')}`)
+        continue
+      }
+      const result = await runOne(step, settings, () => state, (next) => {
+        state = next
+        settings.save(state)
+      }, record, (value) => showOnce.push(value))
+      if (result === 'requeued') requeued = true
+      if (result === 'stop') {
+        stopped = true
+        break
+      }
     }
-    const stop = await runOne(step, settings, () => state, (next) => {
-      state = next
-      settings.save(state)
-    }, record, (value) => showOnce.push(value))
-    if (stop) break
   }
   return summarise(state, showOnce)
 }
 
 /**
- * Run one step until it is done, skipped or the run stops. Returns `true` to stop the whole run.
+ * Run one step until it is done, skipped or the run stops. Returns `stop` to stop the whole run,
+ * `requeued` when the step must wait for a later one (own server: the install), else `next`.
  * `getState`/`setState` let the SQLite fallback replace the options mid-step.
  */
 async function runOne(
@@ -120,7 +156,7 @@ async function runOne(
   setState: (state: SetupState) => void,
   record: (id: StepId, status: 'pending' | 'done' | 'failed' | 'skipped', note?: string) => void,
   remember: (value: ShowOnce) => void,
-): Promise<boolean> {
+): Promise<'next' | 'stop' | 'requeued'> {
   for (;;) {
     const progress = settings.reporter.step(step.title)
     const outcome = await runSafely(step, settings.context(projectOptions(getState(), settings.directory)))
@@ -128,18 +164,18 @@ async function runOne(
       progress.done(outcome.message)
       if (outcome.showOnce !== undefined) remember(outcome.showOnce)
       record(step.id, 'done', outcome.message)
-      return false
+      return 'next'
     }
     if (outcome.status === 'skipped') {
       progress.skipped(outcome.reason)
       record(step.id, 'skipped', outcome.reason)
-      return false
+      return 'next'
     }
     progress.failed(outcome.failure.message)
     explain(settings.reporter, outcome.failure)
     if (settings.recover === undefined) {
       record(step.id, 'failed', `${outcome.failure.message} ${outcome.failure.hint}`)
-      return true // CI mode: stop at the first failure
+      return 'stop' // CI mode: stop at the first failure
     }
     const choice = await settings.recover(outcome.failure, step)
     if (choice === 'retry') continue
@@ -150,12 +186,27 @@ async function runOne(
       if (note !== undefined) settings.reporter.info(note)
       continue
     }
+    if ((choice === 'own-server' || choice === 'edit-connection') && settings.askConnection !== undefined) {
+      const details = await settings.askConnection(projectOptions(getState(), settings.directory))
+      if (details === undefined) {
+        record(step.id, 'failed', outcome.failure.message)
+        return 'stop' // cancelled while typing the details
+      }
+      setState(useOwnServer(settings.directory, getState(), details))
+      settings.reporter.info('Using your own database server: .env now holds its connection details (and only .env holds the password).')
+      // Without Docker the app's driver is installed first; the database step comes back after it.
+      if (getState().steps.install.status !== 'done') {
+        record(step.id, 'pending', 'waiting for install (your own server is checked with the app driver)')
+        return 'requeued'
+      }
+      continue
+    }
     if (choice === 'skip') {
       record(step.id, 'skipped', outcome.failure.message)
-      return false
+      return 'next'
     }
     record(step.id, 'failed', outcome.failure.message)
-    return true
+    return 'stop'
   }
 }
 

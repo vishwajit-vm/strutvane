@@ -65,12 +65,13 @@ describe('defaults (user decisions 2026-11-14 + security review)', () => {
 })
 
 describe('your own database server (no Docker)', () => {
-  it('defaults to this computer, the standard port and names from the project', () => {
+  it('defaults to this computer, the standard port, the usual admin user and a name from the project', () => {
     expect(resolveOptions({ name: 'acme-portal', docker: false }, '/c').connection).toEqual({
       host: '127.0.0.1',
       port: 3306,
       database: 'acme_portal',
-      username: 'acme_portal',
+      username: 'root',
+      sslMode: 'prefer',
     })
     expect(resolveOptions({ name: 'a', database: 'postgres', docker: false }, '/c').connection?.port).toBe(5432)
     expect(resolveOptions({ name: 'a' }, '/c').connection).toBeUndefined() // Docker mode

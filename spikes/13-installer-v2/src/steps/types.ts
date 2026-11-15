@@ -12,8 +12,11 @@ import type { Spawner } from '../spawn.ts'
 
 /**
  * What kind of failure happened. The kind decides which recovery choices the user gets:
- * - `docker-missing`: the docker CLI is not installed → Use SQLite / Skip / Stop
- * - `docker-stopped`: installed but the engine is not running → Retry / Use SQLite / Skip
+ * - `docker-missing` / `docker-stopped` → Use my own database server / Start or install Docker /
+ *   Use SQLite / Retry / Skip / Stop (Docker is never required)
+ * - `database-connection`: your own server refused or did not answer → Change the connection
+ *   details / Retry / Skip / Stop
+ * - `database-sql`: an administrator must run the printed SQL first → Retry / Skip / Stop
  * - `install-failed`, `database-unreachable`, `git-identity`, `command-failed` → Retry / Skip / Stop
  */
 export type FailureKind =
@@ -21,6 +24,8 @@ export type FailureKind =
   | 'docker-stopped'
   | 'install-failed'
   | 'database-unreachable'
+  | 'database-connection'
+  | 'database-sql'
   | 'git-identity'
   | 'command-failed'
 
@@ -100,6 +105,8 @@ export interface StepContext {
    * tests pass a fixed one.
    */
   readonly random?: () => number
+  /** TCP probe of your own database server (tests fake it). Default: a real connect, 3 s at most. */
+  readonly probeServer?: (host: string, port: number) => Promise<'ok' | 'refused' | 'not-found' | 'timeout' | 'other'>
 }
 
 /**

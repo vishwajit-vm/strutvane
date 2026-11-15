@@ -31,7 +31,7 @@ describe('Recommended mode (the default)', () => {
     const { prompter, asked } = scriptedPrompter({ ...RECOMMENDED_ANSWERS, name: 'my-app', docker: 'host', dbHost: '', dbPort: '3307', dbName: 'shop', dbUser: '', dbPassword: "pa ss'#word" })
     const answers = await askMissing({}, prompter, context)
     expect(asked).toEqual(['name', 'mode', 'stack', 'design', 'auth', 'teams', 'database', 'docker', 'dbHost', 'dbPort', 'dbName', 'dbUser', 'dbPassword', 'agents'])
-    expect(answers).toMatchObject({ docker: false, dbHost: '127.0.0.1', dbPort: 3307, dbName: 'shop', dbUser: 'my_app', dbPassword: "pa ss'#word" })
+    expect(answers).toMatchObject({ docker: false, dbHost: '127.0.0.1', dbPort: 3307, dbName: 'shop', dbUser: 'root', dbPassword: "pa ss'#word" })
   })
 
   it('skips design for an API-only project and teams without sign-in', async () => {

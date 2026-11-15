@@ -251,11 +251,27 @@ export interface Answers {
   readonly dbPort?: number | undefined
   readonly dbName?: string | undefined
   readonly dbUser?: string | undefined
+  /** A Unix socket or Windows named pipe instead of host and port (MAMP, Homebrew, ...). */
+  readonly dbSocket?: string | undefined
+  /** TLS to your server: disable, prefer (default), require, verify-ca or verify-full. */
+  readonly dbSslMode?: SslMode | undefined
+  /** The CA certificate file for verify-ca / verify-full. */
+  readonly dbSslCa?: string | undefined
   /**
    * The database password for a server the user runs. Kept out of {@link ProjectOptions} on
    * purpose: it goes straight into `.env` and never into setup.json, strutvane.json or the review.
    */
   readonly dbPassword?: string | undefined
+  /**
+   * A connection URL (`mysql://user:pass@host:3306/db`). A secret like the password: masked when
+   * typed, `STRUT_DB_URL` in CI, written to `.env` only and never echoed.
+   */
+  readonly dbUrl?: string | undefined
+  /**
+   * Not a question: whether Docker is installed and running on this computer (probed once). Docker
+   * mode is the default only when it is (blueprint §2.1 question 14; Docker is never required).
+   */
+  readonly dockerAvailable?: boolean | undefined
   readonly adminEmail?: string | undefined
   readonly adminPasswordMode?: AdminPasswordMode | undefined
   /**
@@ -296,7 +312,12 @@ export interface Answers {
 export type AnswerKey = keyof Answers
 
 /** Answers that are secrets: never stored, never shown, never in a generated committed file. */
-export const SECRET_ANSWERS: readonly AnswerKey[] = Object.freeze(['dbPassword', 'adminPassword'])
+export const SECRET_ANSWERS: readonly AnswerKey[] = Object.freeze(['dbPassword', 'dbUrl', 'adminPassword'])
+
+/** TLS modes for your own server, libpq's names (the MySQL driver maps them). */
+export const SSL_MODES = ['disable', 'prefer', 'require', 'verify-ca', 'verify-full'] as const
+/** One of {@link SSL_MODES}. */
+export type SslMode = (typeof SSL_MODES)[number]
 
 /**
  * How to reach a MySQL/PostgreSQL server the user runs (no Docker).
@@ -309,6 +330,10 @@ export interface Connection {
   readonly port: number
   readonly database: string
   readonly username: string
+  /** A socket or named pipe used instead of host:port, when given. */
+  readonly socket?: string
+  readonly sslMode: SslMode
+  readonly sslCa?: string
 }
 
 /**
@@ -462,7 +487,7 @@ export const teamsOf = (a: Answers): boolean => hasSignIn(a) && (a.teams ?? DEFA
 /** The database: the answer, or the default for the teams answer. */
 export const databaseOf = (a: Answers): Database => a.database ?? defaultDatabase(teamsOf(a))
 /** Docker mode: the answer, or the default for the database. */
-export const dockerOf = (a: Answers): boolean => a.docker ?? dockerByDefault(databaseOf(a))
+export const dockerOf = (a: Answers): boolean => a.docker ?? (dockerByDefault(databaseOf(a)) && a.dockerAvailable !== false)
 /** Connection questions apply only without Docker and with a server database. */
 export const needsConnection = (a: Answers): boolean => !dockerOf(a) && databaseOf(a) !== 'sqlite'
 /** AI features inside the app: the answer, or the default. */
@@ -831,23 +856,105 @@ function resolveConnection(
   answers: Answers,
   problems: string[],
 ): Connection | undefined {
-  const given = [answers.dbHost, answers.dbPort, answers.dbName, answers.dbUser].some((v) => v !== undefined)
+  const given = [answers.dbHost, answers.dbPort, answers.dbName, answers.dbUser, answers.dbSocket, answers.dbSslMode, answers.dbSslCa, answers.dbUrl].some((v) => v !== undefined)
   if (docker || database === 'sqlite') {
-    if (given) problems.push('connection details (--db-host, --db-port, --db-name, --db-user) are only for MySQL/PostgreSQL without Docker')
+    if (given) problems.push('connection details (--db-host, --db-port, --db-name, --db-user, --db-socket, --db-sslmode, --db-ssl-ca, STRUT_DB_URL) are only for MySQL/PostgreSQL without Docker')
     return undefined
   }
   const id = sqlIdentifier(name.length > 0 ? name : 'app')
-  const connection = {
+  const sslMode = answers.dbSslMode ?? 'prefer'
+  const socket = answers.dbSocket === undefined || answers.dbSocket === '' ? undefined : answers.dbSocket
+  const sslCa = answers.dbSslCa === undefined || answers.dbSslCa === '' ? undefined : answers.dbSslCa
+  const connection: Connection = {
     host: answers.dbHost ?? '127.0.0.1',
     port: answers.dbPort ?? DEFAULT_DATABASE_PORTS[database],
     database: answers.dbName ?? id,
-    username: answers.dbUser ?? id,
+    username: answers.dbUser ?? defaultDatabaseUser(database),
+    sslMode,
+    ...(socket === undefined ? {} : { socket }),
+    ...(sslCa === undefined ? {} : { sslCa }),
   }
   if (!HOST.test(connection.host)) problems.push(`"${connection.host}" is not a valid database host (use a name like db.example.com or an IP address)`)
   if (!Number.isInteger(connection.port) || connection.port < 1 || connection.port > 65535) problems.push(`database port ${connection.port} must be a number from 1 to 65535`)
   if (!IDENTIFIER.test(connection.database)) problems.push(`"${connection.database}" is not a valid database name (letters, digits, _, - and $)`)
   if (!IDENTIFIER.test(connection.username)) problems.push(`"${connection.username}" is not a valid database user (letters, digits, _, - and $)`)
+  if (!SSL_MODES.includes(sslMode)) problems.push(`--db-sslmode "${String(sslMode)}" is not one of: ${SSL_MODES.join(', ')}`)
+  if (socket !== undefined && !PATH_VALUE.test(socket)) problems.push('--db-socket must be a plain file path (no quotes or line breaks)')
+  if (sslCa !== undefined && !PATH_VALUE.test(sslCa)) problems.push('--db-ssl-ca must be a plain file path (no quotes or line breaks)')
+  if (sslCa !== undefined && !sslMode.startsWith('verify')) problems.push('--db-ssl-ca is only used with --db-sslmode verify-ca or verify-full')
   return Object.freeze(connection)
+}
+
+/** A file path that is safe in `.env` unquoted-or-quoted and in a config file. */
+const PATH_VALUE = /^[^\0\r\n'"`]{1,1024}$/
+
+/**
+ * The usual administrator account of a fresh local server: `root` for MySQL/MariaDB (XAMPP, WAMP,
+ * MAMP, Laragon), `postgres` for PostgreSQL (Postgres.app, the installers).
+ *
+ * @example
+ * defaultDatabaseUser('postgres') // 'postgres'
+ */
+export function defaultDatabaseUser(database: Database): string {
+  return database === 'postgres' ? 'postgres' : 'root'
+}
+
+/**
+ * Is this host this computer? An empty password is fine there (XAMPP's root has none), with a
+ * warning; a server elsewhere always needs one.
+ *
+ * @example
+ * isLocalHost('127.0.0.1') // true
+ */
+export function isLocalHost(host: string): boolean {
+  return ['localhost', '127.0.0.1', '::1', '[::1]'].includes(host.toLowerCase())
+}
+
+/** What a database URL says, with the password kept apart (never printed). */
+export interface ParsedDatabaseUrl {
+  readonly database: 'mysql' | 'postgres'
+  readonly host: string
+  readonly port: number
+  readonly name: string
+  readonly user: string
+  readonly password: string
+  readonly sslMode: SslMode | undefined
+}
+
+/**
+ * Parse and check a `DB_URL` (`mysql://`, `mariadb://`, `postgres://`, `postgresql://`). Returns
+ * the parts, or a problem in words that never contains the URL or its password.
+ *
+ * @example
+ * parseDatabaseUrl('mysql://root:pw@127.0.0.1:3306/shop') // { database: 'mysql', host: '127.0.0.1', ... }
+ */
+export function parseDatabaseUrl(text: string): ParsedDatabaseUrl | string {
+  let url: URL
+  try {
+    url = new URL(text.trim())
+  } catch {
+    return 'the database URL is not a valid URL (for example mysql://user:password@127.0.0.1:3306/my_app)'
+  }
+  const scheme = url.protocol.replace(/:$/, '').toLowerCase()
+  const database = scheme === 'mysql' || scheme === 'mariadb' ? 'mysql' : scheme === 'postgres' || scheme === 'postgresql' ? 'postgres' : undefined
+  if (database === undefined) return 'the database URL must start with mysql://, mariadb://, postgres:// or postgresql://'
+  const host = url.hostname
+  const name = decodeURIComponent(url.pathname.replace(/^\//, ''))
+  const user = decodeURIComponent(url.username)
+  const port = url.port === '' ? DEFAULT_DATABASE_PORTS[database] : Number(url.port)
+  if (!HOST.test(host)) return 'the database URL has no valid host'
+  if (!IDENTIFIER.test(name)) return 'the database URL needs a database name after the host (letters, digits, _, - and $)'
+  if (!IDENTIFIER.test(user)) return 'the database URL needs a user name (letters, digits, _, - and $)'
+  const rawMode = url.searchParams.get('sslmode') ?? url.searchParams.get('ssl-mode') ?? undefined
+  const sslMode = rawMode === undefined ? undefined : SSL_MODES.find((mode) => mode === rawMode.toLowerCase())
+  if (rawMode !== undefined && sslMode === undefined) return `the database URL's sslmode must be one of: ${SSL_MODES.join(', ')}`
+  let password: string
+  try {
+    password = decodeURIComponent(url.password)
+  } catch {
+    return 'the database URL has a badly encoded password'
+  }
+  return { database, host, port, name, user, password, sslMode }
 }
 
 /**
@@ -860,5 +967,14 @@ function resolveConnection(
 export function answersOf(options: Omit<ProjectOptions, 'directory'>): Answers {
   const { connection, ...rest } = options
   if (connection === undefined) return rest
-  return { ...rest, dbHost: connection.host, dbPort: connection.port, dbName: connection.database, dbUser: connection.username }
+  return {
+    ...rest,
+    dbHost: connection.host,
+    dbPort: connection.port,
+    dbName: connection.database,
+    dbUser: connection.username,
+    dbSslMode: connection.sslMode,
+    ...(connection.socket === undefined ? {} : { dbSocket: connection.socket }),
+    ...(connection.sslCa === undefined ? {} : { dbSslCa: connection.sslCa }),
+  }
 }

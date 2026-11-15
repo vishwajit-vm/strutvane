@@ -38,6 +38,19 @@ export interface EnvSection {
 export interface TypedSecrets {
   /** The password of the user's own database server. */
   readonly dbPassword?: string
+  /** A connection URL for the user's own server (it holds the password). */
+  readonly dbUrl?: string
+}
+
+/**
+ * The `DB_CONNECTION` value for a database: mysql, pgsql or sqlite (mariadb is written by setup
+ * when the server says it is MariaDB; postgres is accepted as an alias of pgsql).
+ *
+ * @example
+ * connectionName('postgres') // 'pgsql'
+ */
+export function connectionName(database: ProjectOptions['database']): 'mysql' | 'pgsql' | 'sqlite' {
+  return database === 'postgres' ? 'pgsql' : database
 }
 
 /** Default host ports, before the ports step moves them away from busy ones. */
@@ -103,19 +116,23 @@ function database(options: ProjectOptions, typed: TypedSecrets): EnvSection {
   }
   if (options.connection !== undefined) {
     // The user's own server: their details, their password (typed, never generated).
-    const { host, port, database: name, username } = options.connection
-    return {
-      title: 'Database',
-      vars: [
-        { key: 'DB_CONNECTION', value: options.database },
-        { key: 'DB_HOST', value: host },
-        { key: 'DB_PORT', value: String(port) },
-        { key: 'DB_DATABASE', value: name },
-        { key: 'DB_TEST_DATABASE', value: `${name.slice(0, 59)}_test` },
-        { key: 'DB_USERNAME', value: username },
-        { key: 'DB_PASSWORD', value: typed.dbPassword ?? '', example: '' },
-      ],
-    }
+    // Your own server (XAMPP, WAMP, MAMP, Laragon, Postgres.app, a local install, remote/cloud).
+    const { host, port, database: name, username, socket, sslMode, sslCa } = options.connection
+    const vars: EnvVar[] = [
+      { key: 'DB_CONNECTION', value: connectionName(options.database) },
+      { key: 'DB_HOST', value: host },
+      { key: 'DB_PORT', value: String(port) },
+      { key: 'DB_DATABASE', value: name },
+      { key: 'DB_TEST_DATABASE', value: `${name.slice(0, 59)}_test` },
+      { key: 'DB_USERNAME', value: username },
+      { key: 'DB_PASSWORD', value: typed.dbPassword ?? '', example: '' },
+      { key: 'DB_SSLMODE', value: sslMode },
+    ]
+    if (socket !== undefined) vars.push({ key: 'DB_SOCKET', value: socket })
+    if (sslCa !== undefined) vars.push({ key: 'DB_SSL_CA', value: sslCa })
+    // A URL wins over the separate keys; it holds the password, so the example stays empty.
+    if (typed.dbUrl !== undefined) vars.push({ key: 'DB_URL', value: typed.dbUrl, example: '' })
+    return { title: 'Database', vars }
   }
   return dockerDatabase(options)
 }
@@ -126,7 +143,7 @@ function dockerDatabase(options: ProjectOptions): EnvSection {
   const port = String(DEFAULT_DATABASE_PORTS[server])
   const id = sqlIdentifier(options.name)
   const vars: EnvVar[] = [
-    { key: 'DB_CONNECTION', value: server },
+    { key: 'DB_CONNECTION', value: connectionName(server) },
     { key: 'DB_HOST', value: 'db' },
     { key: 'DB_PORT', value: port },
     { key: 'FORWARD_DB_PORT', value: port },

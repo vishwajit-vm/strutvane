@@ -181,7 +181,16 @@ function stepRecord(value: unknown): StepRecord {
 function answersFrom(options: Record<string, unknown>): Answers {
   const connection = options['connection']
   const flat: Record<string, unknown> = isRecord(connection)
-    ? { ...options, dbHost: connection['host'], dbPort: connection['port'], dbName: connection['database'], dbUser: connection['username'] }
+    ? {
+        ...options,
+        dbHost: connection['host'],
+        dbPort: connection['port'],
+        dbName: connection['database'],
+        dbUser: connection['username'],
+        dbSocket: connection['socket'],
+        dbSslMode: connection['sslMode'],
+        dbSslCa: connection['sslCa'],
+      }
     : options
   let answers: Answers = {}
   for (const question of QUESTIONS) {

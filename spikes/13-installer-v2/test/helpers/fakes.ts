@@ -92,6 +92,8 @@ export function scriptedPrompter(script: Script) {
   const prompts: { id: string; kind: string; message: string }[] = []
   const notes: { title: string; lines: readonly string[] }[] = []
   const infos: string[] = []
+  /** The pre-selected value of each select, as the user would see it highlighted. */
+  const initials: Record<string, unknown> = {}
   const next = (id: string, message: string, kind = 'choice'): unknown => {
     asked.push(id)
     messages.push(message)
@@ -129,8 +131,9 @@ export function scriptedPrompter(script: Script) {
       const value = next(q.id, q.message, 'password')
       return value === CANCEL ? CANCEL : String(value)
     },
-    select: async <T extends string>(q: { id: string; message: string; options: readonly { value: T; label?: string }[] }) => {
+    select: async <T extends string>(q: { id: string; message: string; options: readonly { value: T; label?: string }[]; initialValue: T }) => {
       checkLabels(q.id, q.options)
+      initials[q.id] = q.initialValue
       const value = next(q.id, q.message)
       if (value === CANCEL) return CANCEL
       const match = q.options.find((option) => option.value === value)
@@ -153,7 +156,7 @@ export function scriptedPrompter(script: Script) {
     note: (title, lines) => notes.push({ title, lines }),
     info: (message) => infos.push(message),
   }
-  return { prompter, asked, messages, prompts, notes, infos }
+  return { prompter, asked, messages, prompts, notes, infos, initials }
 }
 
 /** A fake program's answer. */
@@ -234,6 +237,8 @@ export function fakeEnvironment(overrides: Partial<InstallerEnvironment> & { rea
     hostUser: undefined,
     // No jitter: a moved port is always the next free one, so tests can name it.
     random: () => 0,
+    // Your own database server answers (tests that want it down pass their own probe).
+    probeServer: async () => 'ok',
     ...overrides,
   }
   return { environment, output: () => output }

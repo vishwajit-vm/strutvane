@@ -35,6 +35,9 @@ export function programOf(spec: CommandSpec): Program {
 function success(spec: CommandSpec): FakeAnswer {
   const program = programOf(spec)
   if (program === 'npm') return { output: 'added 1 package in 1s' }
+  if (program === 'strut' && spec.args.includes('db:prepare')) {
+    return { output: 'STRUT_DB_PREPARE {"ok":true,"flavor":"mysql","version":"8.4.6","created":[],"sql":[],"roles":"none","warnings":[]}\n' }
+  }
   if (program === 'strut') return { output: 'Migrations run (3 new, 3 total)\nAdmin created: admin@acme.test\nDatabase seeded\n' }
   if (program === 'docker' && spec.args[0] === 'info') return { output: '29.8.2\n' }
   if (program === 'git') {

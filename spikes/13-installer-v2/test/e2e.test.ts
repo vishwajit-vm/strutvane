@@ -208,13 +208,14 @@ describe('real run with Docker missing (CI mode)', () => {
     writeFileSync(gitConfig, '')
     const result = run(
       process.execPath,
-      [CLI, 'acme-nodocker', '--yes', '--no-git'],
+      // --docker: asked for explicitly (without it, a missing Docker simply means "your own server").
+      [CLI, 'acme-nodocker', '--yes', '--docker', '--no-git'],
       root,
       cleanEnvironment(gitConfig, { STRUT_CONTAINER_CLI: 'definitely-not-docker-13' }),
     )
     expect(result.code, result.output).toBe(2)
     expect(result.output).toMatch(/Docker is not installed/)
-    expect(result.output).toMatch(/or continue without Docker on SQLite/)
+    expect(result.output).toMatch(/or set up without Docker: your own database server .* or SQLite/)
     const state = JSON.parse(readFileSync(join(root, 'acme-nodocker', '.strutvane', 'setup.json'), 'utf8')) as { steps: Record<string, { status: string }> }
     expect(state.steps['database']?.status).toBe('failed')
     expect(state.steps['install']?.status).toBe('pending') // npm runs in the container, which never started

@@ -12,8 +12,9 @@ import { resolve } from 'node:path'
 import { ArgsError, helpText, type ParsedArgs, parseCommandLine } from './args.ts'
 import { EXIT, type ExitCode } from './exit-codes.ts'
 import { readyLines, unfinishedLines } from './finish.ts'
-import { type Answers, OptionsError, type ProjectOptions, resolveOptions } from './options.ts'
-import { QUESTIONS } from './question-registry.ts'
+import { type Answers, DATABASE_LABELS, databaseOf, isLocalHost, needsConnection, OptionsError, parseDatabaseUrl, type ProjectOptions, resolveOptions } from './options.ts'
+import { envValueProblem } from './env-file.ts'
+import { EMPTY_LOCAL_PASSWORD_WARNING, QUESTIONS } from './question-registry.ts'
 import type { PortProbe } from './ports.ts'
 import { CancelledError, type Prompter } from './prompter.ts'
 import { askMissing, review } from './questions.ts'
@@ -31,7 +32,7 @@ import {
 import type { Spawner } from './spawn.ts'
 import { readEnvFile } from './steps/env-io.ts'
 import { promptRecoverer } from './steps/recovery.ts'
-import { type RunResult, runSteps } from './steps/runner.ts'
+import { type ConnectionAnswers, type RunResult, runSteps } from './steps/runner.ts'
 import { secretsNeedingValues } from './steps/secrets.ts'
 import { swallowedFlagsMessage } from './swallowed-flags.ts'
 import type { TypedSecrets } from './templates/env.ts'
@@ -79,6 +80,8 @@ export interface InstallerEnvironment {
   readonly hostUser: { readonly uid: number; readonly gid: number } | undefined
   /** A number in [0, 1) used to spread retries (port moves after a race). Default: Math.random. */
   readonly random?: () => number
+  /** TCP probe of your own database server (tests fake it). Default: a real connect. */
+  readonly probeServer?: (host: string, port: number) => Promise<'ok' | 'refused' | 'not-found' | 'timeout' | 'other'>
   /** Writes generated files (tests make it fail halfway). Default: the real disk. */
   readonly writeFile?: FileWriter
 }
@@ -162,6 +165,9 @@ async function create(parsed: ParsedArgs, environment: InstallerEnvironment): Pr
   reporter.intro(`Strutvane ${VERSION}: new project`)
 
   let answers: Answers = parsed.answers
+  // Question 14's default: Docker mode only when Docker is installed AND running (Docker is never
+  // required). Probed once, only when the answer is not given already.
+  if (answers.docker === undefined && answers.database !== 'sqlite') answers = { ...answers, dockerAvailable: await dockerIsRunning(environment) }
   if (interactive) {
     try {
       const context = { cwd: environment.cwd, targetProblem: (name: string) => targetProblem(resolve(environment.cwd, name)) }
@@ -176,6 +182,12 @@ async function create(parsed: ParsedArgs, environment: InstallerEnvironment): Pr
   // Secrets that were not typed come from their environment variables (CI): STRUT_DB_PASSWORD,
   // STRUT_ADMIN_PASSWORD. Never flags, never files other than .env, never the screen.
   answers = secretsFromEnvironment(answers, environment.env)
+  const connectionProblem = checkConnectionSecrets(answers, environment.env)
+  if (typeof connectionProblem === 'string') {
+    reporter.error(listProblems('These choices do not work together:', [connectionProblem]))
+    return EXIT.failed
+  }
+  answers = connectionProblem
   let options: ProjectOptions
   try {
     options = resolveOptions(answers, environment.cwd)
@@ -191,10 +203,62 @@ async function create(parsed: ParsedArgs, environment: InstallerEnvironment): Pr
     return EXIT.failed
   }
 
-  const written = await writeFiles(options, answers.dbPassword === undefined ? {} : { dbPassword: answers.dbPassword }, environment, reporter)
+  if (options.connection !== undefined && answers.dbUrl === undefined && (answers.dbPassword ?? '') === '' && !interactive) {
+    reporter.warn(EMPTY_LOCAL_PASSWORD_WARNING)
+  }
+  const typed: TypedSecrets = {
+    ...(answers.dbPassword === undefined ? {} : { dbPassword: answers.dbPassword }),
+    ...(answers.dbUrl === undefined ? {} : { dbUrl: answers.dbUrl }),
+  }
+  const written = await writeFiles(options, typed, environment, reporter)
   if (written === undefined) return EXIT.failed
   const result = await setUp(written, options, interactive, environment, reporter, answers.adminPassword)
   return finish(result, options, { interactive, parsed, environment, reporter })
+}
+
+/** Is Docker installed and its engine running? (`docker info` answers; never throws.) */
+async function dockerIsRunning(environment: InstallerEnvironment): Promise<boolean> {
+  try {
+    const result = await environment.spawn({
+      command: environment.env['STRUT_CONTAINER_CLI'] ?? 'docker',
+      args: ['info', '--format', '{{.ServerVersion}}'],
+      cwd: environment.cwd,
+    })
+    return result.code === 0
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Own database server: take a connection URL (typed, or STRUT_DB_URL in CI) apart into its
+ * non-secret answers, and refuse an empty password for a server on another computer. Returns the
+ * completed answers, or a problem in words that never contains a password or the URL.
+ */
+function checkConnectionSecrets(answers: Answers, env: NodeJS.ProcessEnv): Answers | string {
+  if (!needsConnection(answers)) return answers
+  const url = answers.dbUrl ?? (answers.dbHost === undefined || answers.dbHost === 'url' ? env['STRUT_DB_URL'] : undefined)
+  if (url !== undefined && url !== '') {
+    const parsed = parseDatabaseUrl(url)
+    if (typeof parsed === 'string') return `STRUT_DB_URL: ${parsed}`
+    if (parsed.database !== databaseOf(answers)) return `the database URL is for ${DATABASE_LABELS[parsed.database]}, but the database is ${DATABASE_LABELS[databaseOf(answers)]}: use --db ${parsed.database}`
+    const problem = envValueProblem(url)
+    if (problem !== undefined) return `the database URL ${problem}, which .env cannot store`
+    return {
+      ...answers,
+      dbUrl: url,
+      dbHost: parsed.host,
+      dbPort: parsed.port,
+      dbName: parsed.name,
+      dbUser: parsed.user,
+      ...(parsed.sslMode === undefined ? {} : { dbSslMode: parsed.sslMode }),
+    }
+  }
+  if (answers.dbHost === 'url') return 'you chose a connection URL but gave none: set STRUT_DB_URL, or use --db-host'
+  if ((answers.dbPassword ?? '') === '' && !isLocalHost(answers.dbHost ?? '127.0.0.1')) {
+    return 'a database server on another computer needs a password: set STRUT_DB_PASSWORD (never a flag), or type it when asked'
+  }
+  return answers
 }
 
 /**
@@ -273,6 +337,7 @@ function setUp(
     directory,
     reporter,
     recover: interactive ? promptRecoverer(environment.prompter) : undefined,
+    ...(interactive ? { askConnection: (current: ProjectOptions) => askConnectionDetails(current, environment) } : {}),
     save: (next) => saveState(directory, next),
     now: environment.now,
     context: (current) => ({
@@ -291,8 +356,40 @@ function setUp(
       typedAdminPassword,
       hostUser: environment.hostUser,
       random: environment.random ?? Math.random,
+      ...(environment.probeServer === undefined ? {} : { probeServer: environment.probeServer }),
     }),
   })
+}
+
+/** The connection questions of your own database server, in registry order. */
+const CONNECTION_QUESTIONS: ReadonlySet<string> = new Set(['dbHost', 'dbUrl', 'dbPort', 'dbName', 'dbUser', 'dbPassword'])
+
+/**
+ * Ask for your own database server's details during setup (after a Docker problem, or after a
+ * refused login). Uses the registry's own questions, so defaults, checks and masking are the same
+ * as in the first questions. Returns `undefined` when the user cancels.
+ */
+async function askConnectionDetails(current: ProjectOptions, environment: InstallerEnvironment): Promise<ConnectionAnswers | undefined> {
+  let answers: Answers = { name: current.name, database: current.database, docker: false }
+  const context = { cwd: environment.cwd, targetProblem: () => undefined }
+  try {
+    for (const question of QUESTIONS) {
+      if (CONNECTION_QUESTIONS.has(question.id) && question.when(answers)) answers = await question.ask(environment.prompter, answers, context)
+    }
+  } catch (error) {
+    if (error instanceof CancelledError) return undefined
+    throw error
+  }
+  const checked = checkConnectionSecrets(answers, environment.env)
+  if (typeof checked === 'string') {
+    environment.prompter.info(checked)
+    return undefined
+  }
+  const details: { -readonly [K in keyof ConnectionAnswers]: ConnectionAnswers[K] } = {}
+  for (const key of ['dbHost', 'dbPort', 'dbName', 'dbUser', 'dbPassword', 'dbUrl', 'dbSslMode'] as const) {
+    if (checked[key] !== undefined) Object.assign(details, { [key]: checked[key] })
+  }
+  return details
 }
 
 /** `--resume <dir>`: continue an unfinished setup (what `npm run setup` runs). */

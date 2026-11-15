@@ -15,9 +15,10 @@
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { createConnection } from 'node:net'
 import { join } from 'node:path'
-import { parseEnv, setEnvValue } from '../env-file.ts'
+import { commentOutEnvKey, parseEnv, setEnvValue } from '../env-file.ts'
 import { DATABASE_LABELS } from '../options.ts'
 import { pickFreePort } from '../ports.ts'
+import { postgresRoles } from '../names.ts'
 import { lastLines } from '../spawn.ts'
 import { compose, composeArgs } from './compose.ts'
 import { envValue, readEnvFile, writeEnvFile } from './env-io.ts'
@@ -35,13 +36,14 @@ const PORT_TAKEN = /port is already allocated|address already in use|only one us
 export const databaseStep: Step = {
   id: 'database',
   title: 'Preparing the database',
-  needs: () => ['secrets', 'ports'],
+  // Your own server is checked with the app's own driver, so npm installs first (see stepsFor).
+  needs: (options) => (options.connection === undefined ? ['secrets', 'ports'] : ['secrets', 'ports', 'install']),
   applies: () => true,
   run: async (context) => {
     const { database, docker } = context.options
     if (docker) return startContainers(context)
     if (database === 'sqlite') return createSqliteFile(context)
-    return checkServer(context)
+    return prepareOwnServer(context)
   },
 }
 
@@ -54,31 +56,141 @@ function createSqliteFile(context: StepContext): StepOutcome {
   return { status: 'done', message: `SQLite database ready (${relative})` }
 }
 
-/** Your own server: does anything answer at DB_HOST:DB_PORT? (3 seconds at most.) */
-async function checkServer(context: StepContext): Promise<StepOutcome> {
-  const label = DATABASE_LABELS[context.options.database]
-  const host = envValue(context.directory, 'DB_HOST') ?? '127.0.0.1'
-  const port = Number(envValue(context.directory, 'DB_PORT') ?? 0)
-  if (await answers(host, port)) return { status: 'done', message: `${label} answers at ${host}:${port}` }
-  return failed(
-    'database-unreachable',
-    `Nothing answers at ${host}:${port}, so ${label} cannot be reached.`,
-    `Start your ${label} server (or fix DB_HOST/DB_PORT in .env), then choose Retry.`,
-  )
-}
+/** What a quick TCP probe of your own server found. */
+export type Reach = 'ok' | 'refused' | 'not-found' | 'timeout' | 'other'
 
-/** Try a TCP connection. */
-function answers(host: string, port: number): Promise<boolean> {
+/** Try a TCP connection (3 seconds at most) and say what happened. */
+export function reach(host: string, port: number): Promise<Reach> {
   return new Promise((resolvePromise) => {
     const socket = createConnection({ host, port })
-    const finish = (ok: boolean) => {
+    const finish = (result: Reach) => {
       socket.destroy()
-      resolvePromise(ok)
+      resolvePromise(result)
     }
-    socket.setTimeout(3000, () => finish(false))
-    socket.once('connect', () => finish(true))
-    socket.once('error', () => finish(false))
+    socket.setTimeout(3000, () => finish('timeout'))
+    socket.once('connect', () => finish('ok'))
+    socket.once('error', (error: NodeJS.ErrnoException) => {
+      const code = error.code ?? ''
+      finish(code === 'ECONNREFUSED' ? 'refused' : code === 'ENOTFOUND' || code === 'EAI_AGAIN' ? 'not-found' : code === 'ETIMEDOUT' || code === 'EHOSTUNREACH' ? 'timeout' : 'other')
+    })
   })
+}
+
+/**
+ * The plain-language message for an unreachable server, with the control panels people use.
+ *
+ * @example
+ * unreachableMessage('refused', 'MySQL', '127.0.0.1', 3306, 'darwin') // '... MAMP uses port 8889 ...'
+ */
+export function unreachableMessage(result: Exclude<Reach, 'ok'>, label: string, host: string, port: number, platform: NodeJS.Platform): string {
+  if (result === 'refused') {
+    const mamp = platform === 'darwin' && port === 3306 && label !== 'PostgreSQL' ? ' On a Mac with MAMP the port is 8889.' : ''
+    const panel = label === 'PostgreSQL' ? 'Start PostgreSQL (Postgres.app, or its service).' : 'Start MySQL/MariaDB in your XAMPP, WAMP, MAMP or Laragon control panel (or its service).'
+    return `Nothing is listening at ${host}:${port}, so ${label} is not running there. ${panel}${mamp}`
+  }
+  if (result === 'not-found') return `The host name "${host}" was not found. Check the database host.`
+  if (result === 'timeout') return `${label} at ${host}:${port} did not answer within 3 seconds: a firewall, a VPN, or the wrong host?`
+  return `${label} at ${host}:${port} could not be reached.`
+}
+
+/** One line of `node strut db:prepare --json` output. */
+interface PrepareReport {
+  readonly ok: boolean
+  readonly kind?: string
+  readonly message?: string
+  readonly flavor?: 'mysql' | 'mariadb' | 'pgsql'
+  readonly version?: string
+  readonly created?: readonly string[]
+  readonly sql?: readonly string[]
+  readonly roles?: 'none' | 'created' | 'sql'
+  readonly superuser?: boolean
+  readonly warnings?: readonly string[]
+}
+
+/** Read the report line the app's `db:prepare --json` prints (or undefined when there is none). */
+function readReport(output: string): PrepareReport | undefined {
+  const line = output.split(/\r?\n/).find((candidate) => candidate.startsWith('STRUT_DB_PREPARE '))
+  if (line === undefined) return undefined
+  try {
+    const parsed: unknown = JSON.parse(line.slice('STRUT_DB_PREPARE '.length))
+    return typeof parsed === 'object' && parsed !== null ? (parsed as PrepareReport) : undefined
+  } catch {
+    return undefined
+  }
+}
+
+/**
+ * Your own server (XAMPP, WAMP, MAMP, Laragon, Postgres.app, a local install, remote/cloud):
+ * 1. a quick TCP probe, so "not running" is said in plain words before any driver runs;
+ * 2. `node strut db:prepare --json` with the app's own driver: logs in, tells MySQL from MariaDB,
+ *    creates the database and the test database when allowed (or returns the exact SQL), and on
+ *    PostgreSQL creates the owner and app roles when allowed (their passwords go to .env only);
+ * 3. writes what it learned to .env: `DB_CONNECTION=mariadb`, the role logins.
+ */
+async function prepareOwnServer(context: StepContext): Promise<StepOutcome> {
+  const env = parseEnv(readEnvFile(context.directory))
+  const label = DATABASE_LABELS[context.options.database]
+  const host = context.options.connection?.host ?? '127.0.0.1'
+  const port = context.options.connection?.port ?? 0
+  const viaSocket = (env.get('DB_SOCKET') ?? '') !== '' || (env.get('DB_URL') ?? '') !== ''
+  if (!viaSocket) {
+    const result = await (context.probeServer ?? reach)(host, port)
+    if (result !== 'ok') {
+      return failed('database-connection', unreachableMessage(result, label, host, port, process.platform), 'Fix it (or change the connection details), then choose Retry. Later: npm run setup.')
+    }
+  }
+  const roles = context.options.database === 'postgres' ? postgresRoles(context.options.name) : undefined
+  const passwords = roles === undefined ? undefined : { owner: context.generateSecret(), app: context.generateSecret() }
+  const childEnv: Record<string, string> =
+    roles === undefined || passwords === undefined
+      ? {}
+      : { STRUT_DB_OWNER: roles.owner, STRUT_DB_APP: roles.app, STRUT_DB_OWNER_PASSWORD: passwords.owner, STRUT_DB_APP_PASSWORD: passwords.app }
+  const run = await context.spawn({
+    command: context.execPath,
+    args: ['strut.js', 'db:prepare', '--json'],
+    cwd: context.directory,
+    env: childEnv,
+    logFile: context.logFile,
+    redact: [passwords?.owner ?? '', passwords?.app ?? '', env.get('DB_PASSWORD') ?? '', env.get('DB_URL') ?? ''],
+  })
+  const report = readReport(run.output)
+  if (report === undefined) {
+    return failed('command-failed', `node strut db:prepare failed (exit code ${run.code}).`, `Full log: ${context.logFile}. Then run: npm run setup`, lastLines(run.output, 8))
+  }
+  if (!report.ok) {
+    const message = report.message ?? `${label} refused the connection.`
+    const kind = report.kind === 'other' || report.kind === 'config' ? 'command-failed' : 'database-connection'
+    return failed(kind, message, 'Change the connection details (or fix the server), then choose Retry. Later: npm run setup.')
+  }
+  let text = readEnvFile(context.directory)
+  if (report.flavor === 'mariadb') text = setEnvValue(text, 'DB_CONNECTION', 'mariadb')
+  if (report.roles === 'created' && roles !== undefined && passwords !== undefined) {
+    // From now on the app logs in as the plain app role and migrations as the owner, so row-level
+    // security applies; the administrator login you typed is no longer kept.
+    text = setEnvValue(text, 'DB_USERNAME', roles.app)
+    text = setEnvValue(text, 'DB_PASSWORD', passwords.app)
+    text = setEnvValue(text, 'DB_MIGRATION_USERNAME', roles.owner)
+    text = setEnvValue(text, 'DB_MIGRATION_PASSWORD', passwords.owner)
+    text = commentOutEnvKey(text, 'DB_URL')
+  }
+  writeEnvFile(context.directory, '.env', text)
+  for (const warning of report.warnings ?? []) context.reporter.warn(warning)
+  const flavor = report.flavor === 'mariadb' ? 'MariaDB' : label
+  if ((report.sql ?? []).length > 0 && report.roles !== 'sql') {
+    return failed(
+      'database-sql',
+      `Your database user may not create the database. An administrator must run this once (for example in phpMyAdmin, HeidiSQL or psql):`,
+      'Then run: npm run setup',
+      report.sql,
+    )
+  }
+  if (report.roles === 'sql') {
+    context.reporter.warn(`Create the owner and app roles so row-level security applies (run as an administrator): ${(report.sql ?? []).join(' ')}`)
+  }
+  const created = (report.created ?? []).length > 0 ? `; created ${(report.created ?? []).join(', ')}` : ''
+  const roleNote = report.roles === 'created' ? '; app and owner roles ready (row-level security applies)' : ''
+  const version = (report.version ?? '').split('-')[0] ?? ''
+  return { status: 'done', message: `${flavor} ${version} at ${viaSocket ? 'your server' : `${host}:${port}`}${created}${roleNote}` }
 }
 
 /** How many times `compose up` is tried while Docker keeps reporting a taken port. */
@@ -177,7 +289,7 @@ async function checkDocker(context: StepContext): Promise<StepOutcome | undefine
     return failed(
       'docker-missing',
       'Docker is not installed (the docker command was not found).',
-      'Install Docker Desktop (https://docs.docker.com/get-docker/; on Windows use the WSL2 backend), or continue without Docker on SQLite.',
+      'Install Docker Desktop (https://docs.docker.com/get-docker/; on Windows use the WSL2 backend), or set up without Docker: your own database server (XAMPP, WAMP, MAMP, Laragon, Postgres.app) or SQLite.',
     )
   }
   const info = await run(['info', '--format', '{{.ServerVersion}}'])

@@ -44,7 +44,10 @@ const ROWS: readonly Row[] = [
   { id: 'dbHost', argv: ['--db-host', 'db.local'], answer: { dbHost: 'db.local' }, needs: { docker: false }, read: (o) => o.connection?.host, fallback: '127.0.0.1', off: { when: { database: 'sqlite' }, value: undefined } },
   { id: 'dbPort', argv: ['--db-port', '3307'], answer: { dbPort: 3307 }, needs: { docker: false }, read: (o) => o.connection?.port, fallback: 3306, off: { when: { docker: true }, value: undefined } },
   { id: 'dbName', argv: ['--db-name', 'shop'], answer: { dbName: 'shop' }, needs: { docker: false }, read: (o) => o.connection?.database, fallback: 'acme' },
-  { id: 'dbUser', argv: ['--db-user', 'shop'], answer: { dbUser: 'shop' }, needs: { docker: false }, read: (o) => o.connection?.username, fallback: 'acme' },
+  { id: 'dbUser', argv: ['--db-user', 'shop'], answer: { dbUser: 'shop' }, needs: { docker: false }, read: (o) => o.connection?.username, fallback: 'root' },
+  { id: 'dbSocket', argv: ['--db-socket', '/tmp/mysql.sock'], answer: { dbSocket: '/tmp/mysql.sock' }, needs: { docker: false }, read: (o) => o.connection?.socket, fallback: undefined },
+  { id: 'dbSslMode', argv: ['--db-sslmode', 'require'], answer: { dbSslMode: 'require' }, needs: { docker: false }, read: (o) => o.connection?.sslMode, fallback: 'prefer' },
+  { id: 'dbSslCa', argv: ['--db-ssl-ca', '/etc/ssl/ca.pem'], answer: { dbSslCa: '/etc/ssl/ca.pem' }, needs: { docker: false, dbSslMode: 'verify-full' }, read: (o) => o.connection?.sslCa, fallback: undefined },
   { id: 'adminEmail', argv: ['--admin-email', 'boss@acme.test'], answer: { adminEmail: 'boss@acme.test' }, read: (o) => o.adminEmail, fallback: 'admin@acme.test', off: { when: { auth: 'none' }, value: undefined } },
   { id: 'adminPasswordMode', argv: ['--admin-password', 'type'], answer: { adminPasswordMode: 'type' }, read: (o) => o.adminPasswordMode, fallback: 'generate', off: { when: { auth: 'magic-link' }, value: undefined } },
   { id: 'sampleData', argv: ['--no-sample-data'], answer: { sampleData: false }, read: (o) => o.sampleData, fallback: true },
@@ -101,14 +104,17 @@ describe('every question: flag, default and when-rule', () => {
     expect(row.read(resolve(off.when))).toEqual(off.value)
   })
 
-  it('connection details default to this computer, the standard port and names from the project', () => {
-    expect(resolve({ docker: false }).connection).toEqual({ host: '127.0.0.1', port: 3306, database: 'acme', username: 'acme' })
-    expect(resolve({ docker: false, database: 'postgres' }).connection?.port).toBe(5432)
+  it('connection details default to this computer, the standard port, root/postgres and a name from the project', () => {
+    expect(resolve({ docker: false }).connection).toEqual({ host: '127.0.0.1', port: 3306, database: 'acme', username: 'root', sslMode: 'prefer' })
+    expect(resolve({ docker: false, database: 'postgres' }).connection).toMatchObject({ port: 5432, username: 'postgres' })
   })
 
   it('defaults that depend on other answers: database with teams, Docker with SQLite, activity history with teams', () => {
     expect(resolve({ teams: true })).toMatchObject({ database: 'postgres', activityLog: true, tenantResolver: 'switcher', sso: false })
     expect(resolve({ database: 'sqlite' }).docker).toBe(false)
+    // Question 14: Docker is the default only when it is installed and running (never required).
+    expect(resolve({ dockerAvailable: false }).docker).toBe(false)
+    expect(resolve({ dockerAvailable: true }).docker).toBe(true)
     expect(resolve({ stack: 'api' }).sampleData).toBe(false)
     expect(resolve({ ui: 'blank' }).sampleData).toBe(false)
   })
@@ -160,7 +166,7 @@ describe('the registry as one list', () => {
     for (const question of QUESTIONS) expect(question.flag !== undefined || question.secretEnv !== undefined, question.id).toBe(true)
     const names = QUESTIONS.flatMap((q) => (q.flag === undefined ? [] : [q.flag.name]))
     expect(new Set(names).size).toBe(names.length)
-    expect(QUESTIONS.filter((q) => q.secretEnv !== undefined).map((q) => q.id)).toEqual(['dbPassword', 'adminPassword'])
+    expect(QUESTIONS.filter((q) => q.secretEnv !== undefined).map((q) => q.id)).toEqual(['dbUrl', 'dbPassword', 'adminPassword'])
   })
 
   it('--help lists every flag, grouped', () => {

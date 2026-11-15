@@ -19,6 +19,7 @@ describe('CI mode (--yes and flags)', () => {
     const { environment, output } = fakeEnvironment({ cwd, argv: ['acme', '--yes'], spawn: world.spawn })
     expect(await main(environment)).toBe(0)
     expect(world.calls.map(describeCall)).toEqual([
+      'docker info', // question 14: is Docker running? (it is the default only then)
       'docker --version',
       'docker info',
       'docker compose version',
