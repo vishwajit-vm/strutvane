@@ -15,17 +15,74 @@
  * - Every new connection pins its session (security review F-08): a strict `sql_mode` (bad
  *   values are errors, not silently truncated or zeroed), UTC, and utf8mb4. Servers configured
  *   loosely (Laravel's usual setup, managed defaults) can't weaken the app's guarantees.
+ * - `jsonStrings`: JSON columns arrive as text and the ORM parses them once. mysql2 would parse
+ *   MySQL's JSON type and MariaDB 11's JSON alias itself, but MariaDB 10.4's JSON is a plain
+ *   LONGTEXT; asking for text always makes every server behave the same.
+ *
+ * MariaDB (`DB_CONNECTION=mariadb`, what XAMPP ships) uses the same driver with its own dialect:
+ * pass `{ dialect: 'mariadb' }`, or let {@link connectMysqlFamily} detect it from `VERSION()`.
  */
-import { createPool, type Pool, type PoolConnection, type PoolOptions } from 'mysql2/promise'
+import { createConnection, createPool, type Pool, type PoolConnection, type PoolOptions } from 'mysql2/promise'
 import type { Driver, DriverSession, QueryResult, Row } from './driver.ts'
 
 /**
- * Connect to MySQL with a connection URL or mysql2 options (merged over the safe defaults).
+ * Which server of the MySQL family is on the other end, and what it supports.
+ *
+ * @example
+ * const server: MysqlServer = { dialect: 'mariadb', insertReturning: true }
+ */
+export interface MysqlServer {
+  readonly dialect: 'mysql' | 'mariadb'
+  /** `INSERT … RETURNING` (MariaDB 10.5+). Undefined means "the dialect's default". */
+  readonly insertReturning?: boolean
+}
+
+/**
+ * The version-detection hook: read a `VERSION()` string and say which dialect it is.
+ *
+ * MariaDB reports `11.4.13-MariaDB-ubu2404`; old MariaDB handshakes prefix `5.5.5-` to keep old
+ * MySQL clients happy (`5.5.5-10.4.32-MariaDB`). `INSERT … RETURNING` exists from MariaDB 10.5.
+ *
+ * @example
+ * detectMysqlServer('8.4.13') // { dialect: 'mysql' }
+ * detectMysqlServer('10.4.32-MariaDB') // { dialect: 'mariadb', insertReturning: false }
+ */
+export function detectMysqlServer(version: string): MysqlServer {
+  if (!/mariadb/i.test(version)) return { dialect: 'mysql' }
+  const match = /(?:^5\.5\.5-)?(\d+)\.(\d+)/.exec(version)
+  const major = Number(match?.[1] ?? 0)
+  const minor = Number(match?.[2] ?? 0)
+  return { dialect: 'mariadb', insertReturning: major > 10 || (major === 10 && minor >= 5) }
+}
+
+/**
+ * Connect to a MySQL-family server and pick the dialect from its version (one extra round trip at
+ * boot). Use it when `DB_CONNECTION` doesn't say, or to check that it says the truth.
+ *
+ * @example
+ * const driver = await connectMysqlFamily({ uri: process.env.DATABASE_URL })
+ */
+export async function connectMysqlFamily(options: PoolOptions): Promise<Driver> {
+  const probe = await createConnection(options)
+  try {
+    const [rows] = await probe.query('SELECT VERSION() AS version')
+    const first = Array.isArray(rows) ? rows[0] : undefined
+    const version = isRow(first) ? String(first['version']) : ''
+    return mysqlDriver(options, detectMysqlServer(version))
+  } finally {
+    await probe.end()
+  }
+}
+
+/**
+ * Connect to MySQL (or MariaDB) with a connection URL or mysql2 options (merged over the safe
+ * defaults).
  *
  * @example
  * const driver = mysqlDriver({ uri: 'mysql://app:secret@127.0.0.1:3306/app' })
+ * const maria = mysqlDriver({ uri }, { dialect: 'mariadb' })
  */
-export function mysqlDriver(options: PoolOptions): Driver {
+export function mysqlDriver(options: PoolOptions, server: MysqlServer = { dialect: 'mysql' }): Driver {
   const pool: Pool = createPool({
     connectionLimit: 10,
     ...options,
@@ -34,15 +91,19 @@ export function mysqlDriver(options: PoolOptions): Driver {
     supportBigNumbers: true,
     bigNumberStrings: false,
     decimalNumbers: false,
+    jsonStrings: true,
   })
   let closed = false
+  const settings = sessionSettings(server.dialect)
   // mysql2 runs commands on one connection in order, so this SET always precedes the first query.
+  // A failing SET is fatal for that connection (checked): it never serves queries unpinned.
   pool.pool.on('connection', (connection) => {
-    connection.query(SESSION_SETTINGS)
+    connection.query(settings)
   })
 
   return {
-    dialect: 'mysql',
+    dialect: server.dialect,
+    ...(server.insertReturning === undefined ? {} : { insertReturning: server.insertReturning }),
     async acquire(): Promise<DriverSession> {
       if (closed) throw new Error('This MySQL pool is closed. Create a new connection instead of reusing a closed one.')
       const connection = await pool.getConnection()
@@ -68,11 +129,19 @@ export function mysqlDriver(options: PoolOptions): Driver {
 /**
  * The session every connection runs with. STRICT_ALL_TABLES turns truncation and bad values into
  * errors; NO_BACKSLASH_ESCAPES makes string literals standard SQL (the ORM never writes literals,
- * but raw SQL and the migration DDL do).
+ * but raw SQL and the migration DDL do). The connection collation is binary: MySQL's
+ * `utf8mb4_0900_bin`, MariaDB's `utf8mb4_nopad_bin` (MariaDB only accepts the 0900 names from 11.4.5,
+ * and its plain `utf8mb4_bin` is PAD SPACE: `'resume ' = 'resume'` is true there, checked on 11.4.13).
+ *
+ * @example
+ * sessionSettings('mariadb') // "SET SESSION sql_mode = '…', time_zone = '+00:00', NAMES utf8mb4 COLLATE utf8mb4_nopad_bin"
  */
-const SESSION_SETTINGS =
-  "SET SESSION sql_mode = 'STRICT_ALL_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION,ONLY_FULL_GROUP_BY,NO_BACKSLASH_ESCAPES', " +
-  "time_zone = '+00:00', NAMES utf8mb4 COLLATE utf8mb4_0900_bin"
+export function sessionSettings(dialect: 'mysql' | 'mariadb'): string {
+  return (
+    "SET SESSION sql_mode = 'STRICT_ALL_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION,ONLY_FULL_GROUP_BY,NO_BACKSLASH_ESCAPES', " +
+    `time_zone = '+00:00', NAMES utf8mb4 COLLATE ${dialect === 'mariadb' ? 'utf8mb4_nopad_bin' : 'utf8mb4_0900_bin'}`
+  )
+}
 
 async function runOn(connection: PoolConnection, sql: string, params: readonly unknown[]): Promise<QueryResult> {
   // Transaction control (BEGIN, SAVEPOINT …) can't be prepared in MySQL's binary protocol.

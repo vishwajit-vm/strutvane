@@ -213,8 +213,8 @@ describe.each(engines)('models on $name', (engine) => {
       }
     })
 
-    if (engine.name === 'mysql') {
-      test('MySQL: a slug committed by another connection after our snapshot is not retried forever', async () => {
+    if (engine.name === 'mysql' || engine.name === 'mariadb') {
+      test('MySQL and MariaDB: a slug committed by another connection after our snapshot is not retried forever', async () => {
         const other = await engine.connect()
         try {
           const created = await runWithTenant(TENANT, () =>

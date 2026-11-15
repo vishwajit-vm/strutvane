@@ -12,7 +12,7 @@
  *    `Attribute::make(get:, set:)` accessors/mutators).
  */
 import type { ColumnDef } from '../schema/snapshot.ts'
-import type { Dialect } from '../sql/grammar.ts'
+import { type Dialect, isMysqlFamily } from '../sql/grammar.ts'
 import { CastError } from './errors.ts'
 
 /**
@@ -98,10 +98,10 @@ export function fromDatabase(column: ColumnDef, raw: unknown, dialect: Dialect):
       // PGlite returns DATE as a Date at UTC midnight; SQLite returns the text we stored.
       return raw instanceof Date ? raw.toISOString().slice(0, 10) : String(raw).slice(0, 10)
     case 'json':
-      // Only SQLite hands back JSON *text*. PGlite parses jsonb and mysql2 parses JSON columns, so a
-      // string from them is already the value: parsing it again crashed on a stored JSON string
-      // ("hello") and turned "123" into 123 (MySQL 8.4, found by the round-trip test).
-      return dialect === 'sqlite' && typeof raw === 'string' ? JSON.parse(raw) : raw
+      // PGlite parses jsonb. SQLite stores JSON text, and the MySQL driver asks mysql2 for JSON as
+      // text too (`jsonStrings`): MySQL's JSON type, MariaDB 11's JSON alias and MariaDB 10.4's
+      // plain LONGTEXT then all arrive the same way, and "hello" or "123" are parsed exactly once.
+      return dialect !== 'postgres' && typeof raw === 'string' ? JSON.parse(raw) : raw
     case 'decimal':
       return canonicalDecimal(raw, column.scale ?? 2)
     case 'id':
@@ -215,7 +215,7 @@ function timestampToDatabase(table: string, column: ColumnDef, value: unknown, d
   // MySQL DATETIME(3) has no time zone and rejects the "Z": store UTC as "YYYY-MM-DD HH:MM:SS.mmm"
   // (the driver reads it back as UTC). Elsewhere always the same ISO text, so SQLite's text
   // timestamps sort correctly as strings.
-  return dialect === 'mysql' ? `${iso.slice(0, 10)} ${iso.slice(11, 23)}` : iso
+  return isMysqlFamily(dialect) ? `${iso.slice(0, 10)} ${iso.slice(11, 23)}` : iso
 }
 
 function dateToDatabase(table: string, column: ColumnDef, value: unknown): string {

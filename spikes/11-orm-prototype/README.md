@@ -88,6 +88,21 @@ Next to a networked MySQL round trip (typically a few hundred µs) that is about
 
 **Not optimised yet:** caching compiled SQL per query shape, and precomputing cast plans per model, are the obvious next steps.
 
+## MariaDB (added 2026-11-15)
+
+MariaDB is a first-class engine (`DB_CONNECTION=mariadb`; XAMPP ships it). The behaviour suites run on a throwaway **MariaDB 11.4** container (`spike11-orm-mariadb`, same rules as the MySQL one; `SPIKE11_MARIADB=off` skips it) next to MySQL 8.4, PGlite and SQLite. It uses the same `mysql2` driver with its own grammar, `mariadbGrammar`, a MySQL grammar with overrides:
+
+| | MySQL 8.4 | MariaDB 11.4 (checked) | ORM |
+|---|---|---|---|
+| `INSERT … RETURNING` | no | yes (10.5+) | one statement per insert instead of insert + re-select |
+| `UPDATE … RETURNING` | no | **no** (syntax error) | re-select, as on MySQL |
+| JSON | native type; mysql2 parses it | alias of `LONGTEXT` + `JSON_VALID` check; mysql2 parses it on 11.x, not on 10.4 | the driver asks for JSON as text (`jsonStrings`) and the cast parses it once, on every server |
+| Binary collation | `utf8mb4_0900_bin` (NO PAD) | `utf8mb4_bin` is PAD SPACE: `'resume ' = 'resume'` | session and identifier columns use `utf8mb4_nopad_bin` |
+| Default collation | `utf8mb4_0900_ai_ci` | `utf8mb4_uca1400_ai_ci` (folds case and accents) | identifier-like columns are binary, as on MySQL |
+| `'1abc' = 1` | true | true | typed binds, as on MySQL |
+
+**Version detection.** `detectMysqlServer(version)` reads `VERSION()` (`8.4.13` → MySQL; `11.4.13-MariaDB-…` → MariaDB with RETURNING; `10.4.32-MariaDB` or `5.5.5-10.4.32-MariaDB` → MariaDB without RETURNING). `connectMysqlFamily(options)` runs it once at boot and builds the right driver, so an XAMPP machine with `DB_CONNECTION=mysql` still gets the MariaDB grammar. MariaDB 10.4 itself was not run here (the RETURNING switch for it is unit-tested only).
+
 ## Findings (what the spike taught us)
 
 1. **`Model('posts', options)` (a function returning a typed class) is the only decorator-free way to get typed column properties.** A generic class can't add properties named by a type parameter. Options that change types (`fillable`, `hidden`, `casts`) must therefore be in the call; behaviour (relations, scopes, accessors) goes in the class body. This mirrors Laravel 13's `#[Table]`, `#[Fillable]` and `#[Hidden]` attributes.

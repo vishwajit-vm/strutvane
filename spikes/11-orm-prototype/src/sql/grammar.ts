@@ -4,19 +4,31 @@
  * This copies Laravel's split (Query Builder → Grammar → Connection): the compiler writes
  * portable fragments and asks the grammar only for the few things engines disagree on:
  *
- * | | MySQL 8.4 (default) | PostgreSQL | SQLite |
- * |---|---|---|---|
- * | identifier quotes | `` `name` `` | `"name"` | `"name"` |
- * | placeholders | `?` | `$1, $2…` | `?` |
- * | NULL-safe "differs from" | `NOT (a <=> b)` | `a IS DISTINCT FROM b` | `a IS NOT b` |
- * | `RETURNING` | no: insert id + re-select | yes | yes |
- * | `OFFSET` without `LIMIT` | needs a huge `LIMIT` | fine | needs `LIMIT -1` |
- * | unique violation | errno 1062 | SQLSTATE 23505 | "UNIQUE constraint failed" |
+ * | | MySQL 8.4 (default) | MariaDB 10.5+ / 11 | PostgreSQL | SQLite |
+ * |---|---|---|---|---|
+ * | identifier quotes | `` `name` `` | `` `name` `` | `"name"` | `"name"` |
+ * | placeholders | `?` | `?` | `$1, $2…` | `?` |
+ * | NULL-safe "differs from" | `NOT (a <=> b)` | `NOT (a <=> b)` | `a IS DISTINCT FROM b` | `a IS NOT b` |
+ * | `INSERT … RETURNING` | no: insert id + re-select | yes (10.5+) | yes | yes |
+ * | `UPDATE … RETURNING` | no | **no** (re-select) | yes | yes |
+ * | `OFFSET` without `LIMIT` | needs a huge `LIMIT` | needs a huge `LIMIT` | fine | needs `LIMIT -1` |
+ * | unique violation | errno 1062 | errno 1062 | SQLSTATE 23505 | "UNIQUE constraint failed" |
  */
 import { concat, type SqlFragment, text, value } from './fragment.ts'
 
-/** The SQL engines Strutvane supports. MySQL is the default for new apps. */
-export type Dialect = 'mysql' | 'postgres' | 'sqlite'
+/** The SQL engines Strutvane supports. MySQL is the default for new apps; MariaDB (XAMPP) is first-class. */
+export type Dialect = 'mysql' | 'mariadb' | 'postgres' | 'sqlite'
+
+/**
+ * MySQL and MariaDB share the wire protocol, quoting, `<=>`, `LIMIT` rules and error numbers; only
+ * a few capabilities differ (see {@link mariadbGrammar}).
+ *
+ * @example
+ * isMysqlFamily('mariadb') // true
+ */
+export function isMysqlFamily(dialect: Dialect): dialect is 'mysql' | 'mariadb' {
+  return dialect === 'mysql' || dialect === 'mariadb'
+}
 
 /**
  * What a dialect must provide.
@@ -36,8 +48,10 @@ export interface Grammar {
   position(haystack: SqlFragment, needle: SqlFragment): SqlFragment
   /** A text parameter. PostgreSQL can't infer a parameter's type inside string functions. */
   textParameter(value: unknown): SqlFragment
-  /** Can `INSERT`/`UPDATE … RETURNING *` hand back the written row? */
+  /** Can `INSERT … RETURNING *` hand back the inserted row? */
   readonly supportsReturning: boolean
+  /** Can `UPDATE … RETURNING *` hand back the updated row? (MariaDB: INSERT yes, UPDATE no.) */
+  readonly supportsUpdateReturning: boolean
   /** The `LIMIT` to write when only an `OFFSET` was asked for (`undefined`: none needed). */
   readonly limitForOffsetOnly: string | undefined
   /** Turn a driver error into "was this a unique-constraint violation?". */
@@ -95,6 +109,7 @@ export const mysqlGrammar: Grammar = {
   textParameter: (bound) => value(bound),
   // MySQL (unlike MariaDB) has no RETURNING clause, up to and including 8.4 / 9.x.
   supportsReturning: false,
+  supportsUpdateReturning: false,
   // The largest unsigned BIGINT: MySQL's documented way to say "no limit" before an OFFSET.
   limitForOffsetOnly: '18446744073709551615',
   isUniqueViolation: (error) => errorProperty(error, 'code') === 'ER_DUP_ENTRY' || errorProperty(error, 'errno') === 1062,
@@ -117,6 +132,7 @@ export const postgresGrammar: Grammar = {
   position: (haystack, needle) => concat(text('strpos('), haystack, text(', '), needle, text(')')),
   textParameter: (bound) => concat(text('CAST('), value(bound), text(' AS text)')),
   supportsReturning: true,
+  supportsUpdateReturning: true,
   limitForOffsetOnly: undefined,
   // 23505 = unique_violation (SQLSTATE), the same on PostgreSQL and PGlite.
   isUniqueViolation: (error) => errorProperty(error, 'code') === '23505',
@@ -140,6 +156,7 @@ export const sqliteGrammar: Grammar = {
   position: (haystack, needle) => concat(text('instr('), haystack, text(', '), needle, text(')')),
   textParameter: (bound) => value(bound),
   supportsReturning: true,
+  supportsUpdateReturning: true,
   limitForOffsetOnly: '-1',
   isUniqueViolation: (error) => errorMessage(error).includes('UNIQUE constraint failed'),
   render(fragment) {
@@ -148,13 +165,45 @@ export const sqliteGrammar: Grammar = {
 }
 
 /**
- * The grammar for a dialect.
+ * MariaDB 10.5+ (and 11.x): MySQL's grammar with its own `RETURNING` support. Checked on MariaDB
+ * 11.4.13 (2026-11-15): `INSERT … RETURNING *` and `DELETE … RETURNING` work, `UPDATE … RETURNING`
+ * is a syntax error, so updates still re-select. MariaDB 10.4 and older (XAMPP 8.2 ships 10.4) have
+ * no `RETURNING` at all: {@link grammarFor} switches it off for them.
+ *
+ * @example
+ * mariadbGrammar.supportsReturning // true
+ */
+export const mariadbGrammar: Grammar = {
+  ...mysqlGrammar,
+  dialect: 'mariadb',
+  supportsReturning: true,
+  supportsUpdateReturning: false,
+  render(fragment) {
+    return renderWith(this, fragment)
+  },
+}
+
+/**
+ * What a server can do beyond its dialect's baseline (from the version-detection hook).
+ *
+ * @example
+ * const capabilities: ServerCapabilities = { insertReturning: false } // MariaDB 10.4
+ */
+export interface ServerCapabilities {
+  readonly insertReturning?: boolean
+}
+
+/**
+ * The grammar for a dialect, adjusted for what the connected server version supports.
  *
  * @example
  * grammarFor('mysql').quote('posts') // '`posts`'
+ * grammarFor('mariadb', { insertReturning: false }).supportsReturning // false (MariaDB 10.4)
  */
-export function grammarFor(dialect: Dialect): Grammar {
+export function grammarFor(dialect: Dialect, capabilities: ServerCapabilities = {}): Grammar {
   switch (dialect) {
+    case 'mariadb':
+      return capabilities.insertReturning === false ? { ...mariadbGrammar, supportsReturning: false } : mariadbGrammar
     case 'mysql':
       return mysqlGrammar
     case 'postgres':

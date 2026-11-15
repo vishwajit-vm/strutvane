@@ -73,7 +73,7 @@ export class Connection {
 
   constructor(driver: Driver) {
     this.#driver = driver
-    this.grammar = grammarFor(driver.dialect)
+    this.grammar = grammarFor(driver.dialect, driver.insertReturning === undefined ? {} : { insertReturning: driver.insertReturning })
   }
 
   /**

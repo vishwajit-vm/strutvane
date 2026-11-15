@@ -45,6 +45,8 @@ export interface DriverSession {
  */
 export interface Driver {
   readonly dialect: Dialect
+  /** Set when the server version changes the dialect's default (MariaDB 10.4: no INSERT … RETURNING). */
+  readonly insertReturning?: boolean
   /** Borrow a connection, waiting if none is free. */
   acquire(): Promise<DriverSession>
   /** Close every connection. Safe to call twice. */

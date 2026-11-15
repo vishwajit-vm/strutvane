@@ -1,6 +1,7 @@
 /**
- * The three engines every behaviour test runs on: MySQL 8.4 (real server in Docker, the default
- * engine), PostgreSQL (PGlite) and SQLite (node:sqlite).
+ * The engines every behaviour test runs on: MySQL 8.4 (real server in Docker, the default engine),
+ * MariaDB 11.4 (real server in Docker, connected through the version-detection hook), PostgreSQL
+ * (PGlite) and SQLite (node:sqlite).
  *
  * `useEngine(engine)` wires a describe block: connect, create the tables, point the models at the
  * connection, and clear all rows before each test.
@@ -8,18 +9,19 @@
 import { PGlite } from '@electric-sql/pglite'
 import { afterAll, beforeAll, beforeEach, inject } from 'vitest'
 import { snapshot } from '../../fixtures/.strutvane/schema.ts'
-import { Connection, mysqlDriver, pgliteDriver, registerSchema, sqliteDriver, useConnection } from '#orm'
+import { Connection, connectMysqlFamily, mysqlDriver, pgliteDriver, registerSchema, sqliteDriver, useConnection } from '#orm'
 import { clearTables, createTables } from './ddl.ts'
 
 /** One engine under test. */
 export interface Engine {
-  readonly name: 'mysql' | 'postgres' | 'sqlite'
+  readonly name: 'mysql' | 'mariadb' | 'postgres' | 'sqlite'
   /** Why the engine is skipped, if it is. */
   readonly skipped: string | undefined
   connect(): Promise<Connection>
 }
 
 const mysqlInfo = inject('mysql')
+const mariadbInfo = inject('mariadb')
 
 /** Every engine, MySQL first (it is the default). */
 export const engines: readonly Engine[] = [
@@ -29,6 +31,15 @@ export const engines: readonly Engine[] = [
     connect: async () => {
       if (!('url' in mysqlInfo)) throw new Error(`MySQL is not available: ${mysqlInfo.skipped}`)
       return new Connection(mysqlDriver({ uri: mysqlInfo.url }))
+    },
+  },
+  {
+    name: 'mariadb',
+    skipped: 'skipped' in mariadbInfo ? mariadbInfo.skipped : undefined,
+    connect: async () => {
+      if (!('url' in mariadbInfo)) throw new Error(`MariaDB is not available: ${mariadbInfo.skipped}`)
+      // DB_CONNECTION may say "mysql" on an XAMPP machine: the version decides the dialect.
+      return new Connection(await connectMysqlFamily({ uri: mariadbInfo.url }))
     },
   },
   { name: 'postgres', skipped: undefined, connect: async () => new Connection(pgliteDriver(await PGlite.create())) },

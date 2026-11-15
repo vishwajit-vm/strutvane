@@ -18,7 +18,7 @@
  */
 import type { ColumnRef, CompareOperator, OrderNode, SelectAst, SelectItem, WhereNode } from './ast.ts'
 import { concat, identifier, type SqlFragment, sql, text, value } from './fragment.ts'
-import type { Grammar } from './grammar.ts'
+import { type Grammar, isMysqlFamily } from './grammar.ts'
 
 /**
  * A qualified column: `"posts"."title"`.
@@ -156,7 +156,7 @@ export function compileInsert(table: string, record: Readonly<Record<string, unk
   const columns = Object.keys(record)
   const returning = text(grammar.supportsReturning ? ' RETURNING *' : '')
   // An all-defaults row: standard SQL says DEFAULT VALUES, MySQL says () VALUES ().
-  if (columns.length === 0) return concat(text('INSERT INTO '), identifier(table), text(grammar.dialect === 'mysql' ? ' () VALUES ()' : ' DEFAULT VALUES'), returning)
+  if (columns.length === 0) return concat(text('INSERT INTO '), identifier(table), text(isMysqlFamily(grammar.dialect) ? ' () VALUES ()' : ' DEFAULT VALUES'), returning)
   const names = sql.join(columns.map((column) => identifier(column)), ', ')
   const values = sql.join(columns.map((column) => value(record[column])), ', ')
   return concat(text('INSERT INTO '), identifier(table), text(' ('), names, text(') VALUES ('), values, text(')'), returning)
@@ -164,7 +164,7 @@ export function compileInsert(table: string, record: Readonly<Record<string, unk
 
 /**
  * Compile an `UPDATE`. `returning` adds `RETURNING *` (single-model saves want the fresh row);
- * engines without RETURNING ignore it and the caller re-selects.
+ * engines without `UPDATE … RETURNING` (MySQL, MariaDB) ignore it and the caller re-selects.
  *
  * @example
  * compileUpdate('posts', { title: 'New' }, where, sqliteGrammar, true)
@@ -177,7 +177,7 @@ export function compileUpdate(table: string, changes: Readonly<Record<string, un
   const parts = [text('UPDATE '), identifier(table), text(' SET '), assignments]
   const condition = compileWhere(where, grammar)
   if (condition !== undefined) parts.push(text(' WHERE '), condition)
-  if (returning && grammar.supportsReturning) parts.push(text(' RETURNING *'))
+  if (returning && grammar.supportsUpdateReturning) parts.push(text(' RETURNING *'))
   return concat(...parts)
 }
 

@@ -77,9 +77,9 @@ function suite(engine: Engine): void {
     })()
     setTimeout(release, 60)
     const [seenByReader] = await Promise.all([reader, writer])
-    // MySQL (a pool): the reader runs on another connection and sees only committed data.
+    // MySQL and MariaDB (a pool): the reader runs on another connection and sees only committed data.
     // SQLite/PGlite (one connection): the reader waits for the lock, so it reads after the commit.
-    expect(seenByReader).toEqual(engine.name === 'mysql' ? [] : ['pending'])
+    expect(seenByReader).toEqual(engine.name === 'mysql' || engine.name === 'mariadb' ? [] : ['pending'])
     expect(await names()).toEqual(['pending'])
   })
 

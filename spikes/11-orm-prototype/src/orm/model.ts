@@ -679,7 +679,7 @@ export class ModelBase {
     assertWriteScoped(info.name, where)
     const result = await connection.run(markScoped(compileUpdate(info.name, changes, where, connection.grammar, true)), this.#runOptions(info))
     // Without RETURNING (MySQL) the row is read back with the same key and tenant conditions.
-    const row = connection.grammar.supportsReturning ? result.rows[0] : await this.#reselect(info)
+    const row = connection.grammar.supportsUpdateReturning ? result.rows[0] : await this.#reselect(info)
     // Zero rows: deleted meanwhile, or (with tenancy) never ours. Both are "not found".
     if (row === undefined) throw new ModelNotFoundError(info.name, attribute(this, 'id'))
     this.#assignRow(row)

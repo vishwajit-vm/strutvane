@@ -4,7 +4,9 @@
  * every run rather than remembered.
  */
 import { describe, expect, test } from 'vitest'
-import { CastError, type Connection, sql } from '#orm'
+import { CastError, type Connection, detectMysqlServer, sql } from '#orm'
+import { grammarFor } from '#orm/sql/grammar'
+import { Tag } from '#app/models/tag'
 import { Post } from '#app/models/post'
 import { User } from '#app/models/user'
 import { type Engine, engines, engineTitle, useEngine } from './support/engines.ts'
@@ -79,23 +81,85 @@ function suite(engine: Engine): void {
       expect(String(session.rows[0]?.['version'])).toMatch(/^8\.4\./)
     })
 
-    test('MySQL: strict sql_mode turns truncation into an error instead of silent data loss', async () => {
-      await expect(connection().run(sql`INSERT INTO ${sql.id('tags')} (${sql.id('name')}) VALUES (${'x'.repeat(51)})`)).rejects.toThrow(/too long/i)
-    })
 
     test('MySQL: the default collation is the trap the binary columns avoid', async () => {
       const { rows } = await connection().run(sql`SELECT ${'ADMIN@x'} = ${'admin@x'} COLLATE utf8mb4_0900_ai_ci AS case_folded, ${'résumé'} = ${'resume'} COLLATE utf8mb4_0900_ai_ci AS accent_folded`)
       expect([Number(rows[0]?.['case_folded']), Number(rows[0]?.['accent_folded'])]).toEqual([1, 1])
     })
 
-    test('MySQL: LIMIT and OFFSET work as bound integers in server-side prepared statements', async () => {
+  }
+
+  if (engine.name === 'mysql' || engine.name === 'mariadb') {
+    test('MySQL family: strict sql_mode turns truncation into an error instead of silent data loss', async () => {
+      await expect(connection().run(sql`INSERT INTO ${sql.id('tags')} (${sql.id('name')}) VALUES (${'x'.repeat(51)})`)).rejects.toThrow(/too long/i)
+    })
+
+    test('MySQL family: LIMIT and OFFSET work as bound integers in server-side prepared statements', async () => {
       const ada = await makeUser('Ada')
       for (const title of ['a', 'b', 'c']) await makePost(ada, title)
       expect((await Post.query().orderBy('title').limit(1).offset(1).get()).map((post) => post.title)).toEqual(['b'])
       expect(Post.query().limit(1).toSql().sql).toMatch(/LIMIT \?/)
     })
   }
+
+  if (engine.name === 'mariadb') {
+    test('MariaDB evidence: detected from VERSION(), INSERT RETURNING yes, UPDATE RETURNING no, the pinned session', async () => {
+      const db = connection()
+      expect(db.grammar.dialect).toBe('mariadb')
+      const session = await db.run(sql`SELECT @@SESSION.sql_mode AS mode, @@SESSION.time_zone AS tz, @@VERSION AS version, @@collation_server AS server_collation`)
+      expect(String(session.rows[0]?.['version'])).toMatch(/^11\.4\..*MariaDB/i)
+      expect(String(session.rows[0]?.['mode'])).toContain('STRICT_ALL_TABLES')
+      expect(session.rows[0]?.['tz']).toBe('+00:00')
+      // The server default folds case and accents, like MySQL's ai_ci: identifier columns need utf8mb4_nopad_bin.
+      expect(session.rows[0]?.['server_collation']).toBe('utf8mb4_uca1400_ai_ci')
+      const inserted = await db.run(sql`INSERT INTO ${sql.id('tags')} (${sql.id('name')}) VALUES (${'returned'}) RETURNING ${sql.id('id')}`)
+      expect(Number(inserted.rows[0]?.['id'])).toBeGreaterThan(0)
+      await expect(db.run(sql`UPDATE ${sql.id('tags')} SET ${sql.id('name')} = ${'x'} RETURNING ${sql.id('id')}`)).rejects.toThrow(/syntax/i)
+      // So the ORM inserts with RETURNING (one statement) and updates with a re-select.
+      let statements = 0
+      const stop = db.onQuery(() => {
+        statements += 1
+      })
+      try {
+        const tag = await Tag.create({ name: 'one statement' })
+        expect(statements).toBe(1)
+        tag.name = 'renamed'
+        await tag.save()
+        expect(statements).toBe(3)
+        expect((await Tag.findOrFail(tag.id)).name).toBe('renamed')
+      } finally {
+        stop()
+      }
+    })
+
+    test('MariaDB evidence: JSON is LONGTEXT with a JSON_VALID check, and the ORM reads it like MySQL JSON', async () => {
+      const db = connection()
+      const type = await db.run(sql`SELECT DATA_TYPE AS type FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ${'posts'} AND COLUMN_NAME = ${'meta'}`)
+      expect(String(type.rows[0]?.['type']).toLowerCase()).toBe('longtext')
+      const ada = await makeUser('Ada')
+      await expect(db.run(sql`INSERT INTO ${sql.id('posts')} (${sql.id('title')}, ${sql.id('slug')}, ${sql.id('author_id')}, ${sql.id('meta')}) VALUES (${'Bad'}, ${'bad'}, ${ada.id}, ${'{not json'})`)).rejects.toThrow()
+      const post = await makePost(ada, 'Meta')
+      post.fill({ meta: { tags: ['maria'], pinned: true } })
+      await post.save()
+      expect((await Post.findOrFail(post.id)).meta).toEqual({ tags: ['maria'], pinned: true })
+    })
+  }
 }
+
+describe('the MySQL-family version-detection hook', () => {
+  test('tells MySQL from MariaDB, and old MariaDB without RETURNING from new', () => {
+    expect(detectMysqlServer('8.4.13')).toEqual({ dialect: 'mysql' })
+    expect(detectMysqlServer('11.4.13-MariaDB-ubu2404')).toEqual({ dialect: 'mariadb', insertReturning: true })
+    expect(detectMysqlServer('10.5.0-MariaDB')).toEqual({ dialect: 'mariadb', insertReturning: true })
+    // XAMPP 8.2 ships MariaDB 10.4; old handshakes prefix "5.5.5-".
+    expect(detectMysqlServer('10.4.32-MariaDB')).toEqual({ dialect: 'mariadb', insertReturning: false })
+    expect(detectMysqlServer('5.5.5-10.4.32-MariaDB')).toEqual({ dialect: 'mariadb', insertReturning: false })
+    expect(grammarFor('mariadb', { insertReturning: false }).supportsReturning).toBe(false)
+    expect(grammarFor('mariadb').supportsReturning).toBe(true)
+    expect(grammarFor('mariadb').supportsUpdateReturning).toBe(false)
+    expect(grammarFor('mariadb').render(sql`SELECT ${sql.id('a')} = ${1}`)).toEqual({ sql: 'SELECT `a` = ?', params: [1] })
+  })
+})
 
 describe.each(engines)('dialects on $name', (engine) => {
   describe.skipIf(engine.skipped !== undefined)(engineTitle(engine), () => suite(engine))
