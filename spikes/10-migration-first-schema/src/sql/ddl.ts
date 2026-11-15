@@ -181,7 +181,7 @@ export function columnSql(column: ColumnDef, dialect: Dialect): string {
   }
   // MySQL ignores an inline REFERENCES clause without a word of warning, so it gets a constraint instead.
   if (column.references !== undefined && !isMysqlFamily(dialect)) parts.push(referencesSql(column.references, dialect))
-  if (column.comment !== undefined && isMysqlFamily(dialect)) parts.push(`COMMENT ${sqlLiteral(column.comment, dialect)}`)
+  if (column.comment !== undefined && isMysqlFamily(dialect)) parts.push(`COMMENT ${sqlLiteral(column.comment, dialect, 'comment')}`)
   return parts.join(' ')
 }
 

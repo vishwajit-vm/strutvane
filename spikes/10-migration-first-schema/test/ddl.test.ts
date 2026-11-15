@@ -64,7 +64,18 @@ describe('column types per engine', () => {
   test('literals are escaped for each engine', () => {
     expect(sqlLiteral("it's", 'postgres')).toBe("'it''s'")
     expect(sqlLiteral('a\\b', 'postgres')).toBe("'a\\b'")
-    expect(sqlLiteral('a\\b', 'mysql')).toBe("'a\\\\b'")
+    // A backslash means different things in MySQL depending on sql_mode: doubled it is one
+    // backslash by default but two under NO_BACKSLASH_ESCAPES, which the ORM pins (checked on
+    // MySQL 8.4.13 and MariaDB 11.4.13). Values that contain one are written as hex literals,
+    // which mean the same bytes in every mode; quotes-only strings stay readable.
+    expect(sqlLiteral('a\\b', 'mysql')).toBe("X'615c62'")
+    expect(sqlLiteral('x\\', 'mariadb')).toBe("X'785c'")
+    expect(sqlLiteral("it's", 'mysql')).toBe("'it''s'")
+    expect(columnSql({ name: 'path', kind: 'string', nullable: false, default: 'C:\\temp' }, 'mysql')).toBe("`path` VARCHAR(255) NOT NULL DEFAULT X'433a5c74656d70'")
+    expect(columnSql({ name: 'kind', kind: 'enum', nullable: false, values: ['a\\b', 'c'] }, 'mysql')).toBe("`kind` ENUM(X'615c62', 'c') NOT NULL")
+    // COMMENT takes no hex literal: the backslash is doubled, which is valid SQL in both modes
+    // (a comment can never end the string early); under NO_BACKSLASH_ESCAPES it shows doubled.
+    expect(sqlLiteral('a\\b', 'mysql', 'comment')).toBe("'a\\\\b'")
     expect(() => sqlLiteral(Number.NaN, 'sqlite')).toThrow(/finite/)
   })
 

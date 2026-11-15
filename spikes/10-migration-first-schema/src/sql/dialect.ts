@@ -53,7 +53,7 @@ export function quoteIdentifier(name: string, dialect: Dialect): string {
  * sqlLiteral("it's", 'sqlite') // "'it''s'"
  * sqlLiteral(false, 'postgres') // 'FALSE'
  */
-export function sqlLiteral(value: SqlValue, dialect: Dialect): string {
+export function sqlLiteral(value: SqlValue, dialect: Dialect, context: 'value' | 'comment' = 'value'): string {
   if (value === null) return 'NULL'
   if (typeof value === 'boolean') {
     // SQLite and MySQL store booleans as 0/1 integers.
@@ -64,9 +64,15 @@ export function sqlLiteral(value: SqlValue, dialect: Dialect): string {
     if (!Number.isFinite(value)) throw new Error(`Can't write ${value} into SQL: only finite numbers are allowed.`)
     return String(value)
   }
-  // MySQL also treats a backslash as an escape character inside strings, so double it there.
-  const escaped = isMysqlFamily(dialect) ? value.replace(/\\/g, '\\\\') : value
-  return `'${escaped.replace(/'/g, "''")}'`
+  if (isMysqlFamily(dialect) && value.includes('\\')) {
+    // A backslash's meaning depends on the session's sql_mode: by default it escapes, under
+    // NO_BACKSLASH_ESCAPES (which the ORM pins) it is literal. A hex literal is the same bytes in
+    // every mode, so DEFAULT and ENUM values are exact. COMMENT accepts no hex literal; doubling is
+    // valid in both modes (the string can never end early), and a comment is only documentation.
+    if (context === 'value') return `X'${Buffer.from(value, 'utf8').toString('hex')}'`
+    return `'${value.replace(/\\/g, '\\\\').replace(/'/g, "''")}'`
+  }
+  return `'${value.replace(/'/g, "''")}'`
 }
 
 /**
