@@ -80,7 +80,7 @@ Resource lists use one shape everywhere, so a client can page through any of the
 ```json
 {
   "data": [{ "id": 1, "title": "Hello World" }],
-  "meta": { "page": 1, "perPage": 15, "total": 3, "lastPage": 1, "from": 1, "to": 3 }
+  "meta": { "page": 1, "perPage": 25, "total": 3, "lastPage": 1, "from": 1, "to": 3 }
 }
 ```
 

@@ -145,7 +145,7 @@ What you'll see for `GET /api/authors?search=ada&sort=-created_at`:
 ```json
 {
   "data": [{ "id": 1, "name": "Ada Admin", "email": "ada@example.test", "bio": null, "created_at": "2026-11-14T10:00:00.000Z" }],
-  "meta": { "page": 1, "perPage": 15, "total": 1, "lastPage": 1, "from": 1, "to": 1 }
+  "meta": { "page": 1, "perPage": 25, "total": 1, "lastPage": 1, "from": 1, "to": 1 }
 }
 ```
 

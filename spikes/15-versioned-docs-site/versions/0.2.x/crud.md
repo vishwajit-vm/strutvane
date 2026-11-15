@@ -95,6 +95,7 @@ Every bad option is reported **at once** in a `422`, and the message lists what 
 | A record you may not **see** | `404`, exactly like a missing one, so hidden records can't be discovered by guessing URLs |
 | A record you may see but not **change** | `403 forbidden` |
 | A field that isn't in the model's `fillable` list, or isn't a column | `422 unknown_field` |
+| A model hook (`creating`, `updating`, `saving`, `deleting`, `restoring`) returned `false` | `422 write_cancelled` (nothing was saved) |
 | A duplicate value in a unique column | `422` with code `taken` on that field ("That email is already taken.") |
 | Two saves racing for the same unique value | `409 conflict` |
 | A body that isn't JSON | `415` |

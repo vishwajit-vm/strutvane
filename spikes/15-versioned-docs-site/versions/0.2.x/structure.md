@@ -218,7 +218,7 @@ Typed settings files that read `.env`. `config/index.ts` gathers them into one o
 ### `database/`: tables and data
 
 - **`migrations/`** is the **source of truth** for your tables. Columns are written here, and only here. File names start with a UTC time stamp (`2026_11_14_093000_create_posts_table.ts`), so they always run in the same order; the installer's own migrations start with `0001_01_01_` so they run first. See [Migrations](../migrations/).
-- **`seeders/`** fills the database with starting data. Each seeder is a `defineSeeder({ after, run })` file such as `post.seeder.ts`; `database.seeder.ts` lists them all and is kept up to date for you.
+- **`seeders/`** fills the database with starting data. Each seeder is a `defineSeeder({ after, run })` file such as `post.seeder.ts`. `database.seeder.ts` runs them with `await call([UsersSeeder, PostsSeeder])`; that list sits between `// strut:seeders:start` and `// strut:seeders:end` markers and the CLI keeps it in dependency order. Everything outside the markers is yours.
 - **`database.sqlite`**: the database file, if you chose SQLite (git-ignored). See [Seeding](../seeding/).
 - **`factories/`** makes realistic fake records for tests and seeders: `export default defineFactory(Post, ({ faker, sequence }) => ({ … }))`.
 
