@@ -4,7 +4,7 @@
  */
 import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { SCREENS } from '../src/app/screens.ts'
 import { renderAt } from './render-app.tsx'
 
@@ -23,6 +23,28 @@ describe('shell', () => {
     expect(screen.getByRole('navigation', { name: 'Main' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Mockup screens' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Dashboard' })).toHaveAttribute('aria-current', 'page')
+  })
+
+  it('a malformed URL (bad percent-encoding) is the 404 inside the shell, never a blank page', () => {
+    renderAt('/invoices/%E0%A4%A')
+    expect(screen.getByText('Page not found')).toBeInTheDocument()
+    expect(screen.getByRole('navigation', { name: 'Main' })).toBeInTheDocument()
+  })
+
+  it('a screen that throws while rendering shows a message inside the shell, not a blank page', async () => {
+    const { render } = await import('@testing-library/react')
+    const { ScreenErrorBoundary } = await import('../src/screens/kit/ScreenError.tsx')
+    const Broken = (): never => {
+      throw new Error('boom')
+    }
+    const quiet = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    render(
+      <ScreenErrorBoundary>
+        <Broken />
+      </ScreenErrorBoundary>,
+    )
+    quiet.mockRestore()
+    expect(screen.getByRole('alert')).toHaveTextContent('This page couldn’t be shown')
   })
 
   it('offers the Screens switcher on the bare auth pages too', () => {

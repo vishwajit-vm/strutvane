@@ -78,5 +78,9 @@ describe('helpers', () => {
     expect(formatPercentChange(-4.3)).toBe('−4.3%')
     expect(matchPath('/invoices/:id', '/invoices/INV-1042')).toEqual({ id: 'INV-1042' })
     expect(matchPath('/invoices/:id', '/invoices')).toBeNull()
+    // Malformed percent-encoding in a param is "no match", never a thrown URIError (blank screen).
+    for (const bad of ['/invoices/%E0%A4%A', '/invoices/%', '/invoices/50%', '/invoices/%ZZ/edit'])
+      expect(() => matchPath('/invoices/:id', bad), bad).not.toThrow()
+    expect(matchPath('/invoices/:id', '/invoices/%E0%A4%A')).toBeNull()
   })
 })

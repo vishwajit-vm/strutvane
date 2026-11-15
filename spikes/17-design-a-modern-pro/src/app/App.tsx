@@ -21,6 +21,7 @@ import { InvoiceDetailPage } from '../screens/invoices/InvoiceDetailPage.tsx'
 import { InvoiceFormPage } from '../screens/invoices/InvoiceFormPage.tsx'
 import { InvoiceListPage, type ListState } from '../screens/invoices/InvoiceListPage.tsx'
 import { NotFoundPage } from '../screens/kit/NotFoundPage.tsx'
+import { ScreenErrorBoundary } from '../screens/kit/ScreenError.tsx'
 import { OverlaysPage } from '../screens/kit/OverlaysPage.tsx'
 import { BoardPage } from '../screens/views/BoardPage.tsx'
 import { CalendarPage } from '../screens/views/CalendarPage.tsx'
@@ -64,7 +65,11 @@ function Routes(): ReactElement {
     const params = matchPath(route.pattern, pathname)
     if (params === null) continue
     // Keyed by path so each screen starts with fresh state (scroll, selection, form values).
-    const screen = <div key={pathname + search.toString()}>{route.render(params, search)}</div>
+    const screen = (
+      <div key={pathname + search.toString()}>
+        <ScreenErrorBoundary>{route.render(params, search)}</ScreenErrorBoundary>
+      </div>
+    )
     return route.bare === true ? (
       <>
         {screen}
