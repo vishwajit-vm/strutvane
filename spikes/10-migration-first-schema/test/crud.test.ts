@@ -264,6 +264,20 @@ describe.each(ENGINES)('$name', ({ name, open }) => {
       await expect(raced).rejects.toThrow()
       expect(constraintViolation(await raced.catch((error: unknown) => error))).toBe('unique')
     })
+
+    test('a JSON field round-trips every JSON value, and one odd row never breaks the list', async () => {
+      // PostgreSQL hands jsonb back parsed, so a stored JSON *string* arrived as a plain JS string and
+      // was parsed a second time: "hello" crashed every read of the row (and every page holding it)
+      // with a 500, and "123" came back as the number 123.
+      for (const meta of ['hello', '123', 'null', 42, true, [1, 'a'], { a: 'x' }]) {
+        const created = await api('POST', '/api/posts', { title: `JSON ${JSON.stringify(meta)}`, author_id: 1, meta })
+        expect(created.status, JSON.stringify(meta)).toBe(201)
+        const id = (created.body as { data: { id: number } }).data.id
+        const fetched = await api('GET', `/api/posts/${id}`)
+        expect([fetched.status, (fetched.body as { data: { meta: unknown } }).data.meta], JSON.stringify(meta)).toEqual([200, meta])
+      }
+      expect((await api('GET', '/api/posts?search=JSON&perPage=100')).status).toBe(200)
+    })
   })
 })
 

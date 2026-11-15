@@ -9,7 +9,7 @@
  * columns" means: a `string(200)` rejects 201 characters, a `decimal(12, 2)` rejects `1.234`, an
  * `enum` rejects anything off its list, and so on.
  */
-import type { SqlValue } from '../sql/dialect.ts'
+import type { Dialect, SqlValue } from '../sql/dialect.ts'
 import type { FieldMetadata, ResourceMetadata } from '../generate/metadata.ts'
 import type { Row } from '../db/database.ts'
 
@@ -141,18 +141,18 @@ function isRealDate(text: string): boolean {
  * are ISO strings, dates are `YYYY-MM-DD`, JSON columns are parsed, and secrets are never included.
  *
  * @example
- * serializeRow(posts, { id: 1, featured: 0, price: 12.5 }) // { id: 1, featured: false, price: '12.50' }
+ * serializeRow(posts, { id: 1, featured: 0, price: 12.5 }, 'sqlite') // { id: 1, featured: false, price: '12.50' }
  */
-export function serializeRow(resource: ResourceMetadata, row: Row): Record<string, unknown> {
+export function serializeRow(resource: ResourceMetadata, row: Row, dialect: Dialect): Record<string, unknown> {
   const json: Record<string, unknown> = {}
   for (const field of resource.fields) {
     if (field.hidden) continue
-    json[field.name] = serializeValue(field, row[field.name])
+    json[field.name] = serializeValue(field, row[field.name], dialect)
   }
   return json
 }
 
-function serializeValue(field: FieldMetadata, value: unknown): unknown {
+function serializeValue(field: FieldMetadata, value: unknown, dialect: Dialect): unknown {
   if (value === null || value === undefined) return null
   switch (field.cast) {
     case 'integer':
@@ -168,8 +168,10 @@ function serializeValue(field: FieldMetadata, value: unknown): unknown {
     case 'datetime':
       return value instanceof Date ? value.toISOString() : String(value)
     case 'json':
-      // PostgreSQL's jsonb arrives parsed; SQLite stores text.
-      return typeof value === 'string' ? (JSON.parse(value) as unknown) : value
+      // Only SQLite hands back JSON *text*. PostgreSQL's jsonb (and MySQL's JSON via mysql2) arrive
+      // parsed, so a string from them is already the value: parsing it again turned a stored JSON
+      // string ("hello") into a 500 on every read of that row, and "123" into the number 123.
+      return dialect === 'sqlite' && typeof value === 'string' ? (JSON.parse(value) as unknown) : value
     case 'string':
       return String(value)
   }

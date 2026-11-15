@@ -66,7 +66,7 @@ export class ResourceRepository {
     const offset = (request.page - 1) * request.perPage
     const sql = `SELECT ${this.#columns()} FROM ${this.#table()}${where} ORDER BY ${this.#orderBy(request)} LIMIT ${params.add(request.perPage)} OFFSET ${params.add(offset)}`
     const rows = await this.#db.query(sql, params.values)
-    const data = rows.map((row) => serializeRow(this.resource, row))
+    const data = rows.map((row) => serializeRow(this.resource, row, this.#db.dialect))
     return {
       data,
       meta: {
@@ -128,7 +128,7 @@ export class ResourceRepository {
     const placeholders = names.map((name) => params.add(values[name] ?? null))
     const sql = `INSERT INTO ${this.#table()} (${names.map((name) => this.#q(name)).join(', ')}) VALUES (${placeholders.join(', ')}) RETURNING ${this.#columns()}`
     const [row] = await this.#db.query(sql, params.values)
-    return { ok: true, row: serializeRow(this.resource, row ?? {}) }
+    return { ok: true, row: serializeRow(this.resource, row ?? {}, this.#db.dialect) }
   }
 
   /**
@@ -149,7 +149,7 @@ export class ResourceRepository {
     if (assignments.length === 0) return { ok: true, row: (await this.findById(id)) ?? {} }
     const sql = `UPDATE ${this.#table()} SET ${assignments.join(', ')} WHERE ${this.#q(this.resource.primaryKey)} = ${params.add(id)}${this.#notDeleted(' AND ')} RETURNING ${this.#columns()}`
     const [row] = await this.#db.query(sql, params.values)
-    return row === undefined ? undefined : { ok: true, row: serializeRow(this.resource, row) }
+    return row === undefined ? undefined : { ok: true, row: serializeRow(this.resource, row, this.#db.dialect) }
   }
 
   /**
@@ -261,7 +261,7 @@ export class ResourceRepository {
   async #findBy(column: string, value: SqlValue): Promise<Record<string, unknown> | undefined> {
     const params = new SqlParams(this.#db.dialect)
     const [row] = await this.#db.query(`SELECT ${this.#columns()} FROM ${this.#table()} WHERE ${this.#q(column)} = ${params.add(value)}${this.#notDeleted(' AND ')}`, params.values)
-    return row === undefined ? undefined : serializeRow(this.resource, row)
+    return row === undefined ? undefined : serializeRow(this.resource, row, this.#db.dialect)
   }
 
   #whereClause(request: ListRequest, params: SqlParams): string {
