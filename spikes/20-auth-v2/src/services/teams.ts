@@ -237,7 +237,8 @@ export function teamService(deps: AuthDeps): TeamService {
         throw new AuthError('INVALID_TOKEN')
       if (deps.config.features.emailVerification && active.user.emailVerifiedAt === null) throw new AuthError('EMAIL_NOT_VERIFIED')
       const consumed = await deps.store.consumeInvitation(invitation.id)
-      if (!consumed) throw new AuthError('INVALID_TOKEN')
+      // Expiry is judged at the consume, not only at the earlier lookup.
+      if (!consumed || consumed.expiresAt <= deps.clock.now()) throw new AuthError('INVALID_TOKEN')
       const team = await deps.store.findTeam(consumed.teamId)
       if (!team) throw new AuthError('INVALID_TOKEN')
       if (!(await deps.store.findMember(team.id, active.user.id)))

@@ -99,7 +99,8 @@ export function emailLinkService(deps: AuthDeps): EmailLinkService {
       if (nonce === undefined || !safeEqual(deps.keys.digest('email-link-nonce', nonce), expected))
         throw new AuthError('EMAIL_LINK_OTHER_BROWSER')
       const consumed = await deps.store.consumeOneTime(digest, 'email-link')
-      if (!consumed || consumed.userId === null) throw new AuthError('INVALID_TOKEN')
+      // Expiry is judged at the consume, not only at the earlier lookup.
+      if (!consumed || consumed.userId === null || consumed.expiresAt <= deps.clock.now()) throw new AuthError('INVALID_TOKEN')
       req.cookies.clear(linkNonceCookie(deps))
       const user = await deps.store.findUserById(consumed.userId)
       if (!user) throw new AuthError('INVALID_TOKEN')

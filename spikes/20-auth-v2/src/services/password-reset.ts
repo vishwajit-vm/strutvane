@@ -99,7 +99,9 @@ export function passwordResetService(deps: AuthDeps): PasswordResetService {
       const hash = await deps.hasher.hash(password)
       // Single use, atomically: of two concurrent submissions exactly one gets here.
       const consumed = await deps.store.consumeOneTime(digest, 'password-reset')
-      if (!consumed || consumed.userId === null) throw new AuthError('INVALID_TOKEN')
+      // Re-check the expiry AT the consume: hashing and the breach check ran since the lookup, and
+      // the link may have expired meanwhile (consumed either way, so it cannot be retried).
+      if (!consumed || consumed.userId === null || consumed.expiresAt <= deps.clock.now()) throw new AuthError('INVALID_TOKEN')
       const user = await deps.store.findUserById(consumed.userId)
       if (!user) throw new AuthError('INVALID_TOKEN')
       // Revoke FIRST, set the password LAST: the store has no transactions, so if it fails

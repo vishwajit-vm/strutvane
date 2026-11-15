@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { parseVerificationUrl } from '../src/tokens/formats.ts'
-import { Browser, harness, PASSWORD, rejectsWith, STORES } from './helpers/harness.ts'
+import { manualClock } from '../src/ports/clock.ts'
+import { Browser, harness, PASSWORD, rejectsWith, START, STORES } from './helpers/harness.ts'
 
 const NEW_PASSWORD = 'a new long passphrase'
 
@@ -35,6 +36,25 @@ describe.each(STORES)('password reset (%s store)', (store) => {
     const late = await h.mailedToken('password-reset')
     h.clock.advance(60 * 60_000)
     await rejectsWith(() => h.auth.passwordReset.reset(new Browser().req, { token: late, password: NEW_PASSWORD }), 'INVALID_TOKEN')
+  })
+
+  it('expiry boundary: a link that expires DURING the slow part (hashing, breach check) is refused', async () => {
+    const clock = manualClock(START)
+    let slow = false
+    // The breach check (and scrypt) run between the link lookup and the single-use consume; on a
+    // loaded server that window is real. Here it lasts past the link's 60 minutes.
+    const passwordCheck = async (): Promise<'ok'> => {
+      if (slow) clock.advance(2 * 60_000)
+      return 'ok'
+    }
+    const h = harness({ store, clock, passwordCheck })
+    const user = await h.user()
+    await h.auth.passwordReset.request(new Browser().req, { email: user.email })
+    const token = await h.mailedToken('password-reset')
+    clock.advance(59 * 60_000)
+    slow = true
+    await rejectsWith(() => h.auth.passwordReset.reset(new Browser().req, { token, password: NEW_PASSWORD }), 'INVALID_TOKEN')
+    expect((await h.auth.passwords.login(new Browser().req, { email: user.email, password: PASSWORD })).status).toBe('signed-in')
   })
 
   it('a completed reset invalidates every other outstanding reset link', async () => {
