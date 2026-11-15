@@ -5,7 +5,7 @@
  * uses, so a screen cannot be added to the mockup without being covered here.
  */
 import { screen } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { SCREENS } from '../src/shell/screens.ts'
 import { renderAt } from './render.tsx'
 
@@ -29,6 +29,32 @@ describe('states and fallbacks', () => {
     renderAt('/invoices?state=loading')
     expect(await screen.findByRole('region', { name: 'Invoice results' })).toHaveAttribute('aria-busy', 'true')
     expect(screen.queryByRole('row', { name: /INV-/ })).toBeNull()
+  })
+
+  it('a malformed URL (bad percent-encoding) is the friendly 404, never a blank page', async () => {
+    renderAt('/invoices/%E0%A4%A')
+    expect(await screen.findByRole('heading', { name: 'This page doesn’t exist' })).toBeInTheDocument()
+    expect(screen.getByRole('navigation', { name: 'Main' })).toBeInTheDocument()
+  })
+
+  it('a screen that throws while rendering shows a message inside the shell, not a blank page', async () => {
+    const { render } = await import('@testing-library/react')
+    const { ScreenErrorBoundary } = await import('../src/screens/ScreenError.tsx')
+    const { RouterProvider } = await import('../src/lib/router.tsx')
+    const Broken = (): never => {
+      throw new Error('boom')
+    }
+    const quiet = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    render(
+      <RouterProvider>
+        <ScreenErrorBoundary>
+          <Broken />
+        </ScreenErrorBoundary>
+      </RouterProvider>,
+    )
+    quiet.mockRestore()
+    expect(screen.getByRole('alert')).toHaveTextContent('This page couldn’t be shown')
+    expect(screen.getByRole('link', { name: 'Dashboard' })).toHaveAttribute('href', '/')
   })
 
   it('an unknown URL or record is a friendly 404 inside the shell', async () => {

@@ -70,8 +70,15 @@ export function matchPath(pattern: string, pathname: string): Record<string, str
   for (const [index, segment] of want.entries()) {
     const actual = have[index]
     if (actual === undefined) return null
-    if (segment.startsWith(':')) params[segment.slice(1)] = decodeURIComponent(actual)
-    else if (segment !== actual) return null
+    if (segment.startsWith(':')) {
+      // Malformed percent-encoding (`/invoices/%E0%A4%A`, `/invoices/50%`) makes decodeURIComponent
+      // THROW during render, which blanked the whole app: treat it as "no match" (the 404).
+      try {
+        params[segment.slice(1)] = decodeURIComponent(actual)
+      } catch {
+        return null
+      }
+    } else if (segment !== actual) return null
   }
   return params
 }

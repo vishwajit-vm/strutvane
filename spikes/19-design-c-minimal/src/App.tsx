@@ -12,6 +12,7 @@ import { type ThemeMode, ThemeProvider } from './lib/theme.tsx'
 import { ForgotPassword } from './screens/auth/ForgotPassword.tsx'
 import { SignIn } from './screens/auth/SignIn.tsx'
 import { NotFound } from './screens/NotFound.tsx'
+import { ScreenErrorBoundary } from './screens/ScreenError.tsx'
 import { AppShell } from './shell/AppShell.tsx'
 import { OverlayProvider } from './shell/overlays.tsx'
 
@@ -66,7 +67,9 @@ function Screen() {
   if (auth !== null) return auth
   return (
     <AppShell>
-      <Suspense fallback={<ScreenFallback />}>{match === undefined ? <NotFound /> : match.route.render(match.params ?? {})}</Suspense>
+      <ScreenErrorBoundary key={pathname}>
+        <Suspense fallback={<ScreenFallback />}>{match === undefined ? <NotFound /> : match.route.render(match.params ?? {})}</Suspense>
+      </ScreenErrorBoundary>
     </AppShell>
   )
 }

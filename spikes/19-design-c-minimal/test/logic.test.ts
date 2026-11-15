@@ -56,6 +56,11 @@ describe('router helpers', () => {
     expect(matchPath('/invoices/:id/edit', '/invoices/inv-2264/edit/')).toEqual({ id: 'inv-2264' })
     expect(matchPath('/invoices/:id', '/invoices')).toBeNull()
     expect(matchPath('/settings/:section', '/invoices/board')).toBeNull()
+    // Malformed percent-encoding in a param is "no match", never a thrown URIError (blank screen).
+    for (const bad of ['/invoices/%E0%A4%A', '/invoices/%', '/invoices/50%', '/invoices/%ZZ/edit'])
+      expect(() => matchPath('/invoices/:id', bad), bad).not.toThrow()
+    expect(matchPath('/invoices/:id', '/invoices/%E0%A4%A')).toBeNull()
+    expect(matchPath('/invoices/:id', '/invoices/inv%2D2264')).toEqual({ id: 'inv-2264' })
   })
 
   it('withParams keeps other params and drops empty ones', () => {
