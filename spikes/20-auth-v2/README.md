@@ -2,7 +2,7 @@
 
 **Question:** can one small, dependency-light TypeScript core cover every sign-in option the v2 installer offers (blueprint §2.1, questions 5–12; §6), with secure defaults, behind a storage interface the framework can implement on its ORM?
 
-**Answer: yes.** `src/` is pure services over seven small ports. The same code runs on an in-memory store and on a real SQLite store (`node:sqlite`), and an example Fetch/`node:http` adapter shows the routes. **274 tests pass** (the behaviour suites run once per store; 215 at first commit, 59 added by the adversarial audit of 2026-11-15 and the decisions that followed it, CONSISTENCY #114–117 and #122), plus type-level tests checked by `tsc`.
+**Answer: yes.** `src/` is pure services over seven small ports. The same code runs on an in-memory store and on a real SQLite store (`node:sqlite`), and an example Fetch/`node:http` adapter shows the routes. **276 tests pass** (the behaviour suites run once per store; 215 at first commit, 61 added by the adversarial audit of 2026-11-15 and the decisions that followed it, CONSISTENCY #114–117 and #122), plus type-level tests checked by `tsc`.
 
 ```bash
 npm install          # .npmrc sets ignore-scripts=true; nothing here needs an install script

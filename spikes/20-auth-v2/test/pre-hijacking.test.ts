@@ -88,11 +88,11 @@ describe.each(STORES)('account pre-hijacking (%s store)', (store) => {
     const h = harness({ store, config })
     const browser = new Browser()
     await h.auth.passwords.register(browser.req, { name: 'Ada', email: 'ada@acme.test', password: OWNER_PASSWORD })
-    expect(browser.get('sv_register')).toBeDefined()
+    expect(browser.get('strutvane_register')).toBeDefined()
     const parts = await verificationParts(h)
     const result = await h.auth.verification.verify(browser.req, parts)
     expect(result).toEqual({ status: 'verified' })
-    expect(browser.get('sv_register')).toBeUndefined() // the binding is spent
+    expect(browser.get('strutvane_register')).toBeUndefined() // the binding is spent
     expect((await h.auth.passwords.login(new Browser().req, { email: 'ada@acme.test', password: OWNER_PASSWORD })).status).toBe('signed-in')
   })
 
@@ -124,6 +124,13 @@ describe.each(STORES)('account pre-hijacking (%s store)', (store) => {
     await h.auth.passwords.register(shared.req, { name: 'A', email: 'a@acme.test', password: OWNER_PASSWORD })
     await h.auth.passwords.register(new Browser().req, { name: 'B', email: 'b@acme.test', password: OWNER_PASSWORD })
     expect((await h.auth.verification.verify(shared.req, await verificationParts(h, 'b@acme.test'))).status).toBe('set-password')
+  })
+
+  it('#122: the binding cookie follows the strutvane_* naming and is __Host- on https', async () => {
+    const h = harness({ store, config: { ...config, appUrl: 'https://app.example.com' } })
+    const b = new Browser()
+    await h.auth.passwords.register(b.req, { name: 'Ada', email: 'ada@acme.test', password: OWNER_PASSWORD })
+    expect([...b.jar.keys()]).toEqual(['__Host-strutvane_register'])
   })
 
   it('#122: registration sets the same cookie whether or not the address was taken (no enumeration)', async () => {

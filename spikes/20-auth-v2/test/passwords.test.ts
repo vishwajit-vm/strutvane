@@ -23,8 +23,8 @@ describe.each(STORES)('email + password (%s store)', (store) => {
       expect(a).toEqual(b)
       expect(a).toEqual({ status: 'verification-sent' })
       // No session either way; the only cookie is the registration binding (#122), set for both.
-      expect([...fresh.jar.keys()]).toEqual(['sv_register'])
-      expect([...taken.jar.keys()]).toEqual(['sv_register'])
+      expect([...fresh.jar.keys()]).toEqual(['strutvane_register'])
+      expect([...taken.jar.keys()]).toEqual(['strutvane_register'])
       expect((await h.mail('verify-email')).to).toBe('new@acme.test')
       // The owner of the taken address is told; the requester learns nothing.
       expect((await h.mail('registration-attempt')).to).toBe('taken@acme.test')
