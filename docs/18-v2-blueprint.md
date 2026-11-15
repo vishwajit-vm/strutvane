@@ -66,9 +66,9 @@ Every question has a flag, so `--yes` (or CI, or no terminal) takes the defaults
 | 10 | Sign-in | Starting roles | **admin + member**, admin + manager + member + viewer | framework |
 | 11 | Teams | ★ Teams / multi-tenancy (each customer company is a team) | **no**, yes | framework |
 | 12 | Teams | How a request picks its team | **team switcher in the app**, subdomain (`acme.yourapp.com`) | framework |
-| 13 | Data | ★ Database | **MySQL**, PostgreSQL (pre-selected with teams), SQLite | framework |
+| 13 | Data | ★ Database | **MySQL** (MariaDB detected automatically), PostgreSQL (pre-selected with teams), SQLite | framework |
 | 14 | Data | ★ With Docker or without? | **with Docker** for MySQL/PostgreSQL | — |
-| 15 | Data | Connection details (without Docker, server DB) | host, port, name, user, masked password → `.env` only | — |
+| 15 | Data | ★ Connection details (without Docker, server DB: XAMPP, WAMP, MAMP, Laragon, a local install, remote or cloud) | host **127.0.0.1**, port **3306/5432**, database, user **root/postgres**, masked password (empty allowed locally, with a warning) → `.env` only; or one `DB_URL`; connection tested, database created if missing | — |
 | 16 | Data | First admin account | email **admin@\<name\>.test**; password generated and shown once (or typed, masked) | — |
 | 17 | Data | Sample data | **yes for the admin starter**, no | — |
 | 18 | Infra | Cache, queue and sessions | **database (no extra service)**, Redis | `@strutvane/redis` |
@@ -106,7 +106,25 @@ The list is read from the published catalogue index (§3.3), so it only ever off
 - **No sign-in:** for internal tools behind a gateway. The generated API then requires an API token unless you opt out per route, which keeps deny-by-default intact.
 
 **Database and Docker details (questions 13 and 14):**
-- database: **MySQL by default** (decided by the project lead, 2026-11-14), or PostgreSQL or SQLite, whichever you pick. When **teams** is Yes, PostgreSQL is pre-selected because of row-level security; MySQL is still allowed. A `testing` database is created next to the dev one. The default MySQL runs in Docker, which the installer starts for you. If Docker isn't available, the installer offers SQLite so the app still starts. Choosing teams on MySQL gets a short note: isolation is enforced by the ORM's tenant scope, and PostgreSQL adds database-level row security on top;
+- database: **MySQL by default** (decided by the project lead, 2026-11-14), or PostgreSQL or SQLite, whichever you pick. When **teams** is Yes, PostgreSQL is pre-selected because of row-level security; MySQL is still allowed. A `testing` database is created next to the dev one. **Any database server works, with or without Docker** (decided 2026-11-15), exactly as in Laravel:
+  - your own MySQL or **MariaDB**, from XAMPP, WAMP, MAMP, Laragon or a normal install;
+  - PostgreSQL, for example Postgres.app or a normal install;
+  - a cloud or remote database.
+
+  **Without Docker,** you enter the host, port, database name, user and password (masked; stored only in `.env`). The defaults suit local servers: `127.0.0.1`, port 3306 or 5432, user `root` or `postgres`. An empty password is accepted for a local server, with a warning.
+
+  The installer then:
+  - **tests the connection** and explains failures in plain words: "MySQL isn't running: start it in the XAMPP control panel", "Access denied for user root", "Unknown host", "Wrong port: MAMP uses 8889";
+  - **creates the database** if it's missing and you have the rights to, or tells you the one SQL line to run;
+  - **detects MariaDB vs MySQL** by itself.
+
+  `DB_URL` (a full connection string), `DB_SOCKET` (Unix socket) and `DB_SSLMODE` / `DB_SSL_CA` (remote or cloud databases) are supported as in Laravel.
+
+  **With Docker,** the installer starts the database container for you. If Docker isn't available, it offers, in this order: use your own database server (connection details as above), install or start Docker, or SQLite.
+
+  **PostgreSQL without Docker:** row-level security needs an app role that isn't a superuser and has no `BYPASSRLS`. If your account may create roles, the installer creates `<app>_owner` and `<app>_app`. Otherwise it prints the exact SQL and warns clearly that connecting as a superuser turns RLS off. `security:check` repeats that warning until it's fixed.
+
+  Choosing teams on MySQL gets a short note: isolation is enforced by the ORM's tenant scope, and PostgreSQL adds database-level row security on top;
 - **With Docker or without Docker?** (decided 2026-11-14)
   - **With Docker,** everything runs inside containers, like Laravel Sail. The services are:
     - `app`: Node 24, with `npm run dev` serving API and UI on one port with hot reload;
@@ -129,7 +147,8 @@ It then does **everything**, with friendly progress output:
 (Order decided in `spikes/CONSISTENCY-2026-11-15.md` #1, which is the source for every naming and default decision of 2026-11-15.)
 
 When a step fails, it recovers:
-- **Docker is missing or stopped:** it offers to start Docker, to fall back to SQLite, or to retry.
+- **Docker is missing or stopped:** it offers to use your own database server (XAMPP, a local install, or a remote server), to start Docker, to fall back to SQLite, or to retry.
+- **Your database server can't be reached or refuses the login:** it explains why in plain words, lets you correct the details, and retries.
 - **A port is taken:** it picks the next free one.
 
 Your answers are saved in the committed `strutvane.json`, and progress is saved in the git-ignored `.strutvane/local/setup.json`. `npm run setup` resumes from the failed step, and it also works on a fresh clone for a teammate, using only `strutvane.json`. Exit codes: `0` success, `1` nothing was created, `2` created but setup incomplete, `130` cancelled.

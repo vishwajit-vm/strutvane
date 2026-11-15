@@ -68,3 +68,13 @@ The docs pass found places where the blueprint and the spikes disagree. When a m
 | 37 | `ui:sync` | A `node strut ui:sync` command, also run by `sync` and by `migrate`. | spike 14 |
 | 38 | What `sync` regenerates | Only outputs of installed packages (charts only when `@strutvane/charts` is installed). | blueprint §2.2 |
 | 39 | Logging keys and flags | Add `LOG_PATH`, `LOG_SLACK_WEBHOOK_URL` and `LOG_DEPRECATIONS_CHANNEL` to blueprint §5.3. `log:tail` takes `--level=`, `--channel=`, `--grep=`, `--since=` and `--follow` (the default). A `custom` driver is `{ driver: 'custom', via: (config) => Transport }`. | blueprint, logs branch |
+
+## Databases without Docker (project lead, 2026-11-15)
+
+| # | Topic | Decision | Owner |
+|---|---|---|---|
+| 40 | Any database server, with or without Docker | MySQL (default), MariaDB, PostgreSQL and SQLite all work without Docker, using your own server: XAMPP, WAMP, MAMP, Laragon, Postgres.app, a local install, or remote/cloud. Docker is never required for MySQL or PostgreSQL. | installer, framework |
+| 41 | Docker missing | Offer "use my own database server" first, then start Docker, then SQLite. | spike 13 |
+| 42 | Connection details | host/port/database/user/password with local-friendly defaults; empty password allowed locally with a warning; `DB_URL`, `DB_SOCKET`, `DB_SSLMODE`/`DB_SSL_CA`; connection tested with plain-language errors; database created if missing (or the exact SQL is printed). | spike 13, framework config |
+| 43 | MariaDB | A first-class engine (`DB_CONNECTION=mariadb`), auto-detected from the server version. The ORM grammar handles the MariaDB differences (`RETURNING`, JSON, CHECK). It's tested on MariaDB 11 alongside MySQL 8.4. | ORM (spike 11), framework |
+| 44 | PostgreSQL without Docker + RLS | Create the owner and app roles when allowed. Otherwise print the SQL and warn that a superuser connection disables RLS; `security:check` keeps flagging it. | spike 13, framework |
