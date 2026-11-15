@@ -166,8 +166,10 @@ export function twoFactorService(deps: AuthDeps): TwoFactorService {
       if (user.twoFactorSecret === null || user.twoFactorConfirmedAt !== null) throw new AuthError('CONFLICT')
       const code = parseTotpCode(input.code)
       await guarded(req, user, async () => code !== undefined && (await acceptTotp(user, code)))
-      await deps.store.updateUser(user.id, { twoFactorConfirmedAt: deps.clock.now() })
+      // Codes FIRST, the switch LAST: a storage failure in between must not turn 2FA on with no
+      // recovery codes (a lost phone would then lock the user out). A retry replaces the codes.
       const recoveryCodes = await newRecoveryCodes(user.id)
+      await deps.store.updateUser(user.id, { twoFactorConfirmedAt: deps.clock.now() })
       await rotateSession(deps, req, active.session)
       await emit(deps, req, { type: 'two-factor.enabled', userId: user.id })
       return { recoveryCodes }

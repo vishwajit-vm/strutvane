@@ -102,13 +102,16 @@ export function passwordResetService(deps: AuthDeps): PasswordResetService {
       if (!consumed || consumed.userId === null) throw new AuthError('INVALID_TOKEN')
       const user = await deps.store.findUserById(consumed.userId)
       if (!user) throw new AuthError('INVALID_TOKEN')
-      await deps.store.updateUser(user.id, { passwordHash: hash })
+      // Revoke FIRST, set the password LAST: the store has no transactions, so if it fails
+      // part-way the account is left with the old password and fewer credentials (fail closed),
+      // never with the new password while a thief's sessions or tokens survive.
       await deps.store.deleteUserOneTime(user.id, 'password-reset')
       await deps.store.deleteUserOneTime(user.id, 'email-link')
       await deps.store.deleteUserOneTime(user.id, 'trusted-device')
       req.cookies.clear(deviceCookie(deps))
       const sessions = await deps.store.deleteUserSessions(user.id)
       await deps.store.deleteUserTokens(user.id)
+      await deps.store.updateUser(user.id, { passwordHash: hash })
       // A reset proves control of the mailbox: lift a password lockout on this account.
       await deps.lockout.succeed(`login:${accountKey(deps, user.email)}`)
       if (sessions > 0) await emit(deps, req, { type: 'session.revoked', userId: user.id, count: sessions })

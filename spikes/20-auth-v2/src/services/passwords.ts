@@ -239,13 +239,16 @@ export function passwordService(deps: AuthDeps): PasswordService {
         requireRecentConfirmation(deps, active)
       }
       const password = await allowed(input.password)
-      await deps.store.updateUser(user.id, { passwordHash: await deps.hasher.hash(password) })
+      const hash = await deps.hasher.hash(password)
       // A password change ends everything a thief may hold: other sessions, outstanding reset
-      // links (an old link must not reset the NEW password), remembered devices.
+      // links (an old link must not reset the NEW password), remembered devices. Revoke FIRST and
+      // write the new hash LAST, so a storage failure part-way never leaves the new password in
+      // place with a thief's session still alive (fail closed).
       await deps.store.deleteUserOneTime(user.id, 'password-reset')
       await deps.store.deleteUserOneTime(user.id, 'trusted-device')
       req.cookies.clear(deviceCookie(deps))
       const revoked = await deps.store.deleteUserSessions(user.id, active.session.digest)
+      await deps.store.updateUser(user.id, { passwordHash: hash })
       await rotateSession(deps, req, active.session)
       if (revoked > 0) await emit(deps, req, { type: 'session.revoked', userId: user.id, count: revoked })
       await emit(deps, req, { type: 'password.changed', userId: user.id, via: 'settings' })
