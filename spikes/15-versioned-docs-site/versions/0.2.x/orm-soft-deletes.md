@@ -111,7 +111,7 @@ await User.query().whereHas('posts').count() // Ada no longer counts as "has pos
 
 ## Soft-deleted rows keep their slug
 
-A deleted post still owns its slug (the unique index covers it), so restoring it can never clash with a newer post. A new post with the same title gets a suffix, like `ephemeral-k3f9`. See [Slugs](../orm-slugs/).
+A deleted post still owns its slug (the unique index covers it), so restoring it can never clash with a newer post. A new post with the same title gets the next number, like `ephemeral-2`. See [Slugs](../orm-slugs/).
 
 ## In the generated screens
 
@@ -139,7 +139,24 @@ export async function prunePosts(): Promise<number> {
 **What you'll see:** the function returns how many posts it removed, at most 500 per run, so one run never locks the table for long.
 
 :::caution[Coming in 0.3]
-A `prunable()` method on the model and a scheduled `node strut model:prune` command (Laravel's `Prunable`) are planned for the release after 0.2. The `restored` and `forceDeleted` model events come with model events (designed for 0.2, not built yet).
+A `prunable()` method on the model and a scheduled `node strut model:prune` command (Laravel's `Prunable`) are coming in 0.3. The `restored` and `forceDeleted` model events come with model events (designed for 0.2, not built yet).
+:::
+
+## In the generated API
+
+Every soft-deleting resource in the [generated API](../crud/) offers the same three choices to clients:
+
+```text
+GET  /api/posts                       live posts only (the default)
+GET  /api/posts?filter[trashed]=with  live and deleted posts
+GET  /api/posts?filter[trashed]=only  deleted posts only
+POST /api/posts/7/restore             bring post 7 back
+```
+
+**What you'll see** for the restore: `200` with the post, its `deleted_at` back to `null`. Like every action, it's checked against the post's policy first, so only users allowed to restore can.
+
+:::caution[Coming in 0.2]
+`filter[trashed]` and the restore route are decided (2026-11-15). The admin screens' prototype already uses them; the API prototype doesn't have them yet.
 :::
 
 ## Common mistakes

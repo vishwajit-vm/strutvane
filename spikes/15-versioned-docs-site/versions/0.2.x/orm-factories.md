@@ -8,7 +8,7 @@ A **factory** is a recipe for one fake record. Instead of typing out a post with
 Use factories in two places: **tests**, where every test needs its own small set of data, and **seeders**, where you fill a development database with enough realistic rows that the screens look real (see [Seeding](../seeding/)).
 
 :::tip[Coming from Laravel?]
-The designed API is Laravel's, in TypeScript: `Post::factory()->count(10)->for($user, 'author')->create()` becomes `Post.factory().count(10).for(user, 'author').create()`, `state([...])` becomes `state({ ... })`, `has()` and `recycle()` keep their names, and the definition is a function instead of a class. Factories write through `forceCreate()` (trusted code), and on tenant tables they run inside the active tenant. Today only the generated starter file exists; the fluent API arrives in 0.2.
+The API is Laravel's, in TypeScript (decided 2026-11-15): `Post::factory()->count(10)->for($user, 'author')->create()` becomes `Post.factory().count(10).for(user, 'author').create()`, `state([...])` becomes `state({ ... })`, `has()` and `recycle()` keep their names, and the definition is a function instead of a class. Factories write through `forceCreate()` (trusted code), and on tenant tables they run inside the active tenant. In 0.2, `--seeder` and `--factory` write a `defineFactory` file; today the prototype writes a plain starter function, shown first below.
 :::
 
 ## What you get today
@@ -77,18 +77,20 @@ The function name follows the model: `post.factory.ts` exports `postDefinition`,
 2. Call it in a loop, adding the columns that link to other rows, and save with `forceCreate()`:
 
    ```ts title="database/seeders/post.seeder.ts"
+   import { defineSeeder } from '@strutvane/framework'
    import { Post } from '../../app/models/post.ts'
    import { User } from '../../app/models/user.ts'
    import { postDefinition } from '../factories/post.factory.ts'
 
-   export class PostSeeder {
-     async run(): Promise<void> {
+   export default defineSeeder({
+     after: ['users'],
+     async run() {
        const author = await User.query().orderBy('id').firstOrFail()
        for (let sequence = 1; sequence <= 10; sequence += 1) {
          await Post.forceCreate({ ...postDefinition(sequence), author_id: author.id })
        }
-     }
-   }
+     },
+   })
    ```
 
 3. Run it with `node strut db:seed` (or let `node strut migrate` run new seeders in development; see [Seeding](../seeding/)).
@@ -105,7 +107,7 @@ console.log((await Post.query().orderBy('id').first())?.title) // → Post 1
 ## The factory API (coming in 0.2)
 
 :::caution[Coming in 0.2]
-Everything from here on is **designed but not built yet**. The names follow the ORM design and may still change before 0.2 ships. Until then, use the plain definition function above.
+Everything from here on is **decided but not built yet**: `defineFactory(Post, ({ faker, sequence }) => ({ … }))` with `.state()`, `.for()`, `.has()` and `.recycle()` is the shape for 0.2 (decided 2026-11-15), and 0.2's `make:migration --seeder`/`--factory` writes this file instead of the starter function. Until then, use the plain definition function above.
 :::
 
 ### Defining a factory
@@ -200,7 +202,7 @@ See [Database Testing](../database-testing/) for a fresh database per test.
 
 **Fix (today):** add the column when you call the definition: `{ ...postDefinition(1), author_id: author.id }`. With the 0.2 API, use `for(user, 'author')` or give the definition a default (`author_id: () => User.factory()`).
 
-### MASS_ASSIGNMENT when saving factory data with `create()`
+### mass_assignment when saving factory data with `create()`
 
 ```text
 MassAssignmentError: "author_id" can't be mass-assigned on "posts". If users may set it, add it to `fillable` in Model('posts', { fillable: [...] }). If your own code sets it, assign it directly (model.author_id = value) or use forceCreate().

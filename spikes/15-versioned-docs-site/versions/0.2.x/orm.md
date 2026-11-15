@@ -62,7 +62,7 @@ You never configure these; they follow from your migrations.
 |---|---|---|
 | Table | the first argument of `Model('posts')` | must be a table some migration created |
 | Columns | every column of that table, typed | the generated `.strutvane/types/models.d.ts` |
-| Primary key | the column named `id` | `t.id()` or `t.uuid('id')` in the migration |
+| Primary key | the column named `id` | `t.id()` or `t.uuid('id').primary()` in the migration |
 | Timestamps | `created_at` and `updated_at` are filled in when both exist | `t.timestamps()` |
 | Soft deletes | on when `deleted_at` exists | `t.softDeletes()` (see [Soft Deletes](../orm-soft-deletes/)) |
 | Slugs | filled in on create | `t.slug('slug').from('title')` (see [Slugs](../orm-slugs/)) |
@@ -73,14 +73,14 @@ You never configure these; they follow from your migrations.
 | Migration | The key is | Who makes it |
 |---|---|---|
 | `t.id()` | a growing whole number (`1`, `2`, `3`…) | the database |
-| `t.uuid('id')` | a **UUIDv7** string like `'019a8b2c-6a7f-7b12-9d6f-2f8a4e0c9c11'` | the ORM, before the insert |
+| `t.uuid('id').primary()` | a **UUIDv7** string like `'019a8b2c-6a7f-7b12-9d6f-2f8a4e0c9c11'` | the ORM, before the insert |
 
 A UUIDv7 is a random-looking id that still sorts by creation time, so new rows land at the end of the index (fast inserts) and `orderBy('id')` is creation order. It's also hard to guess, which makes it a good choice for ids in URLs. Laravel 13 uses the same kind by default.
 
 A table without an `id` column can't have a model (pivot tables like `post_tag` don't need one). And the key of a saved row never changes; see Common mistakes.
 
 :::caution[Coming in 0.2]
-UUIDv7 keys are built in the ORM, but the migration recorder doesn't yet make a `t.uuid('id')` column the table's primary key (it does for `t.id()`); that lands with 0.2. `t.ulid('id')` keys and composite primary keys are designed but not built yet.
+UUIDv7 keys are built in the ORM. `t.uuid('id').primary()` is decided (2026-11-15) and lands in the migration recorder with 0.2 (today it makes only `t.id()` a primary key). `t.ulid('id')` keys and composite primary keys are designed but not built yet.
 :::
 
 ### When columns change
@@ -231,7 +231,7 @@ Bulk deletes (`Post.query().where(...).delete()`) and `Post.destroy([1, 2, 3])` 
 **Pruning** means deleting rows you no longer need on a schedule, like posts soft-deleted more than 30 days ago.
 
 :::caution[Coming in 0.3]
-A `prunable()` method on the model (the query of rows to delete) plus a scheduled `node strut model:prune` command, like Laravel's `Prunable`, is planned for the release after 0.2. Until then, a scheduled job can query the rows and `forceDelete()` them.
+A `prunable()` method on the model (the query of rows to delete) plus a scheduled `node strut model:prune` command, like Laravel's `Prunable`, is coming in 0.3. Until then, a scheduled job can query the rows and `forceDelete()` them.
 :::
 
 ## Turning models into JSON
@@ -350,13 +350,13 @@ configureOrm({
 |---|---|---|
 | `preventLazyLoading` | `true`, except when `NODE_ENV=production` | refuses loading a relation one row at a time inside a list (the N+1 problem) |
 | `maxPerPage` | `100` | the largest page `paginate()` and `cursorPaginate()` accept |
-| `tenancy` | `{ column: 'tenant_id' }` | the one tenant column of the app, or `false` for a single-tenant app |
+| `tenancy` | from `config/tenancy.ts`: `{ column: 'tenant_id' }` with teams, `false` without | the one tenant column of the app, or `false` for a single-tenant app; set it in `config/tenancy.ts`, not here |
 | `onUnsafeTenancy` | does nothing | called for every audited tenancy bypass; wire it to your audit log |
 
 Settings you don't pass keep their values.
 
-:::note[Tenancy is on unless you turn it off]
-With tenancy on, every table must either have the tenant column (it's **scoped** to one tenant) or be marked as **global** (shared by all tenants) in its migration; any other table is refused. The examples on the ORM pages treat `users`, `posts` and `tags` as global tables and `projects` and `tasks` as tenant tables. A single-tenant app sets `configureOrm({ tenancy: false })`. See [Tenancy](../orm-tenancy/).
+:::note[Tenancy follows `config/tenancy.ts`]
+Tenancy is on only in apps created with teams (`enabled: true` in `config/tenancy.ts`). With tenancy on, every table must either have the tenant column (it's **scoped** to one tenant) or be marked as **global** (shared by all tenants) in its migration; any other table is refused. The examples on the ORM pages treat `users`, `posts` and `tags` as global tables and `projects` and `tasks` as tenant tables. A single-tenant app has `enabled: false`, and then none of this applies. See [Tenancy](../orm-tenancy/).
 :::
 
 ### Strict mode
@@ -448,7 +448,7 @@ OrmUsageError: The table "post" is not in the schema snapshot. Did you create it
 ### A model for a table without `id`
 
 ```text
-OrmUsageError: "post_tag" has no "id" column. Models need t.id() (or t.uuid('id')) in the migration; pivot tables don't need a model.
+OrmUsageError: "post_tag" has no "id" column. Models need t.id() (or t.uuid('id').primary()) in the migration; pivot tables don't need a model.
 ```
 
 **Fix:** add `t.id()` in the migration, or don't write a model for a pivot table: use `belongsToMany()` instead.

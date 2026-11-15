@@ -65,11 +65,11 @@ These take **strings from a request** and check every column name, so they're sa
 
 | Method | Example | What it does |
 |---|---|---|
-| `search(term, columns)` | `search('hello', ['title', 'body'])` | Rows where any of the columns contains the term, case-insensitive. Blank terms are ignored; at most 200 characters. |
+| `search(term, columns)` | `search('hello world', ['title', 'body'])` | Case-insensitive search: **every word** must appear, each in **any** of the columns (at most 10 columns). A term that is an id or a UUID also matches that row exactly. Blank terms are ignored; at most 200 characters. |
 | `filter(column, operator, value)` | `filter('status', 'in', ['draft', 'published'])` | One filter. Operators: `eq`, `ne`, `gt`, `gte`, `lt`, `lte`, `in`, `contains`, `startsWith`, `null` (`true` = is empty, `false` = isn't). |
 | `sort(spec)` | `sort('-created_at,title')` | Comma-separated columns, `-` for descending. |
 
-A column that exists isn't automatically one users may filter on: the generated API also checks each name against the allow-lists in `.strutvane/resources.json`. Do the same in your own controllers (see [ORM: Querying](../orm-querying/#search-filter-and-sort-from-a-request)).
+The "every word" and "id or UUID" rules are decided (2026-11-15); the ORM prototype still looks for the whole term as one piece of text. A column that exists isn't automatically one users may filter on: the generated API also checks each name against the allow-lists in `.strutvane/resources.json`. Do the same in your own controllers (see [ORM: Querying](../orm-querying/#search-filter-and-sort-from-a-request)).
 
 ### Order and size
 

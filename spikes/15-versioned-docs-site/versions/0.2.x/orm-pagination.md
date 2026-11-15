@@ -32,7 +32,7 @@ console.log(page.data.map((post) => post.title))
 ## Numbered pages: `paginate()`
 
 ```ts
-await Post.query().paginate()          // page 1, with the model's default page size (15)
+await Post.query().paginate()          // page 1, with the model's default page size (25)
 await Post.query().paginate(25)        // page 1, 25 per page
 await Post.query().paginate(25, 3)     // page 3
 ```
@@ -93,10 +93,10 @@ A page number below 1, or something that isn't a whole number, is refused (see C
 
 ## Page size: the default and the limit
 
-- Each model's default page size is **15**. Change it per model with the `perPage` option:
+- Each model's default page size is **25**, the same as the API and the screens. Change it per model with the `perPage` option (the ORM prototype still defaults to 15; 0.2 uses 25):
 
   ```ts title="app/models/post.ts"
-  export class Post extends Model('posts', { fillable: ['title'], perPage: 25 }) {}
+  export class Post extends Model('posts', { fillable: ['title'], perPage: 50 }) {}
   ```
 
 - The largest page anyone can ask for is **100**, to protect the database. Raise it once for the whole app if you must:

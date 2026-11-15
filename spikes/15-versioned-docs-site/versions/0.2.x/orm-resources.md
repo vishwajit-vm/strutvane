@@ -153,7 +153,7 @@ return PostResource.page(await Post.query().with('author').paginate(25))
 // → { data: [...], meta: { total, … }, links: { … } }
 ```
 
-`whenLoaded` includes a relationship only when it was loaded (so a resource never triggers extra queries), `whenCounted` does the same for counts, and `.page()` adds the pagination details. In the design, a resource is also where computed fields go, instead of Laravel's `$appends`; Laravel's `$visible` (an allowlist of serialised columns) has no model option today either, so use a transformer when you need one.
+`whenLoaded` includes a relationship only when it was loaded (so a resource never triggers extra queries), `whenCounted` does the same for counts, and `.page()` adds the pagination details. A resource is also a good place for computed fields. Laravel's `$appends` and `$visible` (an allowlist of serialised columns) are designed as model options for 0.2 but not built; until then, use a transformer when you need them.
 :::
 
 ## Common mistakes

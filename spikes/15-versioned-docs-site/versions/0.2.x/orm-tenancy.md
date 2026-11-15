@@ -65,9 +65,9 @@ Team A never sees Borealis, and `tenant_id` was filled in for both projects with
      up(schema) {
        schema.create('projects', (t) => {
          t.id()
-         t.uuid('tenant_id').index()
+         t.tenant()                    // tenant_id, indexed
          t.string('name', 120)
-         t.slug('slug').from('name')
+         t.slug('slug').from('name')   // unique per team: (tenant_id, slug)
          t.decimal('budget', 12, 2).default(0)
          t.timestamps()
        })
@@ -83,7 +83,7 @@ Team A never sees Borealis, and `tenant_id` was filled in for both projects with
 4. Run every query on it inside a tenant (the next section).
 
 :::caution[Coming in 0.2]
-A `t.tenant()` helper is designed to add the tenant column the right way in one call: the column the app is configured with, tenant-prefixed unique keys (so a slug or name is unique per team, not across all teams), and composite foreign keys `(tenant_id, project_id)` so a task can never point at another team's project. The ORM prototype was tested with that table layout, but the migration recorder doesn't write it yet; until then, `t.uuid('tenant_id')` gives you the column and the ORM's protection.
+`t.tenant()` adds the tenant column the right way in one call: the column from `config/tenancy.ts`, tenant-prefixed unique keys (so a slug like `website` is unique per team, not across all teams), and composite foreign keys `(tenant_id, project_id)` so a task can never point at another team's project. It's decided (2026-11-15) and added to the schema builder for 0.2. The ORM prototype was tested with that table layout; until the helper ships, `t.uuid('tenant_id').index()` gives you the column and the ORM's protection.
 :::
 
 ## Setting the active tenant
@@ -158,19 +158,25 @@ schema.create('countries', (t) => {
 ```
 
 :::caution[Coming in 0.2]
-The `{ global: true }` option and a `t.tenant()` column helper in migrations are being added to the migration recorder; in the ORM spike, the global flag comes from the schema snapshot.
+`{ global: true }` (and `{ internal: true }` for Strutvane's own kind of table) are decided (2026-11-15) and added to the schema builder for 0.2; in the ORM prototype, the global flag comes from the schema snapshot.
 :::
 
 ## Choosing the tenant column
 
-There is **one** tenant column for the whole app, set once at boot. The ORM's default is `tenant_id`, which means tenancy is **on** unless you turn it off. Apps built around "teams" use `team_id`; single-tenant apps turn tenancy off, and then no table needs a tenant column or a global flag:
+There is **one** tenant column for the whole app, set in `config/tenancy.ts`. Tenancy is **off** unless you answered yes to "Teams?" in the installer; then no table needs a tenant column or a global flag, and the tenant scope doesn't run at all.
 
-```ts title="app/providers/app.provider.ts (excerpt)"
-import { configureOrm } from '@strutvane/framework'
-
-configureOrm({ tenancy: { column: 'team_id' } })   // teams
-configureOrm({ tenancy: false })                   // no tenancy at all
+```ts title="config/tenancy.ts"
+export default {
+  enabled: true,        // false for a single-tenant app
+  column: 'team_id',    // tenant_id by default
+}
 ```
+
+The framework passes these settings to the ORM at boot (`configureOrm({ tenancy: { column } })`, or `{ tenancy: false }` when `enabled` is false), so you don't call `configureOrm` yourself for this.
+
+:::caution[Coming in 0.2]
+The `config/tenancy.ts` switch is decided (2026-11-15). The ORM prototype is configured directly and has tenancy **on** by default (`tenant_id`) until it's set to `false`.
+:::
 
 ## The deliberate exception: `unsafeWithoutTenancy`
 
@@ -191,7 +197,15 @@ Every bypass calls `onUnsafeTenancy` with `{ kind: 'query', tables: ['projects']
 Inside `runWithTenant`, raw SQL that names a tenant table is refused, because Strutvane can't check it for a tenant condition. Use the query builder instead. Raw SQL on global tables, and outside any tenant (migrations, jobs), is allowed.
 
 :::caution[Coming in 0.2]
-`unsafeRaw(reason, sql…)`, the audited way to run hand-written SQL across tenants, is prototyped but not part of the public API yet.
+`unsafeRaw(reason, fragment)` is the audited way to run hand-written SQL across tenants, for jobs only. It needs a reason and reports to `onUnsafeTenancy` like `unsafeWithoutTenancy`. It and `TenantScopeMissingError` are exported from `@strutvane/framework` (decided 2026-11-15); the ORM prototype has both but doesn't export them yet.
+
+```ts
+import { defaultConnection, sql, unsafeRaw } from '@strutvane/framework'
+
+const { rows } = await defaultConnection().run(
+  unsafeRaw('nightly usage report', sql`SELECT ${sql.id('tenant_id')}, COUNT(*) AS total FROM ${sql.id('projects')} GROUP BY ${sql.id('tenant_id')}`),
+)
+```
 :::
 
 ## MySQL, SQLite and PostgreSQL
@@ -224,7 +238,7 @@ TenantRequiredError: "projects" is tenant-scoped, but no tenant is active. Wrap 
 TenantScopeMissingError: Refusing to run SQL on "team_projects": it has no "tenant_id" column and is not marked global, so tenancy cannot protect it. Add t.tenant() to its migration, or create it with { global: true } if every tenant may see all of it. Tenant data may only be read or written for the active tenant. If this really must cross tenants (a maintenance job), use unsafeWithoutTenancy(reason) or unsafeRaw(reason, …): both are audited.
 ```
 
-**Fix:** add the tenant column to the table in a new migration, or mark the table as global if all tenants share it. Also check that `configureOrm({ tenancy: { column } })` names the column your tables really use.
+**Fix:** add the tenant column to the table in a new migration, or mark the table as global if all tenants share it. Also check that `column` in `config/tenancy.ts` names the column your tables really use.
 
 ### A tenant id that isn't a UUID
 

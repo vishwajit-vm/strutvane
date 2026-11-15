@@ -226,7 +226,7 @@ export class Post extends Model('posts', {
 `fillable` starts **empty** on purpose: nobody can write any column through a form or the API until you list it. That's Strutvane's deny-by-default rule; see [Mass Assignment](../orm-mass-assignment/).
 
 :::caution[Coming in 0.2]
-The prototype writes the same model with the list as a static property (`static override readonly fillable = []`), while the ORM takes it as an option (`Model('posts', { fillable: [] })`, shown above). 0.2 writes the ORM's form. The prototype also imports from its internal module names; 0.2 writes the `@strutvane/framework` paths shown here.
+This model shape is decided (2026-11-15). The prototype still writes the list as a static property (`static override readonly fillable = []`) and imports from its internal module names; 0.2 writes the file exactly as shown.
 :::
 
 ### `--seeder` and `--factory`
@@ -372,7 +372,7 @@ Batches, rollback, transactions per migration and type generation are proven in 
 | `--pretend` | You want to read the SQL before it runs, for example before a production deploy | Prints the SQL each pending migration would run, and runs nothing |
 | `--step` | You want to be able to roll back each migration on its own | Gives each migration its own batch |
 | `--seed` | You want the seeders again on purpose | Runs the seeders after migrating, even ones that already ran |
-| `--force` | You're in production and really mean it | Needed with `--seed` when `APP_ENV=production` |
+| `--force` | You're deploying to production | In production, `migrate` asks "Are you sure?" first; `--force` skips the question (deploy scripts use `migrate --force`). Also needed with `--seed` there |
 | `--isolated` | Several servers deploy at once | Takes a lock so only one of them migrates |
 
 ```bash
@@ -428,12 +428,14 @@ export interface PostJson {      // what the API returns: dates as ISO strings
 
 ```text
 GET    /api/posts                  a page of posts (?page, ?perPage, ?search, ?sort, ?filter[…])
-GET    /api/posts/1                one post
-GET    /api/posts/by-slug/hello    one post, by its slug
+GET    /api/posts/1                one post (or /api/posts/hello-world, by its slug)
 POST   /api/posts                  create
 PATCH  /api/posts/1                update
 DELETE /api/posts/1                delete (soft, because the table has deleted_at)
+POST   /api/posts/1/restore        bring a soft-deleted post back
 ```
+
+The post in the address is found by **route model binding**: by id, or by slug when the table has one (`{post:slug}`). Soft-deleted rows are hidden from lists unless you ask with `?filter[trashed]=with` (all rows) or `?filter[trashed]=only` (only deleted ones).
 
 **The screens.** For a **new** table only, `migrate` writes `resources/ui/posts.ui.ts`, a file **you own**, starting with `columns: auto()` and `form: auto()`. `auto()` keeps picking up new columns on every later migration. Strutvane never overwrites this file. If you replace `auto()` with an explicit list, later migrations report new columns instead of adding them. See [Customising the CRUD](../crud-customising/).
 
@@ -448,10 +450,21 @@ DELETE /api/posts/1                delete (soft, because the table has deleted_a
 | Keep the screens, hide the sidebar entry | In `resources/ui/posts.ui.ts`: `navigation: { hidden: true }` |
 | Your own API code instead of the generated one | `node strut make:controller PostController --resource`, then route it yourself |
 | Nobody (but admins) to see the table | Leave the generated policy as it is: it denies everyone but admins |
-| No API and no screens at all for a table | A per-model switch *(coming in 0.2)* |
+| No generated API for a model | `Model('posts', { fillable: [...], api: false })` |
+| No generated screens or sidebar entry for a model | `Model('posts', { fillable: [...], ui: false })` |
+| Neither | `Model('posts', { fillable: [...], api: false, ui: false })` |
+
+```ts title="app/models/audit-note.ts"
+import { Model } from '@strutvane/framework'
+
+/** Used by our own code only: no generated API, no screens. */
+export class AuditNote extends Model('audit_notes', { fillable: [], api: false, ui: false }) {}
+```
+
+**What you'll see** after the next `node strut migrate`: no `audit-notes` route in `node strut route:list`, and no "Audit notes" entry in the sidebar. Your own code still uses the model as usual.
 
 :::caution[Coming in 0.2]
-The blueprint promises "opt out per model" for the generated API and screens, but the exact switch isn't designed yet. Until then, a table without a model gets no API, and the generated policy keeps everyone but admins out.
+The `api` and `ui` switches are decided (2026-11-15) and arrive with 0.2. Until then, a table without a model gets no API, and the generated policy keeps everyone but admins out.
 :::
 
 ## Checking and undoing migrations
@@ -552,7 +565,8 @@ Every column method takes the column name first. Columns are **required** (`NOT 
 
 | Method | Example | TypeScript type | Notes |
 |---|---|---|---|
-| `t.id(name = 'id')` | `t.id()` | `number` | Auto-increment primary key (a 64-bit integer). One per table, only in `schema.create`. |
+| `t.id(name = 'id')` | `t.id()` | `number` | Auto-increment primary key (a 64-bit integer), Laravel's default. One per table, only in `schema.create`. |
+| `t.uuid('id').primary()` | `t.uuid('id').primary()` | `string` | A UUID primary key instead: a time-ordered UUIDv7 that Strutvane makes before the insert. Hard to guess, so good for ids in URLs. *(Coming in 0.2.)* |
 | `t.string(name, length = 255)` | `t.string('title', 200)` | `string` | Short text. The length is enforced on every engine, SQLite included. |
 | `t.text(name)` | `t.text('body')` | `string` | Long text, no length limit. Not sortable in the API. |
 | `t.slug(name = 'slug', length = 255)` | `t.slug('slug').from('title')` | `string` | A URL-friendly name, filled in from another column and always unique. See [Slugs](#slugs). |
@@ -584,11 +598,11 @@ How each type is stored, per engine:
 | `boolean` | `TINYINT(1)` | `BOOLEAN` | `INTEGER` (0/1) |
 | `enum` | native `ENUM(…)` | `VARCHAR(255)` + `CHECK` | `VARCHAR(255)` + `CHECK` |
 | `date` | `DATE` | `DATE` | `DATE` |
-| `timestamp` | `TIMESTAMP(3)` | `TIMESTAMP(3) WITH TIME ZONE` | `DATETIME` |
+| `timestamp` | `DATETIME(3)`, in UTC | `TIMESTAMP(3) WITH TIME ZONE` | `DATETIME` |
 | `uuid` | `CHAR(36)` | `UUID` | `VARCHAR(36)` |
 | `json` | `JSON` | `JSONB` | `TEXT` |
 
-You never write these types yourself; the table is here so you know what you'll see in a database client like TablePlus or DBeaver.
+You never write these types yourself; the table is here so you know what you'll see in a database client like TablePlus or DBeaver. On MySQL and MariaDB, timestamps are `DATETIME(3)` holding UTC, not `TIMESTAMP`, so dates after 2038 work and the server's time zone never changes them (the schema prototype still writes `TIMESTAMP(3)`; 0.2 writes `DATETIME(3)`).
 
 ### Column modifiers
 
@@ -601,6 +615,8 @@ Chain these after a column:
 | `.unique()` | `t.string('email').unique()` | No two rows may have the same value. Adds the index `<table>_<column>_unique`. |
 | `.index()` | `t.string('sku').index()` | Faster lookups and sorting. Adds the index `<table>_<column>_index`. |
 | `.comment(text)` | `t.string('code').comment('Shown on invoices')` | A note stored with the column (MySQL and PostgreSQL). |
+| `.secret()` | `t.string('api_key_hint').secret()` | Never returned, searched, sorted or shown. See [Secret columns](#secret-columns). *(Coming in 0.2.)* |
+| `.hidden()` | `t.decimal('cost_price', 12, 2).hidden()` | Left out of the API and the screens. *(Coming in 0.2.)* |
 
 They combine in any order:
 
@@ -689,7 +705,8 @@ t.slug('slug').from('title')
 ```
 
 - The slug is filled in from `title` when a row is created without one, and **stays the same** afterwards, so links never break.
-- It's always unique: Strutvane adds the unique index even if you forget `.unique()`.
+- It's always unique: Strutvane adds the unique index even if you forget `.unique()`. With teams on, the index is on `(tenant_id, slug)`, so each team has its own slugs.
+- A taken slug gets `-2`, `-3`, … (`hello-world-2`).
 - Accents are folded (`Crème brûlée` → `creme-brulee`).
 - You can't drop the source column (`title`) while the slug is built from it.
 
@@ -709,16 +726,50 @@ You never set these yourself: Strutvane writes `created_at` on insert, `updated_
 If your app has **teams** (each customer company sees only its own data), every table that belongs to a team needs a tenant column. See [Multi-tenancy](../tenancy/) for the whole picture.
 
 ```ts
-t.uuid('tenant_id').index()
+schema.create('projects', (t) => {
+  t.id()
+  t.tenant()                       // tenant_id (or the column in config/tenancy.ts), indexed
+  t.string('name', 120)
+  t.slug('slug').from('name')      // unique per team: (tenant_id, slug)
+  t.timestamps()
+})
+```
+
+`t.tenant()` adds the tenant column the right way in one call: the column your app is configured with, slug and other unique indexes scoped per team, and composite foreign keys so a row can't point at another team's row.
+
+Two table options go with it, as a third argument to `schema.create`:
+
+```ts
+// Shared by every team (a list of countries): no tenant column, never refused.
+schema.create('countries', (t) => {
+  t.id()
+  t.string('name', 100).unique()
+}, { global: true })
+
+// Strutvane's own kind of table: never gets a generated API or screens.
+schema.create('webhook_deliveries', (t) => {
+  t.id()
+  t.text('payload')
+  t.timestamps()
+}, { internal: true })
 ```
 
 :::caution[Coming in 0.2]
-`t.tenant()` will add the tenant column the right way in one call: the column your app is configured with (`tenant_id`, or `team_id`), uniques scoped per team, and composite foreign keys so a row can't point at another team's row. Shared tables (a list of countries every team sees) will be marked with `schema.create('countries', (t) => { … }, { global: true })`, and Strutvane's own tables with `{ internal: true }`. Until then, `t.uuid('tenant_id')` gives you the column, and the ORM already protects it.
+`t.tenant()`, `{ global: true }` and `{ internal: true }` are decided (2026-11-15) and added to the schema builder for 0.2. Until then, `t.uuid('tenant_id').index()` gives you the column, and the ORM already protects it.
 :::
 
 ### Secret columns
 
-Columns named `password`, `remember_token` or `two_factor_secret`, or ending in `_secret` or `_token`, are **never** returned by the API, searched, sorted or shown in a screen, whatever else you do. A `.secret()` / `.hidden()` modifier for other names is *coming in 0.2*.
+Columns named `password`, `remember_token` or `two_factor_secret`, or ending in `_secret` or `_token`, are **never** returned by the API, searched, sorted or shown in a screen, whatever else you do. Mark any other column the same way in the migration:
+
+```ts
+t.string('api_key_hint').secret()      // never returned, searched, sorted or shown, and redacted in logs
+t.decimal('cost_price', 12, 2).hidden() // left out of the API and the screens; your own code still reads it
+```
+
+:::caution[Coming in 0.2]
+`.secret()` and `.hidden()` are decided (2026-11-15); the name-based rule above already works in the prototype.
+:::
 
 ### Not supported yet
 
@@ -728,7 +779,7 @@ Columns named `password`, `remember_token` or `two_factor_secret`, or ending in 
 | Raw SQL in a migration (Laravel's `DB::statement`) | Coming in 0.2, as a recorded escape hatch |
 | A migration that changes data, not structure | Coming in 0.2, as a separate data hook |
 | `unsigned`, `useCurrent()`, CHECK constraints beyond enums, partial or expression indexes, views | Not planned for 0.2 |
-| A UUID primary key (`t.uuid('id')` as the key) | Coming in 0.2 |
+| A UUID primary key: `t.uuid('id').primary()` (a time-ordered UUIDv7 made by Strutvane) | Coming in 0.2 |
 | Composite foreign keys | Coming in 0.2 (with `t.tenant()`) |
 
 ## Changing a table
@@ -952,12 +1003,12 @@ With Docker, `node strut migrate` (and every other command on this page) runs **
 
 ## Common mistakes
 
-Strutvane checks your migrations before touching the database, and prints a code, the file, what's wrong and a hint.
+Strutvane checks your migrations before touching the database, and prints a code, the file, what's wrong and a hint. (The prototype prints the codes in capitals, `[INVALID_COLUMN]`; 0.2 uses lowercase codes everywhere, as below.)
 
 ### "is required but has no default"
 
 ```text
-[INVALID_COLUMN] in 2026_11_15_101500_add_subtitle_to_posts_table.ts: The new column "posts.subtitle" is required but has no default, so existing rows would have no value. Hint: Make it .nullable(), or give it a .default(…).
+[invalid_column] in 2026_11_15_101500_add_subtitle_to_posts_table.ts: The new column "posts.subtitle" is required but has no default, so existing rows would have no value. Hint: Make it .nullable(), or give it a .default(…).
 ```
 
 **Why:** the table may already have rows, and they need a value.
@@ -970,7 +1021,7 @@ t.string('subtitle').nullable()   // or: t.string('subtitle').default('')
 ### "There is no table … at this point in the migrations"
 
 ```text
-[UNKNOWN_TABLE] in 2026_11_15_101500_add_subtitle_to_posts_table.ts: There is no table "post" at this point in the migrations. Hint: Known tables: users, posts. Check the spelling and the migration order.
+[unknown_table] in 2026_11_15_101500_add_subtitle_to_posts_table.ts: There is no table "post" at this point in the migrations. Hint: Known tables: users, posts. Check the spelling and the migration order.
 ```
 
 **Why:** a typo (`post` instead of `posts`), or the migration that creates the table runs later (its file name sorts after this one).
@@ -979,7 +1030,7 @@ t.string('subtitle').nullable()   // or: t.string('subtitle').default('')
 ### "points to the table …, which doesn't exist yet"
 
 ```text
-[INVALID_FOREIGN_KEY] in 2026_11_15_093000_create_posts_table.ts: "posts.author_id" points to the table "users", which doesn't exist yet. Hint: Create "users" in an earlier migration, or fix the name in .constrained('…').
+[invalid_foreign_key] in 2026_11_15_093000_create_posts_table.ts: "posts.author_id" points to the table "users", which doesn't exist yet. Hint: Create "users" in an earlier migration, or fix the name in .constrained('…').
 ```
 
 **Why:** a foreign key needs its parent table first.
@@ -988,7 +1039,7 @@ t.string('subtitle').nullable()   // or: t.string('subtitle').default('')
 ### "Can't guess which table … points to"
 
 ```text
-[INVALID_FOREIGN_KEY] in 2026_11_15_093000_create_posts_table.ts: Can't guess which table "writer" points to. Hint: Name the table explicitly, for example .constrained('users'), or name the column "<thing>_id".
+[invalid_foreign_key] in 2026_11_15_093000_create_posts_table.ts: Can't guess which table "writer" points to. Hint: Name the table explicitly, for example .constrained('users'), or name the column "<thing>_id".
 ```
 
 **Why:** `.constrained()` with no table guesses from a name ending in `_id`.
@@ -997,7 +1048,7 @@ t.string('subtitle').nullable()   // or: t.string('subtitle').default('')
 ### "uses nullOnDelete() but isn't nullable"
 
 ```text
-[INVALID_FOREIGN_KEY] in 2026_11_15_093000_create_posts_table.ts: "posts.category_id" uses nullOnDelete() but isn't nullable, so the database couldn't set it to null. Hint: Add .nullable(), or use cascadeOnDelete() / restrictOnDelete() instead.
+[invalid_foreign_key] in 2026_11_15_093000_create_posts_table.ts: "posts.category_id" uses nullOnDelete() but isn't nullable, so the database couldn't set it to null. Hint: Add .nullable(), or use cascadeOnDelete() / restrictOnDelete() instead.
 ```
 
 **Fix:** `t.foreignId('category_id').nullable().constrained().nullOnDelete()`.
@@ -1005,7 +1056,7 @@ t.string('subtitle').nullable()   // or: t.string('subtitle').default('')
 ### "sets an on-delete rule but doesn't reference a table"
 
 ```text
-[INVALID_FOREIGN_KEY] in 2026_11_15_093000_create_comments_table.ts: Column "comments.post_id" sets an on-delete rule but doesn't reference a table. Hint: Call .constrained() before .cascadeOnDelete() / .nullOnDelete(), for example t.foreignId('post_id').constrained().cascadeOnDelete().
+[invalid_foreign_key] in 2026_11_15_093000_create_comments_table.ts: Column "comments.post_id" sets an on-delete rule but doesn't reference a table. Hint: Call .constrained() before .cascadeOnDelete() / .nullOnDelete(), for example t.foreignId('post_id').constrained().cascadeOnDelete().
 ```
 
 **Fix:** add `.constrained()` before the rule.
@@ -1013,7 +1064,7 @@ t.string('subtitle').nullable()   // or: t.string('subtitle').default('')
 ### "Can't drop …: … still points to it"
 
 ```text
-[INVALID_FOREIGN_KEY] in 2026_11_20_090000_drop_categories_table.ts: Can't drop "categories": "posts.category_id" still points to it. Hint: Drop "posts" first; in down(), drop tables in the reverse order you created them.
+[invalid_foreign_key] in 2026_11_20_090000_drop_categories_table.ts: Can't drop "categories": "posts.category_id" still points to it. Hint: Drop "posts" first; in down(), drop tables in the reverse order you created them.
 ```
 
 **Why:** dropping the parent would leave children pointing at nothing.
@@ -1022,7 +1073,7 @@ t.string('subtitle').nullable()   // or: t.string('subtitle').default('')
 ### "Can't drop …: the slug … is built from it"
 
 ```text
-[INVALID_SLUG_SOURCE] in 2026_11_20_090000_remove_title_from_posts_table.ts: Can't drop "posts.title": the slug "slug" is built from it. Hint: Change the slug's source first, or drop "slug" in the same migration before "title".
+[invalid_slug_source] in 2026_11_20_090000_remove_title_from_posts_table.ts: Can't drop "posts.title": the slug "slug" is built from it. Hint: Change the slug's source first, or drop "slug" in the same migration before "title".
 ```
 
 **Fix:** drop or change the slug first, in the same migration.
@@ -1030,7 +1081,7 @@ t.string('subtitle').nullable()   // or: t.string('subtitle').default('')
 ### A default that doesn't fit the column
 
 ```text
-[INVALID_DEFAULT] in 2026_11_15_093000_create_posts_table.ts: Column "posts.subtitle" defaults to null but isn't nullable. Hint: Add .nullable() before .default(null), or pick a non-null default.
+[invalid_default] in 2026_11_15_093000_create_posts_table.ts: Column "posts.subtitle" defaults to null but isn't nullable. Hint: Add .nullable() before .default(null), or pick a non-null default.
 ```
 
 **Why:** TypeScript catches most wrong defaults; this is the safety net for plain JavaScript or out-of-range values.
@@ -1039,7 +1090,7 @@ t.string('subtitle').nullable()   // or: t.string('subtitle').default('')
 ### A name that can't be used
 
 ```text
-[INVALID_IDENTIFIER] in 2026_11_15_093000_create_posts_table.ts: The column name "Title" can't be used. Hint: Use lower-case snake_case (letters, digits and _), start with a letter or _, and keep it under 64 characters, for example "blog_posts".
+[invalid_identifier] in 2026_11_15_093000_create_posts_table.ts: The column name "Title" can't be used. Hint: Use lower-case snake_case (letters, digits and _), start with a letter or _, and keep it under 64 characters, for example "blog_posts".
 ```
 
 **Fix:** `t.string('title')`.
@@ -1047,11 +1098,11 @@ t.string('subtitle').nullable()   // or: t.string('subtitle').default('')
 ### "already exists" or "has no column/index"
 
 ```text
-[TABLE_EXISTS] in 2026_11_15_093000_create_posts_table.ts: The table "posts" already exists. Hint: Use schema.table('posts', …) to change it, or drop it first.
-[COLUMN_EXISTS] in 2026_11_15_101500_add_title_to_posts_table.ts: The table "posts" already has a column "title". Hint: Pick another name, or rename/drop the existing column first.
-[UNKNOWN_COLUMN] in 2026_11_15_101500_rename_body_in_posts_table.ts: The table "posts" has no column "bodi". Hint: Its columns are: id, title, slug, body, status, author_id, created_at, updated_at, deleted_at.
-[UNKNOWN_INDEX] in 2026_11_15_101500_drop_index_on_posts_table.ts: The table "posts" has no index named "posts_title_index". Hint: Existing indexes: posts_slug_unique, posts_status_index.
-[INDEX_EXISTS] in 2026_11_15_101500_add_index_on_posts_table.ts: An index named "posts_status_index" already exists (on "posts"). Hint: Give the index another name.
+[table_exists] in 2026_11_15_093000_create_posts_table.ts: The table "posts" already exists. Hint: Use schema.table('posts', …) to change it, or drop it first.
+[column_exists] in 2026_11_15_101500_add_title_to_posts_table.ts: The table "posts" already has a column "title". Hint: Pick another name, or rename/drop the existing column first.
+[unknown_column] in 2026_11_15_101500_rename_body_in_posts_table.ts: The table "posts" has no column "bodi". Hint: Its columns are: id, title, slug, body, status, author_id, created_at, updated_at, deleted_at.
+[unknown_index] in 2026_11_15_101500_drop_index_on_posts_table.ts: The table "posts" has no index named "posts_title_index". Hint: Existing indexes: posts_slug_unique, posts_status_index.
+[index_exists] in 2026_11_15_101500_add_index_on_posts_table.ts: An index named "posts_status_index" already exists (on "posts"). Hint: Give the index another name.
 ```
 
 **Fix:** each hint lists what does exist; use one of those names.
@@ -1059,7 +1110,7 @@ t.string('subtitle').nullable()   // or: t.string('subtitle').default('')
 ### Renaming or dropping inside `schema.create`
 
 ```text
-[NOT_ALLOWED_IN_CREATE] in 2026_11_15_093000_create_posts_table.ts: schema.create('posts') can only add columns and indexes, but it asks to renameColumn. Hint: Define the table the way you want it, or change it later with schema.table('posts', …).
+[not_allowed_in_create] in 2026_11_15_093000_create_posts_table.ts: schema.create('posts') can only add columns and indexes, but it asks to renameColumn. Hint: Define the table the way you want it, or change it later with schema.table('posts', …).
 ```
 
 **Fix:** write the column with its final name in `schema.create`, or move the change to `schema.table` in a later migration.
@@ -1067,8 +1118,8 @@ t.string('subtitle').nullable()   // or: t.string('subtitle').default('')
 ### A file in the migrations folder that isn't a migration
 
 ```text
-[INVALID_MIGRATION]: "helpers.ts" is in the migrations folder but isn't named like a migration. Hint: Name it YYYY_MM_DD_HHMMSS_what_it_does.ts (node strut make:migration does this for you), or move it out of the folder.
-[INVALID_MIGRATION]: 2026_11_15_093000_create_posts_table.ts doesn't default-export a migration. Hint: Make the file end with `export default migration({ up(schema) { … }, down(schema) { … } })`.
+[invalid_migration]: "helpers.ts" is in the migrations folder but isn't named like a migration. Hint: Name it YYYY_MM_DD_HHMMSS_what_it_does.ts (node strut make:migration does this for you), or move it out of the folder.
+[invalid_migration]: 2026_11_15_093000_create_posts_table.ts doesn't default-export a migration. Hint: Make the file end with `export default migration({ up(schema) { … }, down(schema) { … } })`.
 ```
 
 **Why:** Strutvane refuses rather than skipping: a skipped migration would mean wrong types with no warning.

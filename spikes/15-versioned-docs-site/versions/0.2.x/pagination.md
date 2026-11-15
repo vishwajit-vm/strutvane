@@ -44,14 +44,14 @@ Both are explained with every option on [ORM: Pagination](../orm-pagination/). T
 
 | Setting | Value | Change it |
 |---|---|---|
-| A model's default page size | 15 | `Model('posts', { fillable: [...], perPage: 25 })` |
+| A model's default page size (your queries and its API) | 25 | `Model('posts', { fillable: [...], perPage: 50 })` |
 | The admin screens' default | 25, with a choice of 10, 25, 50 or 100 | `pageSize: 50` in `resources/ui/posts.ui.ts` |
 | The largest page anyone may ask for | 100 | `configureOrm({ maxPerPage: 500 })` (think twice) |
 
 The limit protects your database: without it, `?perPage=1000000` would be a one-line attack.
 
-:::note[Two defaults]
-The blueprint sets 25 per page for the screens; the ORM and the API prototypes default to 15 when nothing is asked for. Both are shown above as they are today; set `perPage` on a model if you want its API to match its screen.
+:::caution[Coming in 0.2]
+The API, the screens and `paginate()` all default to 25 (decided 2026-11-15). The ORM and API prototypes still default to 15.
 :::
 
 ## The generated API
@@ -164,7 +164,7 @@ export class FeedController extends Controller {
 }
 ```
 
-(The data is shortened to one post.) A bad page number such as `?page=0` or `?page=abc` makes `paginate()` throw an `OrmUsageError` with the code `INVALID_PAGE` before any SQL runs; answer it with a 400 (the generated API checks the page for you and answers 422).
+(The data is shortened to one post.) A bad page number such as `?page=0` or `?page=abc` makes `paginate()` throw an `OrmUsageError` with the code `invalid_page` before any SQL runs; answer it with a 400 (the generated API checks the page for you and answers 422).
 
 :::note[Small, typical, advanced]
 - **Small:** `await Post.query().paginate()` gives page 1 at the model's default size.
@@ -192,7 +192,7 @@ export class FeedController extends Controller {
   "status": 422,
   "code": "validation_failed",
   "detail": "Fix the fields listed in `issues` and try again.",
-  "issues": [{ "field": "perPage", "code": "invalid_integer", "message": "Page size must be a whole number from 1 to 100." }]
+  "issues": [{ "path": ["perPage"], "field": "perPage", "code": "invalid_integer", "message": "Page size must be a whole number from 1 to 100." }]
 }
 ```
 

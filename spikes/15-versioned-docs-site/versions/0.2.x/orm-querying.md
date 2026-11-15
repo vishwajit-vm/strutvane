@@ -179,7 +179,7 @@ await Post.query().filter('body', 'null', true).count()      // → 3: posts wit
 await Post.query().filter('body', 'null', false).count()     // → 1: posts with a body
 ```
 
-- **`search(term, columns)`**: rows where **any** of the columns contains the term. Case-insensitive; `%` and `_` are ordinary characters; a blank term adds nothing; at most 200 characters.
+- **`search(term, columns)`**: rows where **any** of the columns contains the term. Case-insensitive; `%` and `_` are ordinary characters; a blank term adds nothing; at most 200 characters. In 0.2 the rule becomes: every **word** must appear (each in any column), at most 10 columns, and an id or UUID also matches exactly (decided 2026-11-15; the prototype matches the whole term).
 - **`filter(column, operator, value)`**: operators are `eq`, `ne`, `gt`, `gte`, `lt`, `lte`, `in` (a list), `contains`, `startsWith` and `null` (`true` for "is empty", `false` for "has a value").
 - **`sort('-created_at,title')`**: comma-separated columns; a minus sign means descending.
 

@@ -8,7 +8,7 @@ Databases store values in their own ways: MySQL keeps `true` as `1`, SQLite keep
 Most casts are automatic: Strutvane picks them from the column type in your migration. You only write a cast when you want something the column type can't know, like the shape of a JSON column or "always store emails in lower case". An **accessor** is a computed property, such as `post.isPublished`, written as a normal TypeScript getter.
 
 :::tip[Coming from Laravel?]
-You rarely need `$casts`: a `t.boolean()` column already is a boolean, a `t.timestamp()` a `Date`. For the rest, `casts: { meta: json<PostMeta>() }` replaces `'meta' => 'array'`, and `cast({ get, set })` replaces `Attribute::make(get:, set:)`. Accessors are plain getters, and they aren't added to JSON (Laravel's `$appends`): put computed fields in an API resource instead.
+You rarely need `$casts`: a `t.boolean()` column already is a boolean, a `t.timestamp()` a `Date`. For the rest, `casts: { meta: json<PostMeta>() }` replaces `'meta' => 'array'`, and `cast({ get, set })` replaces `Attribute::make(get:, set:)`. Accessors are plain getters, and today they aren't added to JSON: Laravel's `$appends` (and `$visible`) are designed for 0.2; until then, put computed fields in an API resource.
 :::
 
 ## Automatic casts

@@ -8,7 +8,7 @@ A **slug** is the readable part of a URL: in `/posts/creme-brulee`, the slug is 
 In Strutvane you declare the slug once in the migration, and the ORM fills it in every time a row is created and keeps it unique.
 
 :::tip[Coming from Laravel?]
-This is the popular spatie/laravel-sluggable package, built in and declared in the migration: `t.slug('slug').from('title')`. Two differences: a taken slug gets a short **random** suffix (`launch-k3f9`), not `-2`, `-3` (a counter would reveal how many hidden rows share the title), and slugs don't change when the title changes, so shared links keep working.
+This is the popular spatie/laravel-sluggable package, built in and declared in the migration: `t.slug('slug').from('title')`. A taken slug gets `-2`, `-3`, … as in that package. Two differences: slugs are unique **per team** when your app has teams, and slugs don't change when the title changes, so shared links keep working.
 :::
 
 ## Declaring a slug
@@ -73,19 +73,23 @@ const second = await Post.create({ title: 'Launch' })
 console.log(first.slug, second.slug)
 ```
 
-**What you'll see** (the suffix is random):
+**What you'll see:**
 
 ```text
-launch launch-k3f9
+launch launch-2
 ```
 
-The suffix is four characters from an alphabet without look-alikes (no `0`/`o`, no `1`/`l`), so it reads aloud and types without mix-ups.
+A third post titled "Launch" gets `launch-3`, and so on: Strutvane takes the next free number, so the suffix is friendly and predictable.
 
 Behind the scenes:
 
 - **Characters like `%` and `_` in titles are plain characters**: looking for taken slugs never treats them as wildcards, so `a_b` and `axb` don't block each other.
-- **Two requests at the same moment** may pick the same slug. The database's unique index refuses the second one, and Strutvane retries it with a fresh suffix. Inside a [transaction](../orm-transactions/), the retry uses a savepoint, so your surrounding transaction survives.
-- **Soft-deleted rows keep their slug**, so restoring them never clashes.
+- **Two requests at the same moment** may pick the same slug. The database's unique index refuses the second one, and Strutvane retries it with the next number. Inside a [transaction](../orm-transactions/), the retry uses a savepoint, so your surrounding transaction survives.
+- **Soft-deleted rows keep their slug**, so restoring them never clashes (a new "Launch" next to a deleted one gets `launch-2`).
+
+:::caution[Coming in 0.2]
+Sequential suffixes are decided (2026-11-15) and proven in the schema prototype. The ORM prototype still adds a random four-character suffix (`launch-k3f9`); 0.2 switches it to `-2`, `-3`.
+:::
 
 ## Unique per team
 
@@ -98,10 +102,10 @@ console.log(a.slug, b.slug)
 // → launch launch   (each team gets its own "launch")
 ```
 
-This needs the slug's unique index to include the tenant column (`UNIQUE (tenant_id, slug)`), so the database agrees that two teams may both have `launch`. The ORM looks for taken slugs only inside the active tenant, whatever the index says.
+When tenancy is on, `t.slug()` creates the unique index on `(tenant_id, slug)` instead of `(slug)`, so the database agrees that two teams may both have `launch`. The ORM looks for taken slugs, and counts suffixes, only inside the active tenant: another team's `launch` never makes yours `launch-2`.
 
 :::caution[Coming in 0.2]
-Today `t.slug('slug')` always adds a unique index on the slug alone, so on a tenant table two teams can't share a slug yet. The `t.tenant()` helper (see [Tenancy](../orm-tenancy/)) is designed to make slug and other unique indexes tenant-prefixed automatically.
+The `(tenant_id, slug)` index is decided (2026-11-15). Today the migration recorder always adds a unique index on the slug alone, so on a tenant table two teams can't share a slug yet.
 :::
 
 ## Choosing a slug yourself
@@ -152,11 +156,11 @@ t.string('title').from('name') // compile error: only slugs have .from()
 
 **Fix:** declare the column with `t.slug('slug').from('title')`.
 
-### Expecting `-2`, `-3` suffixes
+### Using the slug's number as a count
 
-**Why:** counters reveal hidden rows (a `-4` tells a user that three other rows with this title exist, even ones they may not see). Strutvane uses a random suffix instead.
+**Why:** `launch-3` doesn't mean "the third launch": numbers are taken by deleted rows too, and a renamed post keeps its old slug.
 
-**Fix:** don't parse or predict suffixes. If you need a stable, readable name, set the slug yourself.
+**Fix:** don't parse suffixes. If you need a stable, readable name, set the slug yourself.
 
 ### The slug didn't change when I edited the title
 

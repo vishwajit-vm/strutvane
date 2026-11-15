@@ -55,16 +55,21 @@ Teams are a question in the installer, because they shape your database from the
 ```ts title="config/tenancy.ts"
 // Teams: each customer company sees only its own data. Isolation here: the ORM tenant scope,
 // plus PostgreSQL row-level security as a second lock.
-// "resolver": how a request picks its team (the in-app team switcher, or the subdomain).
 export default {
-  enabled: process.env['TENANCY_ENABLED'] === 'true',
-  model: 'Team',
-  resolver: 'switcher',
+  enabled: true,          // false unless you answered yes to "Teams?"
+  column: 'tenant_id',    // the tenant column, the same in every table
 }
 ```
 
+| Setting | What it does |
+|---|---|
+| `enabled` | Switches the whole tenancy layer on or off. Apps created **without** teams get `false`: there's no tenant scope, no `tenant_id` column needed, and no `tenant_required` errors. |
+| `column` | The one name of the tenant column in every team table. `tenant_id` by default; some apps prefer `team_id`. |
+
+How a request picks its team (switcher or subdomain) is the answer you gave the installer; it's saved with the rest of your choices.
+
 :::caution[Coming in 0.2]
-The installer questions and `config/tenancy.ts` are proven in the installer prototype (spike 13), and the protection itself in the ORM prototype (spike 11, on real MySQL 8.4, PostgreSQL and SQLite). Picking the team for each request (the switcher and subdomain resolvers) and adding teams to an app that was created without them are designed but not built yet. The ORM prototype also has tenancy switched on by default (`configureOrm({ tenancy: { column: 'tenant_id' } })`); how a single-team app switches it off (`tenancy: false`) from `config/tenancy.ts` is still to be wired.
+The installer questions and `config/tenancy.ts` are proven in the installer prototype (spike 13), and the protection itself in the ORM prototype (spike 11, on real MySQL 8.4, PostgreSQL and SQLite). Picking the team for each request (the switcher and subdomain resolvers) and adding teams to an app that was created without them are designed but not built yet. The `{ enabled, column }` shape of `config/tenancy.ts` is decided (2026-11-15); the installer prototype still writes `enabled` from a `TENANCY_ENABLED` environment variable, and the ORM prototype is switched on unless it's configured with `tenancy: false`.
 :::
 
 ## How it works
@@ -73,7 +78,7 @@ Four pieces, from the request down to the database:
 
 1. **The request picks the team.** Before your controller runs, the framework finds the signed-in user's current team (from the switcher or the subdomain), checks the user is a member, and makes it the **current team** for everything that happens during this request.
 2. **The ORM limits every query.** Each query on a team's table gets `tenant_id = <current team>`. New rows are stamped with the current team. Updates and deletes only ever touch rows of the current team.
-3. **A final check runs on every statement.** Right before SQL is sent, Strutvane checks that every team table in it (including joins, sub-queries and relation counts) carries the team condition. If one doesn't, the statement is refused with `TENANT_SCOPE_MISSING`. A bug in a query can't leak data; it becomes an error you'll see in development.
+3. **A final check runs on every statement.** Right before SQL is sent, Strutvane checks that every team table in it (including joins, sub-queries and relation counts) carries the team condition. If one doesn't, the statement is refused with `tenant_scope_missing`. A bug in a query can't leak data; it becomes an error you'll see in development.
 4. **PostgreSQL checks again.** On PostgreSQL, the database itself has **row-level security** (RLS): a rule on each team table that hides other teams' rows, even from a hand-written query.
 
 The current team is carried with the request's async work (Node's `AsyncLocalStorage`), so two requests running at the same time can never see each other's team. The ORM prototype tests this with 200 interleaved requests.
@@ -114,7 +119,7 @@ Every table in a team app is one of three kinds:
 |---|---|---|---|
 | **A team's table** (scoped) | `projects`, `tasks`, `invoices` | It has the tenant column, `tenant_id` | Every query is limited to the current team |
 | **A shared table** (global) | `countries`, `currencies`, `plans` | Marked shared in its migration | Every team sees all of it, read and write as usual |
-| **Anything else** | a new table you forgot to mark | Neither | **Refused**: a query on it fails with `TENANT_SCOPE_MISSING` until you add the column or mark it shared |
+| **Anything else** | a new table you forgot to mark | Neither | **Refused**: a query on it fails with `tenant_scope_missing` until you add the column or mark it shared |
 
 The third row is deliberate: forgetting the column must never mean "every team sees everything".
 
@@ -127,8 +132,9 @@ export default migration({
   up(schema) {
     schema.create('projects', (t) => {
       t.id()
-      t.uuid('tenant_id').index()
+      t.tenant()                    // tenant_id, indexed
       t.string('name', 120)
+      t.slug('slug').from('name')   // unique per team: (tenant_id, slug)
       t.timestamps()
     })
   },
@@ -141,23 +147,26 @@ export default migration({
 Never list `tenant_id` in a model's `fillable`: Strutvane fills it in, and listing it is refused. Team ids are UUIDs, the `id` of the team's row.
 
 :::caution[Coming in 0.2]
-Two migration helpers are designed but not built:
+Two schema-builder helpers are decided (2026-11-15) and added for 0.2:
 
-- `t.tenant()` adds the tenant column the right way in one call: the column your app is configured with, uniques that apply per team (two teams can both have a project called "Website"), and composite foreign keys so a task can't point at another team's project;
+- `t.tenant()` adds the tenant column the right way in one call: the column from `config/tenancy.ts`, slugs and other uniques that apply per team (two teams can both have a project called "Website", each with the slug `website`), and composite foreign keys so a task can't point at another team's project;
 - `schema.create('countries', (t) => { … }, { global: true })` marks a shared table.
 
-Until then, `t.uuid('tenant_id').index()` gives you the column and the full ORM protection, but a `.unique()` on a team's table is unique across **all** teams.
+Until they ship, `t.uuid('tenant_id').index()` gives you the column and the full ORM protection, but a `.unique()` on a team's table is unique across **all** teams.
 :::
 
 ### The tenant column's name
 
-It's `tenant_id` by default. Some apps prefer `team_id`; the whole app uses **one** name, set once:
+It's `tenant_id` by default. Some apps prefer `team_id`; the whole app uses **one** name, set once in `config/tenancy.ts`:
 
-```ts title="app/providers/app.provider.ts (excerpt)"
-import { configureOrm } from '@strutvane/framework'
-
-configureOrm({ tenancy: { column: 'team_id' } })
+```ts title="config/tenancy.ts"
+export default {
+  enabled: true,
+  column: 'team_id',
+}
 ```
+
+**What you'll see:** `t.tenant()` now adds `team_id`, and every team query uses `team_id = <current team>`. Choose the name before your first migration: renaming it later means a migration for every team table.
 
 ## Outside a request: jobs, commands, seeders
 
@@ -176,7 +185,7 @@ for (const team of await Team.all()) {
 }
 ```
 
-**What you'll see:** each loop only counts that team's projects. Without `runWithTenant`, the first query stops with `TENANT_REQUIRED`.
+**What you'll see:** each loop only counts that team's projects. Without `runWithTenant`, the first query stops with `tenant_required`.
 
 :::caution[Coming in 0.2]
 Jobs dispatched during a request will remember the team they were dispatched in, so the job runs as that team without your help. Until then, pass the team id to the job and wrap its work in `runWithTenant`.
