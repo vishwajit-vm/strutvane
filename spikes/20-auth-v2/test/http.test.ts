@@ -56,6 +56,25 @@ describe('feature switches', () => {
     }
   })
 
+  it('hostile path params (malformed percent-encoding) answer the plain 404, never a thrown error', async () => {
+    const h = harness({ config: { features: { emailLink: true, teams: true, tokens: true, passkeys: true, impersonation: true }, passkeys: { rpId: 'localhost', rpName: 'Test', origins: [APP] } } })
+    const handle = createAuthHandler(h.auth)
+    const reference = await snapshot(await handle(request('GET', '/definitely-not-a-route'), { ip: '192.0.2.1' }))
+    const paths: readonly (readonly [string, string])[] = [
+      ['POST', '/email-link/%E0%A4%A'],
+      ['DELETE', '/user/sessions/%'],
+      ['DELETE', '/user/api-tokens/%ZZ'],
+      ['GET', '/email/verify/%E0%A4%A/%'],
+      ['POST', '/teams/%C0%AF/switch'],
+      ['DELETE', '/user/passkeys/%D8%00'],
+      ['POST', '/impersonate/%'],
+    ]
+    for (const [method, path] of paths) {
+      const res = await handle(request(method, path, method === 'GET' ? {} : { body: {} }), { ip: '192.0.2.1' })
+      expect(await snapshot(res), `${method} ${path}`).toBe(reference)
+    }
+  })
+
   it('an enabled feature answers (so the 404 above really came from the switch)', async () => {
     const h = harness({ config: { features: { registration: true, emailLink: true, teams: true, tokens: true } } })
     const handle = createAuthHandler(h.auth)

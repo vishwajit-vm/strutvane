@@ -140,7 +140,13 @@ function match(pattern: string, path: string): Record<string, string> | undefine
     const v = b[i] ?? ''
     if (p.startsWith(':')) {
       if (v.length === 0 || v.length > 200) return undefined
-      params[p.slice(1)] = decodeURIComponent(v)
+      // Malformed percent-encoding (`%E0%A4%A`, a bare `%`) makes decodeURIComponent THROW, and
+      // matching runs before the handler's try block: treat it as "no route" (the plain 404).
+      try {
+        params[p.slice(1)] = decodeURIComponent(v)
+      } catch {
+        return undefined
+      }
     } else if (p !== v) return undefined
   }
   return params
