@@ -188,6 +188,11 @@ export function teamService(deps: AuthDeps): TeamService {
       const email = parseEmail(input.email)
       if (email === undefined) throw new AuthError('VALIDATION_FAILED', { issues: [{ field: 'email', code: 'invalid' }] })
       const role = parseRole(input.role)
+      // Every invitation mails an address the inviter chose, and every user admins a personal team,
+      // so without a budget any account is a free mail cannon. Keyed on the inviting ACCOUNT, so
+      // spreading the mails over several teams does not reset it.
+      const retry = await deps.limiter.hit([[`invite:acct:${active.user.id}`, deps.config.limits.invitePerAccount]])
+      if (retry !== undefined) throw new AuthError('RATE_LIMITED', { retryAfterSeconds: retry })
       const invitee = await deps.store.findUserByEmail(email)
       if (invitee && (await deps.store.findMember(team.id, invitee.id))) throw new AuthError('CONFLICT')
       const token = randomSecret()

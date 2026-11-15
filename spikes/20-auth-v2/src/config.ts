@@ -131,6 +131,8 @@ export interface RateLimits {
   readonly twoFactorPerAccount: RateRule
   readonly passkeyPerIp: RateRule
   readonly confirmPasswordPerAccount: RateRule
+  /** Team invitations sent by one account (every user admins a personal team: mail-bomb guard). */
+  readonly invitePerAccount: RateRule
 }
 
 /** The resolved configuration every service reads. */
@@ -193,6 +195,7 @@ export const DEFAULT_LIMITS: RateLimits = Object.freeze({
   twoFactorPerAccount: { max: 10, windowSeconds: 300 },
   passkeyPerIp: { max: 20, windowSeconds: 60 },
   confirmPasswordPerAccount: { max: 5, windowSeconds: 300 },
+  invitePerAccount: { max: 20, windowSeconds: 3600 },
 })
 
 const MINUTE = 60_000

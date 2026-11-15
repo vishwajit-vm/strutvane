@@ -18,6 +18,23 @@ describe.each(STORES)('teams (%s store)', (store) => {
     expect((await h.auth.state(b.req))?.team).toEqual(current)
   })
 
+  it('attack: invitations cannot be used to mail-bomb arbitrary addresses (per-account limit, across teams)', async () => {
+    const h = harness({ store, config })
+    await h.user('ada@acme.test')
+    const ada = await h.signedIn('ada@acme.test')
+    const personal = await h.auth.teams.current(ada.req)
+    const other = await h.auth.teams.create(ada.req, { name: 'Second' })
+    // Any registered user is admin of a personal team, so the budget is per inviting account,
+    // not per team: switching teams must not reset it.
+    for (let i = 0; i < 20; i++)
+      await h.auth.teams.invite(ada.req, { teamId: i % 2 === 0 ? personal?.id : other.id, email: `victim+${i}@mail.test`, role: 'member' })
+    const err = await rejectsWith(() => h.auth.teams.invite(ada.req, { teamId: other.id, email: 'victim+x@mail.test', role: 'member' }), 'RATE_LIMITED')
+    expect(err.retryAfterSeconds).toBeGreaterThan(0)
+    await h.auth.idle()
+    expect(h.mails.filter((m) => m.kind === 'team-invitation')).toHaveLength(20)
+    expect((await h.store.listInvitations(other.id)).some((i) => i.email === 'victim+x@mail.test')).toBe(false)
+  })
+
   it('invitation: email-bound, single-use, expires; a forwarded invitation is useless', async () => {
     const h = harness({ store, config })
     await h.user('ada@acme.test')
