@@ -193,6 +193,15 @@ describe.each(STORES)('email link sign-in (%s store)', (store) => {
     await rejectsWith(() => h.auth.emailLink.consume(b.req, { token }), 'INVALID_TOKEN')
   })
 
+  it('on https the browser-binding nonce is a __Host- cookie (no sibling host can plant it)', async () => {
+    const h = harness({ store, config: { appUrl: 'https://app.example.com', features: { emailLink: true } } })
+    await h.user('ada@acme.test')
+    const b = new Browser()
+    await h.auth.emailLink.request(b.req, { email: 'ada@acme.test' })
+    expect(b.get('__Host-sv_link')).toBeDefined()
+    expect(b.get('sv_link')).toBeUndefined()
+  })
+
   it('attack: a FORWARDED link does not sign in the recipient, and does not burn the link', async () => {
     const h = harness({ store, config: { features } })
     await h.user()

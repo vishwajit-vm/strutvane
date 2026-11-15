@@ -320,6 +320,14 @@ describe('config', () => {
     for (const threshold of [0, -1, 1.5, Number.NaN, Number.POSITIVE_INFINITY])
       expect(() => defineAuthConfig({ ...base, lockout: { threshold } }), String(threshold)).toThrow(RangeError)
     expect(() => defineAuthConfig({ ...base, lockout: { baseSeconds: 600, maxSeconds: 60 } })).toThrow(RangeError)
+    // Email links bind to the requesting browser by a cookie; over plain http that cookie can be
+    // planted by anyone on the path or a sibling host (login CSRF), so HTTPS is required outside
+    // local development, where the cookie is `__Host-` + Secure (CONSISTENCY #117).
+    expect(() => defineAuthConfig({ appUrl: 'http://app.example.com', features: { emailLink: true } })).toThrow(/emailLink/)
+    expect(() => defineAuthConfig({ appUrl: 'http://staging.acme.test', features: { emailLink: true } })).toThrow(/emailLink/)
+    for (const local of ['http://localhost:3000', 'http://127.0.0.1:8080', 'http://[::1]:3000', 'http://app.localhost'])
+      expect(() => defineAuthConfig({ appUrl: local, features: { emailLink: true } }), local).not.toThrow()
+    expect(defineAuthConfig({ appUrl: 'https://app.example.com', features: { emailLink: true } }).secureCookies).toBe(true)
     // Links are built on appUrl: only http(s) makes sense (javascript: has origin "null").
     expect(() => defineAuthConfig({ appUrl: 'javascript:alert(1)' })).toThrow(TypeError)
     expect(() => defineAuthConfig({ appUrl: 'file:///etc/passwd' })).toThrow(TypeError)

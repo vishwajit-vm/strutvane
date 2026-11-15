@@ -203,6 +203,11 @@ const ABILITY = /^(\*|[a-z][a-zA-Z0-9-]*(\.([a-z][a-zA-Z0-9-]*|\*))*)$/
 
 const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]'])
 
+/** Local development: loopback or a `*.localhost` name (which browsers resolve to loopback). */
+function isLocalHost(hostname: string): boolean {
+  return LOCAL_HOSTS.has(hostname) || hostname.endsWith('.localhost')
+}
+
 /**
  * Check the WebAuthn relying party at boot. The library compares origins exactly, but a wrong
  * list fails OPEN in ways it cannot see: a foreign origin (`https://evil.test`) or a plain-http
@@ -259,6 +264,11 @@ export function defineAuthConfig(input: AuthConfigInput): AuthConfig {
   // Every mailed link is built on appUrl; `javascript:`/`file:` URLs have origin "null".
   if (url.protocol !== 'https:' && url.protocol !== 'http:') throw new TypeError('auth config: appUrl must be an http(s) URL')
   const features: AuthFeatures = { ...DEFAULT_FEATURES, ...input.features }
+  // An email link only signs in the browser holding its nonce cookie. Over plain http that cookie
+  // is neither `__Host-` nor Secure, so anyone on the path (or a sibling host) can plant their own
+  // nonce and log the victim into the attacker's account (CONSISTENCY #117). HTTPS outside local.
+  if (features.emailLink && url.protocol !== 'https:' && !isLocalHost(url.hostname))
+    throw new TypeError('auth config: features.emailLink needs an https appUrl outside local development')
   if (features.passkeys && input.passkeys === undefined)
     throw new TypeError('auth config: features.passkeys needs a `passkeys: { rpId, rpName, origins }` block')
   if (features.impersonation && !features.passwordLogin && !features.passkeys)
