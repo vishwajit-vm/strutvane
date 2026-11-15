@@ -47,6 +47,22 @@ export function isTyping(target: EventTarget | null): boolean {
   return target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName) || target.getAttribute('role') === 'combobox'
 }
 
+/** Widgets that own the keyboard while open or focused (typeahead, arrows, their own Escape). */
+const KEYBOARD_OWNERS = '[role="dialog"], [role="alertdialog"], [role="menu"], [role="listbox"]'
+
+/**
+ * Should a page-wide single-key shortcut ignore this key press? Yes while typing in a field, while
+ * focus is inside a widget that uses keys itself, and while any such widget is open. One rule for
+ * every global listener, so none forgets a case (a Select's listbox was missed: typing "c" to pick
+ * CAD jumped to a new invoice and dropped the edits).
+ */
+export function shortcutBlocked(event: KeyboardEvent): boolean {
+  if (event.defaultPrevented || isTyping(event.target)) return true
+  const focused = event.target instanceof Element ? event.target : document.activeElement
+  if (focused?.closest(KEYBOARD_OWNERS)) return true
+  return document.querySelector(KEYBOARD_OWNERS) !== null
+}
+
 interface Handlers {
   openPalette: () => void
   openShortcuts: () => void
@@ -63,9 +79,8 @@ export function useGlobalShortcuts({ openPalette, openShortcuts, navigate }: Han
         openPalette()
         return
       }
-      if (event.metaKey || event.ctrlKey || event.altKey || event.defaultPrevented || isTyping(event.target)) return
-      // A dialog or menu is open: its own keys win.
-      if (document.querySelector('[role="dialog"], [role="alertdialog"], [role="menu"]') !== null) return
+      // Typing, or a dialog, menu or listbox is open or focused: its own keys win.
+      if (event.metaKey || event.ctrlKey || event.altKey || shortcutBlocked(event)) return
       const key = event.key.toLowerCase()
       if (awaitingGo !== null) {
         window.clearTimeout(awaitingGo)

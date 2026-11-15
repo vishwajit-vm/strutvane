@@ -46,6 +46,21 @@ describe('global shortcuts', () => {
   })
 })
 
+describe('shortcuts stand aside for widgets that own the keyboard', () => {
+  it('typing in an open select (typeahead) never triggers C, ? or G-sequences', async () => {
+    const { user } = renderAt('/invoices/inv-2264/edit')
+    await screen.findByRole('heading', { level: 1, name: /Edit/ })
+    await user.click(screen.getByRole('combobox', { name: /Currency/ }))
+    await screen.findByRole('listbox')
+    expect(document.activeElement?.closest('[role="listbox"]')).not.toBeNull()
+    await user.keyboard('c')
+    await user.keyboard('?')
+    await user.keyboard('gi')
+    expect(window.location.pathname).toBe('/invoices/inv-2264/edit')
+    expect(screen.queryByRole('dialog', { name: 'Keyboard shortcuts' })).toBeNull()
+  })
+})
+
 describe('invoice table', () => {
   it('J/K move between rows, X selects, Enter opens', async () => {
     const { user } = renderAt('/invoices')

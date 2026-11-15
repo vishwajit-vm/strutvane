@@ -18,7 +18,7 @@ import { Menu, MenuCheckboxItem, MenuContent, MenuItem, MenuLabel, MenuSeparator
 import { type InvoiceFilters, type InvoiceStatus, invoices, SAVED_VIEWS, STATUS_LABELS, STATUSES, totalsByStatus } from '../../data/invoices.ts'
 import { memberById, members } from '../../data/people.ts'
 import { formatMoney } from '../../lib/format.ts'
-import { isTyping } from '../../shell/shortcuts.ts'
+import { shortcutBlocked } from '../../shell/shortcuts.ts'
 import { activeFilterCount, type ListState } from './list-state.ts'
 import { ViewSwitch } from './InvoicesHeader.tsx'
 import { COLUMNS, type ColumnId, type Density } from './view-prefs.ts'
@@ -57,7 +57,7 @@ function SearchBox({ value, onChange, disabled }: { value: string; onChange: (va
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === '/' && !isTyping(event.target) && document.querySelector('[role="dialog"]') === null) {
+      if (event.key === '/' && !event.ctrlKey && !event.metaKey && !event.altKey && !shortcutBlocked(event)) {
         event.preventDefault()
         input.current?.focus()
       }
