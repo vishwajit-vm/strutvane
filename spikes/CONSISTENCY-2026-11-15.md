@@ -150,3 +150,11 @@ The docs pass found places where the blueprint and the spikes disagree. When a m
 | 99 | Blueprint §4 feature list | Each unbuilt feature is marked "planned for 0.2". | blueprint §4 |
 | 100 | `db:seed` options | `--class=PostSeeder`, `--force` (production). | framework, docs |
 | 101 | Error texts in spikes | Every message says `node strut …`, never `sv …`. | spikes 10, 11 and 14 |
+
+## Fifth pass (docs writer B, 2026-11-15)
+
+| # | Topic | Decision | Owner |
+|---|---|---|---|
+| 102 | Observers | Laravel style. `make:observer PostObserver --model=Post` writes `app/observers/post.observer.ts`, a class with one method per event. Register it with `observe(Post, new PostObserver())` in a provider. `restore()` fires `restoring` → `saving` → `updating` → `updated` → `saved` → `restored`. | ORM |
+| 103 | Cancelling a write from a "before" hook | Returning `false` from `creating`, `updating`, `saving`, `deleting` or `restoring` cancels the write. `save()` then resolves to `false`, and the generated API answers 422 with code `write_cancelled`. Throwing aborts the write and rolls back the transaction. | ORM, framework |
+| 104 | `database.seeder.ts` contents | `export default defineSeeder({ async run({ call }) { await call([UsersSeeder, PostsSeeder]) } })`. The `call([...])` list sits between `// strut:seeders:start` and `// strut:seeders:end` markers and is kept in dependency order by the CLI. Everything outside the markers belongs to you. | spikes 12 and 13, docs |
