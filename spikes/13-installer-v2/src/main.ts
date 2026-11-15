@@ -77,6 +77,8 @@ export interface InstallerEnvironment {
   readonly generatePassword: () => string
   /** The host user on Linux (Docker mode runs the app container as this user). */
   readonly hostUser: { readonly uid: number; readonly gid: number } | undefined
+  /** A number in [0, 1) used to spread retries (port moves after a race). Default: Math.random. */
+  readonly random?: () => number
   /** Writes generated files (tests make it fail halfway). Default: the real disk. */
   readonly writeFile?: FileWriter
 }
@@ -285,6 +287,7 @@ function setUp(
       generatePassword: environment.generatePassword,
       typedAdminPassword,
       hostUser: environment.hostUser,
+      random: environment.random ?? Math.random,
     }),
   })
 }

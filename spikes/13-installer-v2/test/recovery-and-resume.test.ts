@@ -110,7 +110,7 @@ describe('Docker failures', () => {
     expect(statusOf(result.directory)).toMatchObject({ database: 'failed', migrate: 'pending' })
   })
 
-  it('port taken at `compose up` time: moves to the next free port and retries once', async () => {
+  it('port taken at `compose up` time: moves only the port Docker names, then retries', async () => {
     let ups = 0
     const result = await create(['--yes'], {
       docker: (spec) =>
@@ -118,8 +118,45 @@ describe('Docker failures', () => {
     })
     expect(result.code).toBe(0)
     expect(result.env().get('FORWARD_DB_PORT')).toBe('3307')
+    expect(result.env().get('APP_PORT')).toBe('3000') // not named by Docker: kept
+    expect(result.output()).toMatch(/Port 3306 was taken by another program while the containers started; using 3307 instead \(try 2 of 5\)/)
+  })
+
+  // Regression (class: check-then-use port races). Several installers (or test runs) started at
+  // the same moment all see the same ports free, then race for them at `compose up`. Each loser
+  // must keep moving to fresh ports, never collide forever on the same "+1" port.
+  it('concurrent installers: keeps retrying with fresh ports while Docker reports a taken port', async () => {
+    let ups = 0
+    const taken = ['Bind for 127.0.0.1:8025 failed: port is already allocated', 'Bind for 127.0.0.1:3000 failed: port is already allocated',
+      'Error response from daemon: ports are not available: exposing port TCP 127.0.0.1:8026 -> 127.0.0.1:0: listen tcp4 127.0.0.1:8026: bind: Only one usage of each socket address']
+    const result = await create(['--yes'], {
+      docker: (spec) => (spec.args.includes('up') ? (ups++ < taken.length ? { code: 1, output: taken[ups - 1] ?? '' } : undefined) : undefined),
+    })
+    expect(result.code).toBe(0)
+    expect(ups).toBe(4)
+    expect(result.env().get('FORWARD_MAILPIT_PORT')).toBe('8027')
     expect(result.env().get('APP_PORT')).toBe('3001')
-    expect(result.output()).toMatch(/A port was taken by another program; using 3000→3001, 3306→3307, 8025→8026 instead/)
+    expect(result.env().get('APP_URL')).toBe('http://localhost:3001')
+    expect(result.env().get('FORWARD_DB_PORT')).toBe('3306')
+  })
+
+  it('concurrent installers: picks a random offset so two losers do not chase the same next port', async () => {
+    let ups = 0
+    const result = await create(['--yes'], {
+      docker: (spec) => (spec.args.includes('up') && ++ups === 1 ? { code: 1, output: 'Bind for 127.0.0.1:3306 failed: port is already allocated' } : undefined),
+    }, { random: () => 0.5 })
+    expect(result.code).toBe(0)
+    expect(result.env().get('FORWARD_DB_PORT')).toBe('3313') // 3306 + 1 + floor(0.5 * 12)
+  })
+
+  it('gives up after 5 tries with a message naming the port, and npm run setup can resume', async () => {
+    const result = await create(['--yes'], {
+      docker: (spec) => (spec.args.includes('up') ? { code: 1, output: 'Bind for 127.0.0.1:3306 failed: port is already allocated' } : undefined),
+    })
+    expect(result.code).toBe(2)
+    expect(result.world.calls.filter((call) => call.args.includes('up'))).toHaveLength(5)
+    expect(result.output()).toMatch(/still could not get a free port after 5 tries \(last taken: 127\.0\.0\.1:3306\)/)
+    expect(statusOf(result.directory)).toMatchObject({ database: 'failed' })
   })
 
   it('busy ports are moved before anything starts', async () => {

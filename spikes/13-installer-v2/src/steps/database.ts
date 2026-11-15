@@ -15,7 +15,7 @@
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { createConnection } from 'node:net'
 import { join } from 'node:path'
-import { setEnvValue } from '../env-file.ts'
+import { parseEnv, setEnvValue } from '../env-file.ts'
 import { DATABASE_LABELS } from '../options.ts'
 import { pickFreePort } from '../ports.ts'
 import { lastLines } from '../spawn.ts'
@@ -81,18 +81,68 @@ function answers(host: string, port: number): Promise<boolean> {
   })
 }
 
+/** How many times `compose up` is tried while Docker keeps reporting a taken port. */
+export const MAX_PORT_ATTEMPTS = 5
+
+/**
+ * A moved port lands 1 to 12 above the taken one, at random. Why random: installers (or test
+ * runs) started at the same moment all lose the same port, and with a fixed "+1" they would all
+ * race for the same next port again.
+ */
+const PORT_SPREAD = 12
+
+/** The host ports Docker mode publishes, as `.env` keys. */
+const PUBLISHED_PORT_KEYS = ['APP_PORT', 'FORWARD_DB_PORT', 'FORWARD_MAILPIT_PORT'] as const
+
+/**
+ * The host ports Docker says are taken, read from its error text ("Bind for 127.0.0.1:3306 failed",
+ * "exposing port TCP 127.0.0.1:3306 -> ...", "listen tcp4 127.0.0.1:3306: bind: ..."). Empty when
+ * the output names none (then every published port is moved).
+ *
+ * @example
+ * takenPorts('Bind for 127.0.0.1:3306 failed: port is already allocated') // [3306]
+ */
+export function takenPorts(output: string): number[] {
+  const ports = new Set<number>()
+  for (const line of output.split(/\r?\n/)) {
+    if (!PORT_TAKEN.test(line)) continue
+    for (const match of line.matchAll(/(?:127\.0\.0\.1|0\.0\.0\.0|\[::1?\]|localhost):(\d{1,5})\b/g)) {
+      const port = Number(match[1])
+      if (port > 0 && port <= 65535) ports.add(port)
+    }
+  }
+  return [...ports]
+}
+
 /** Docker mode: check the tools, then start every service and wait until they are healthy. */
 async function startContainers(context: StepContext): Promise<StepOutcome> {
   const problem = await checkDocker(context)
   if (problem !== undefined) return problem
   writeHostUser(context)
   if (context.options.database === 'sqlite') createSqliteFile(context)
+  // The ports step checked the ports a moment ago, but another program (or another installer
+  // started at the same time) can take one before Docker binds it. Each time Docker names a taken
+  // port, move just that one to a fresh free port and try again, a few times.
   let result = await compose(context, ['up', '-d', '--wait', '--wait-timeout', '180'])
-  if (result.code !== 0 && PORT_TAKEN.test(result.output)) {
-    // Another program took a port after our check: move every published port once, automatically.
-    const moved = await movePublishedPorts(context)
-    context.reporter.warn(`A port was taken by another program; using ${moved.join(', ')} instead.`)
+  let lastTaken = ''
+  for (let attempt = 2; attempt <= MAX_PORT_ATTEMPTS && result.code !== 0 && PORT_TAKEN.test(result.output); attempt += 1) {
+    const moved = await movePublishedPorts(context, takenPorts(result.output))
+    lastTaken = moved.map((move) => `127.0.0.1:${move.from}`).join(', ')
+    for (const move of moved) {
+      context.reporter.warn(
+        `Port ${move.from} was taken by another program while the containers started; using ${move.to} instead (try ${attempt} of ${MAX_PORT_ATTEMPTS}).`,
+      )
+    }
     result = await compose(context, ['up', '-d', '--wait', '--wait-timeout', '180'])
+  }
+  if (result.code !== 0 && PORT_TAKEN.test(result.output)) {
+    const named = takenPorts(result.output).map((port) => `127.0.0.1:${port}`).join(', ') || lastTaken
+    return failed(
+      'command-failed',
+      `The containers still could not get a free port after ${MAX_PORT_ATTEMPTS} tries (last taken: ${named}).`,
+      `Another program keeps taking these ports. Stop it, or set APP_PORT / FORWARD_DB_PORT / FORWARD_MAILPIT_PORT in .env, then run: npm run setup  (full log: ${context.logFile})`,
+      lastLines(result.output, 15),
+    )
   }
   if (result.code !== 0) {
     return failed(
@@ -154,17 +204,27 @@ async function checkDocker(context: StepContext): Promise<StepOutcome | undefine
   return undefined
 }
 
-/** Move every published port (app, database, Mailpit) to the next free one and write `.env`. */
-async function movePublishedPorts(context: StepContext): Promise<string[]> {
+/**
+ * Move the published ports Docker named (or all of them when it named none) to a fresh free port
+ * a random 1 to 12 above, write `.env`, and return what moved.
+ */
+async function movePublishedPorts(context: StepContext, taken: readonly number[]): Promise<{ from: number; to: number }[]> {
   let text = readEnvFile(context.directory)
-  const moved: string[] = []
-  for (const key of ['APP_PORT', 'FORWARD_DB_PORT', 'FORWARD_MAILPIT_PORT']) {
-    const from = Number(envValue(context.directory, key) ?? 0)
-    if (from === 0) continue
-    const to = await pickFreePort(from + 1, context.isPortFree)
+  const env = parseEnv(text)
+  const current = PUBLISHED_PORT_KEYS.map((key) => ({ key, from: Number(env.get(key) ?? 0) })).filter((entry) => entry.from > 0)
+  const named = current.filter((entry) => taken.includes(entry.from))
+  const toMove = named.length > 0 ? named : current
+  const inUse = new Set(current.map((entry) => entry.from))
+  const random = context.random ?? Math.random
+  const moved: { from: number; to: number }[] = []
+  for (const { key, from } of toMove) {
+    const start = from + 1 + Math.floor(random() * PORT_SPREAD)
+    // Never hand out a port another key of this project already uses.
+    const to = await pickFreePort(start, async (port) => !inUse.has(port) && (await context.isPortFree(port)))
+    inUse.add(to)
     text = setEnvValue(text, key, String(to))
     if (key === 'APP_PORT') text = setEnvValue(text, 'APP_URL', `http://localhost:${to}`)
-    moved.push(`${from}→${to}`)
+    moved.push({ from, to })
   }
   writeEnvFile(context.directory, '.env', text)
   return moved

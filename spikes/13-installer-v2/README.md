@@ -143,7 +143,7 @@ Exit codes: 0 ready, 1 nothing created, 2 created but setup unfinished, 130 canc
 |---|---|
 | Docker not installed | Continue without Docker (SQLite) / Skip / Stop; CI: exit 2 |
 | Docker installed, engine stopped | Retry / Continue without Docker (SQLite) / Skip / Stop |
-| Port busy before start / taken at `up` | next free port written to `.env`; at `up`: moved and retried once |
+| Port busy before start / taken at `up` | next free port written to `.env`; at `up` (another program or a second installer won the race): only the port Docker names moves, 1–12 up at random, and `up` is retried, up to 5 tries, each named in a warning (verified: 4 installers at once all finish) |
 | `npm ci` network error / Windows lock | one automatic retry (lock: after 2 s) |
 | `npm ci` other / registry 401/403 | last 20 lines + log path + hint; Retry / Skip / Stop |
 | Own DB server unreachable | TCP check names host:port; Retry / Skip (migrate waits) |

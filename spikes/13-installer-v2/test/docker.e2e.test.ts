@@ -49,7 +49,10 @@ function cleanEnvironment(): NodeJS.ProcessEnv {
 /** Create a project in Docker mode and register it for cleanup. */
 function createProject(kind: string, flags: string[]) {
   const root = tempFolder(`s13-${kind}-`)
-  const project = `s13-${kind}-${Math.random().toString(36).slice(2, 8)}`
+  // The process id makes names from two test runs at the same time impossible to collide (the
+  // random part keeps two projects of one run apart). Ports are not fixed: each run's installer
+  // picks free ones and moves away from any taken at `compose up` (see database.ts).
+  const project = `s13-${kind}-${process.pid.toString(36)}-${Math.random().toString(36).slice(2, 6)}`
   const directory = join(root, project)
   created.push({ project, directory })
   const result = spawnSync(process.execPath, [CLI, project, '--yes', '--docker', '--no-git', ...flags], {

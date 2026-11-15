@@ -95,6 +95,11 @@ export interface StepContext {
   readonly typedAdminPassword: string | undefined
   /** The host user on Linux (the app container runs as this user); `undefined` elsewhere. */
   readonly hostUser: { readonly uid: number; readonly gid: number } | undefined
+  /**
+   * A number in [0, 1) for spreading retries (port moves after a race). Default `Math.random`;
+   * tests pass a fixed one.
+   */
+  readonly random?: () => number
 }
 
 /**

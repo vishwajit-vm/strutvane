@@ -232,6 +232,8 @@ export function fakeEnvironment(overrides: Partial<InstallerEnvironment> & { rea
     generateSecret: () => `secret-${String(++secret).padStart(3, '0')}-${'x'.repeat(40)}`,
     generatePassword: () => 'Abcd-Efgh-Jkmn-Pqrs',
     hostUser: undefined,
+    // No jitter: a moved port is always the next free one, so tests can name it.
+    random: () => 0,
     ...overrides,
   }
   return { environment, output: () => output }
