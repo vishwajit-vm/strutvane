@@ -92,6 +92,7 @@ function compileTableAction(state: SchemaState, before: TableState, after: Table
     case 'dropColumn':
       return dropColumnSql(state, before, after, action.name, dialect)
     case 'addIndex':
+      assertIndexFits(after, action.index, dialect)
       return [createIndexSql(before.name, action.index, dialect)]
     case 'dropIndex':
       return [dropIndexSql(before.name, action.name, dialect)]
@@ -150,6 +151,7 @@ function createTableSql(table: TableState, dialect: Dialect): string[] {
       if (column.references !== undefined) definitions.push(foreignKeyConstraintSql(table.name, column.name, column.references, dialect))
     }
   }
+  for (const index of table.indexes) assertIndexFits(table, index, dialect)
   const create = `CREATE TABLE ${q(table.name)} (\n  ${definitions.join(',\n  ')}\n)`
   return [
     create,
@@ -260,6 +262,54 @@ export function binaryCollation(column: ColumnDef, dialect: Dialect): string {
   const identifier = column.kind === 'slug' || column.kind === 'uuid' || (column.kind === 'string' && IDENTIFIER_NAME.test(column.name))
   if (!identifier) return ''
   return dialect === 'mariadb' ? ' COLLATE utf8mb4_nopad_bin' : ' COLLATE utf8mb4_0900_bin'
+}
+
+/** InnoDB's index key limit (DYNAMIC rows), and utf8mb4's worst case per character. */
+const MYSQL_MAX_KEY_BYTES = 3072
+const UTF8MB4_BYTES = 4
+
+/**
+ * The offline lint for indexes MySQL and MariaDB refuse: TEXT and JSON columns (no prefix length
+ * can be declared here) and keys over 3072 bytes (a VARCHAR above 768 characters). Without it the
+ * error came from the server half-way through a migration, and MySQL DDL isn't transactional.
+ */
+function assertIndexFits(table: TableState, index: IndexDef, dialect: Dialect): void {
+  if (!isMysqlFamily(dialect)) return
+  let bytes = 0
+  for (const name of index.columns) {
+    const column = findColumn(table, name)
+    if (column === undefined) continue
+    if (column.kind === 'text' || column.kind === 'json') {
+      throw new SchemaError(
+        'INDEX_NOT_PORTABLE',
+        `The index "${index.name}" covers "${table.name}.${name}", a ${column.kind.toUpperCase()} column: ${dialect} can't index it without a prefix length.`,
+        `Use t.string('${name}', 768) (or shorter) if the values fit, or drop the index; PostgreSQL and SQLite apps may keep it.`,
+      )
+    }
+    bytes += keyBytes(column)
+  }
+  if (bytes > MYSQL_MAX_KEY_BYTES) {
+    throw new SchemaError(
+      'INDEX_NOT_PORTABLE',
+      `The index "${index.name}" on "${table.name}" needs up to ${bytes} bytes, more than ${dialect}'s ${MYSQL_MAX_KEY_BYTES}-byte key limit (utf8mb4 is 4 bytes per character).`,
+      'Make the indexed strings shorter: a unique or indexed VARCHAR can hold at most 768 characters, e.g. t.string(\'url\', 768).',
+    )
+  }
+}
+
+/** The worst-case key size of one indexed column on MySQL. */
+function keyBytes(column: ColumnDef): number {
+  switch (column.kind) {
+    case 'string':
+    case 'slug':
+      return (column.length ?? 255) * UTF8MB4_BYTES
+    case 'enum':
+      return 2
+    case 'uuid':
+      return 36 * UTF8MB4_BYTES
+    default:
+      return 8
+  }
 }
 
 function referencesSql(reference: ForeignKeyDef, dialect: Dialect): string {

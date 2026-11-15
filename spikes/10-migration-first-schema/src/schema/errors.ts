@@ -27,6 +27,7 @@ export type SchemaErrorCode =
   | 'INVALID_MIGRATION'
   | 'DUPLICATE_MIGRATION'
   | 'ASYNC_MIGRATION'
+  | 'INDEX_NOT_PORTABLE'
 
 /**
  * A schema problem, with what went wrong and how to fix it.

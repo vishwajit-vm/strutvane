@@ -9,6 +9,8 @@ import { createRequire } from 'node:module'
 import { join } from 'node:path'
 import { afterAll, describe, expect, test } from 'vitest'
 import { buildArtifacts, writeArtifacts } from '../src/generate/artifacts.ts'
+import { migration } from '../src/schema/migration.ts'
+import { replayMigrations } from '../src/schema/replay.ts'
 import { BLOG_ROOT, cleanupTempDirs, makeTempDir, migrationSource, replayApp, SPIKE_ROOT } from './helpers.ts'
 
 afterAll(cleanupTempDirs)
@@ -148,5 +150,30 @@ describe('atomic writes survive Windows sharing errors and never leave temp file
     } finally {
       rmSync(app, { recursive: true, force: true })
     }
+  })
+})
+
+describe('an app that only runs on PostgreSQL or SQLite may index TEXT', () => {
+  test('the MySQL and MariaDB files explain why they were not generated, the others are complete', () => {
+    const replay = replayMigrations([
+      {
+        name: '2026_01_01_000000_create_notes_table',
+        migration: migration({
+          up(schema) {
+            schema.create('notes', (t) => {
+              t.id()
+              t.text('body').index()
+            })
+          },
+          down(schema) {
+            schema.dropIfExists('notes')
+          },
+        }),
+      },
+    ])
+    const files = buildArtifacts(replay)
+    expect(files.get('.strutvane/sql/schema.mysql.sql')).toMatch(/^-- Not generated for mysql: .*TEXT/)
+    expect(files.get('.strutvane/sql/migrations.mariadb.sql')).toMatch(/^-- Not generated for mariadb: /)
+    expect(files.get('.strutvane/sql/schema.postgres.sql')).toContain('CREATE INDEX "notes_body_index"')
   })
 })

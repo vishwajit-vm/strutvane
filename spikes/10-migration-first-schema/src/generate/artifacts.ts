@@ -5,6 +5,7 @@
 import { randomBytes } from 'node:crypto'
 import { mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
+import { SchemaError } from '../schema/errors.ts'
 import type { Replay } from '../schema/replay.ts'
 import { createSchemaSql } from '../sql/ddl.ts'
 import type { Dialect } from '../sql/dialect.ts'
@@ -27,8 +28,8 @@ export function buildArtifacts(replay: Replay, overrides: ResourceOverrides = {}
   files.set('.strutvane/types/models.d.ts', generateModelTypes(replay.state, { source: `${replay.migrations.length} migrations, last ${last}` }))
   files.set('.strutvane/resources.json', `${JSON.stringify(generateMetadata(replay.state, overrides), null, 2)}\n`)
   for (const dialect of DIALECTS) {
-    files.set(`.strutvane/sql/schema.${dialect}.sql`, sqlFile(createSchemaSql(replay.state, dialect)))
-    files.set(`.strutvane/sql/migrations.${dialect}.sql`, migrationsSqlFile(replay, dialect))
+    files.set(`.strutvane/sql/schema.${dialect}.sql`, orExplanation(dialect, () => sqlFile(createSchemaSql(replay.state, dialect))))
+    files.set(`.strutvane/sql/migrations.${dialect}.sql`, orExplanation(dialect, () => migrationsSqlFile(replay, dialect)))
   }
   return new Map([...files].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)))
 }
@@ -88,6 +89,20 @@ function renameWithRetry(io: ArtifactIo, from: string, to: string): void {
       // A synchronous pause: generation is synchronous, and this only runs after a failure.
       Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, attempt * 10)
     }
+  }
+}
+
+/**
+ * A schema that one engine can't build (an index on TEXT is fine on PostgreSQL, not on MySQL) must
+ * not stop generation for the others: that engine's file says why instead. `migrate` on that engine
+ * compiles the same SQL and stops with the same SchemaError, before any statement runs.
+ */
+function orExplanation(dialect: Dialect, build: () => string): string {
+  try {
+    return build()
+  } catch (error) {
+    if (!(error instanceof SchemaError) || error.code !== 'INDEX_NOT_PORTABLE') throw error
+    return `-- Not generated for ${dialect}: ${error.message}\n-- Fix: ${error.hint}\n`
   }
 }
 

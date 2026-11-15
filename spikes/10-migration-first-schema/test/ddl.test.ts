@@ -191,6 +191,51 @@ describe('engine-specific ALTER handling', () => {
     expect(columnSql({ name: 'title', kind: 'string', nullable: false }, 'mysql')).toBe('`title` VARCHAR(255) NOT NULL')
   })
 
+  test('offline lint: indexes MySQL and MariaDB would refuse at migrate time are a SchemaError with a fix', () => {
+    // Checked on MySQL 8.4.13: an index on TEXT is "BLOB/TEXT column used in key specification
+    // without a key length", and a unique VARCHAR(1000) is "Specified key was too long; max key
+    // length is 3072 bytes" (utf8mb4 = 4 bytes per character). MySQL DDL isn't transactional, so
+    // that used to fail half-way through a migration instead of offline.
+    const textIndex = (schema: SchemaBuilder): void =>
+      schema.create('notes', (t) => {
+        t.id()
+        t.text('body').index()
+      })
+    const longUnique = (schema: SchemaBuilder): void =>
+      schema.create('links', (t) => {
+        t.id()
+        t.string('url', 1000).unique()
+      })
+    for (const dialect of ['mysql', 'mariadb'] as const) {
+      for (const up of [textIndex, longUnique]) {
+        let thrown: unknown
+        try {
+          compile(base, up, dialect)
+        } catch (error) {
+          thrown = error
+        }
+        expect(thrown, dialect).toBeInstanceOf(SchemaError)
+        expect((thrown as SchemaError).code).toBe('INDEX_NOT_PORTABLE')
+        expect((thrown as SchemaError).hint).toMatch(/VARCHAR\(768\)|shorter/)
+      }
+      // Within the limit, and on other engines, the same indexes are fine.
+      expect(() =>
+        compile(base, (schema) => schema.create('links', (t) => {
+          t.id()
+          t.string('url', 768).unique()
+        }), dialect),
+      ).not.toThrow()
+    }
+    expect(() => compile(base, textIndex, 'postgres')).not.toThrow()
+    expect(() => compile(base, longUnique, 'sqlite')).not.toThrow()
+    // Added later with schema.table(): the same check.
+    const later = state((schema) => schema.create('notes', (t) => {
+      t.id()
+      t.text('body').nullable()
+    }), base)
+    expect(() => compile(later, (schema) => schema.table('notes', (t) => t.index(['body'])), 'mysql')).toThrow(SchemaError)
+  })
+
   test('table renames: ALTER … RENAME TO, except MySQL\'s RENAME TABLE', () => {
     const rename = (schema: SchemaBuilder): void => schema.rename('posts', 'articles')
     expect(compile(base, rename, 'postgres')).toEqual(['ALTER TABLE "posts" RENAME TO "articles"'])
