@@ -22,6 +22,7 @@ import {
   offeredEntries,
   popularGroups,
 } from './catalogue.ts'
+import { envValueProblem } from './env-file.ts'
 import { sqlIdentifier } from './names.ts'
 import {
   AI_PROVIDERS,
@@ -432,8 +433,10 @@ function password(id: 'dbPassword' | 'adminPassword', spec: PasswordSpec): Quest
     async ask(prompter, answers) {
       for (;;) {
         const value = answerOrThrow(await prompter.password({ id, message: spec.message }))
-        if (value.length >= spec.minLength) return put(answers, id, value)
-        prompter.info(`Please use at least ${spec.minLength} characters.`)
+        // Never repeat the value: only say why it cannot be used.
+        const problem = value.length < spec.minLength ? `Please use at least ${spec.minLength} characters.` : envValueProblem(value)
+        if (problem === undefined) return put(answers, id, value)
+        prompter.info(problem.endsWith('.') ? problem : `This password ${problem} (it is stored in .env). Please choose another.`)
       }
     },
     // Never the value, not even its length.

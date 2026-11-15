@@ -53,13 +53,30 @@ export function parseEnv(text: string): Map<string, string> {
  * formatEnvValue('x\nAPP_DEBUG=true') // throws
  */
 export function formatEnvValue(value: string): string {
-  if (/[\r\n\0]/.test(value)) {
-    throw new UnsafeEnvValueError('A value for .env may not contain line breaks or NUL characters.')
-  }
+  // The message never contains the value: values here are often passwords.
+  const problem = envValueProblem(value)
+  if (problem !== undefined) throw new UnsafeEnvValueError(`A value for .env ${problem}.`)
   if (PLAIN.test(value)) return value
   if (!value.includes("'")) return `'${value}'`
   if (!value.includes('"') && !value.includes('\\')) return `"${value}"`
-  throw new UnsafeEnvValueError(`This value mixes ' and " (or \\), which .env files cannot hold safely: ${value}`)
+  // Both quote kinds (a real password can have them): backticks, which Node's parser and dotenv
+  // read literally, with no escapes and no expansion.
+  return `\`${value}\``
+}
+
+/**
+ * Why a value cannot be written to `.env`, or `undefined` when it can. Never includes the value
+ * (it is usually a secret), so the result is safe to print.
+ *
+ * @example
+ * envValueProblem('x\nAPP_DEBUG=true') // 'cannot hold a line break or NUL character'
+ */
+export function envValueProblem(value: string): string | undefined {
+  if (/[\r\n\0]/.test(value)) return 'cannot hold a line break or NUL character'
+  if (value.includes("'") && (value.includes('"') || value.includes('\\')) && value.includes('`')) {
+    return "cannot hold ', \" and ` (backtick) together"
+  }
+  return undefined
 }
 
 /**

@@ -6,7 +6,7 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { parseEnv as nodeParseEnv } from 'node:util'
 import { describe, expect, it } from 'vitest'
-import { formatEnvValue, generateReadablePassword, generateSecret, parseEnv, setEnvValue } from '../src/env-file.ts'
+import { envValueProblem, formatEnvValue, generateReadablePassword, generateSecret, parseEnv, setEnvValue, UnsafeEnvValueError } from '../src/env-file.ts'
 import { type ProjectOptions, resolveOptions } from '../src/options.ts'
 import { MUST_BE_IGNORED, isForbiddenInCommit } from '../src/steps/git.ts'
 import { secretKeys } from '../src/templates/env.ts'
@@ -47,8 +47,8 @@ describe('env writer (security review F-17)', () => {
       try {
         text = setEnvValue('', 'V', value)
       } catch {
-        // Only values mixing both quote kinds (or a backslash with ') may be refused.
-        expect(value.includes("'") && (value.includes('"') || value.includes('\\'))).toBe(true)
+        // Only values holding all three quote kinds (', " or \, and `) may be refused.
+        expect(value.includes("'") && (value.includes('"') || value.includes('\\')) && value.includes('`')).toBe(true)
         continue
       }
       const read = nodeParseEnv(text)['V'] ?? ''
@@ -58,11 +58,30 @@ describe('env writer (security review F-17)', () => {
   })
 
   it('refuses newline injection and bad keys', () => {
-    expect(() => setEnvValue('', 'DB_PASSWORD', 'x\nAPP_DEBUG=true')).toThrow(/line breaks/)
-    expect(() => setEnvValue('', 'DB_PASSWORD', 'x\rY')).toThrow(/line breaks/)
+    expect(() => setEnvValue('', 'DB_PASSWORD', 'x\nAPP_DEBUG=true')).toThrow(/line break/)
+    expect(() => setEnvValue('', 'DB_PASSWORD', 'x\rY')).toThrow(/line break/)
     expect(() => setEnvValue('', 'DB_PASSWORD', 'x\0')).toThrow(/NUL/)
     expect(() => setEnvValue('', 'bad key', 'x')).toThrow(/not a valid .env key/)
     expect(formatEnvValue('a b')).toBe("'a b'")
+  })
+
+  // Regression (class: a real password with every quote kind). Passwords legitimately mix ' and ";
+  // they must be written (backtick-quoted, which Node's parser and dotenv read literally), and a
+  // value that truly cannot be written must never be echoed in the error (it is a secret).
+  it('writes values mixing quote kinds, and never puts a refused value in the error message', () => {
+    for (const value of [`it's "q"`, `a\\b'c`, `p'a"s$s#w\\o{rd}`]) {
+      expect(nodeParseEnv(`V=${formatEnvValue(value)}`)['V'], value).toBe(value)
+    }
+    const secret = `S3cret'"\`mix`
+    expect(() => formatEnvValue(secret)).toThrow(UnsafeEnvValueError)
+    try {
+      formatEnvValue(secret)
+    } catch (error) {
+      expect(String(error)).not.toContain('S3cret')
+    }
+    expect(envValueProblem(secret)).toMatch(/cannot hold/)
+    expect(envValueProblem('ok value')).toBeUndefined()
+    expect(envValueProblem('x\ny')).toMatch(/line break/)
   })
 
   it('generates 32-byte secrets and readable one-time passwords', () => {
@@ -247,6 +266,6 @@ describe('Docker mode files (everything in containers, like Sail)', () => {
     expect(parseEnv(file(project, '.env')).get('DB_PASSWORD')).toBe("pa ss#'word")
     expect(parseEnv(file(project, '.env.example')).get('DB_PASSWORD')).toBe('')
     expect(parseEnv(file(project, '.env')).get('DB_HOST')).toBe('db.example.com')
-    expect(() => renderProject(own, { dbPassword: 'x\nAPP_DEBUG=true' })).toThrow(/line breaks/)
+    expect(() => renderProject(own, { dbPassword: 'x\nAPP_DEBUG=true' })).toThrow(/line break/)
   })
 })

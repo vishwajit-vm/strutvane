@@ -11,6 +11,7 @@
  */
 import { resolve } from 'node:path'
 import { type Catalogue, type CatalogueEntry, findOffered, installerCatalogue } from './catalogue.ts'
+import { envValueProblem } from './env-file.ts'
 import { sqlIdentifier } from './names.ts'
 import { validateProjectName } from './validate-name.ts'
 
@@ -626,6 +627,10 @@ export function resolveOptions(answers: Answers, cwd: string, catalogue: Catalog
     problems,
   )
   checkTypedAdminPassword(adminPasswordMode, answers.adminPassword, problems)
+  // The typed database password goes into .env: refuse what .env cannot hold before anything is
+  // written, without ever repeating the password.
+  const dbPasswordProblem = answers.dbPassword === undefined ? undefined : envValueProblem(answers.dbPassword)
+  if (dbPasswordProblem !== undefined) problems.push(`the database password ${dbPasswordProblem}, which .env cannot store: choose another password`)
   const locale = checked(answers.locale ?? DEFAULTS.locale, isLocale, (v) => `--locale "${v}" is not a language tag (for example en, de or pt-BR)`, problems)
   const timezone = checked(answers.timezone ?? defaultTimeZone(), isTimeZone, (v) => `--timezone "${v}" is not a time zone this computer knows (for example Europe/Berlin or UTC)`, problems)
   const currency = checked(answers.currency ?? DEFAULTS.currency, isCurrency, (v) => `--currency "${v}" is not a 3-letter currency code (for example USD or EUR)`, problems)

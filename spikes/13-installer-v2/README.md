@@ -177,7 +177,9 @@ Exit codes: 0 ready, 1 nothing created, 2 created but setup unfinished, 130 canc
    `127.0.0.1:APP_PORT` on the host; `APP_HOST` in compose does that, and the Host-header
    allowlist (403 for `evil.example`) still blocks DNS rebinding. Verified with a real request.
 7. **`node:util.parseEnv` is the right reader**: unquoted `a#b` reads as `a`, so the writer quotes
-   anything outside `[A-Za-z0-9_./:@,+-]`, refuses CR/LF/NUL, and round-trips 500 random values.
+   anything outside `[A-Za-z0-9_./:@,+-]` (single quotes, else double, else backticks for a value
+   with both `'` and `"`), refuses CR/LF/NUL and the one value it cannot quote (all three quote
+   kinds) before anything is written, never echoing the value, and round-trips 500 random values.
 8. **The MySQL image has no "app owner vs app user" split by default; PostgreSQL's makes the app a
    superuser.** The PostgreSQL init script creates `<id>_owner` (migrations) and `<id>_app`
    (NOSUPERUSER, NOBYPASSRLS); the real test asserts `rolsuper|rolbypassrls = f|f` and that the

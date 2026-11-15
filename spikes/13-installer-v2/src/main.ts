@@ -238,12 +238,15 @@ async function writeFiles(
   const progress = reporter.step('Writing files')
   const at = environment.now().toISOString()
   const state = withStep(initialState(options, environment.resumeWith), 'files', { status: 'done', at })
-  const files = [
-    ...renderProject(options, typed),
-    // The state file is part of the same transaction: no project ever exists without it.
-    { path: '.strutvane/setup.json', content: `${JSON.stringify(state, null, 2)}\n` },
-  ]
+  let files: { path: string; content: string }[] = []
   try {
+    files = [
+      // Inside the try: a template that cannot render (a value .env cannot hold) is reported like
+      // any other write failure, never as a crash with a stack trace.
+      ...renderProject(options, typed),
+      // The state file is part of the same transaction: no project ever exists without it.
+      { path: '.strutvane/setup.json', content: `${JSON.stringify(state, null, 2)}\n` },
+    ]
     await writeProjectFiles(options.directory, files, environment.writeFile)
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)

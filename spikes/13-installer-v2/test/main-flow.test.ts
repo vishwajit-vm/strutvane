@@ -196,3 +196,45 @@ describe('interactive mode', () => {
     expect(existsSync(join(cwd, 'acme'))).toBe(false)
   })
 })
+
+// Regression (class: a typed secret that .env cannot hold). Before: the installer crashed with a
+// stack trace (exit 1 from an unhandled rejection) and, for a password mixing quote kinds, printed
+// the password itself in the error. Now: mixed quotes are written, an impossible value (a line
+// break, NUL, or all three quote kinds) is refused up front, and the secret is never echoed.
+describe('a typed database password .env cannot hold', () => {
+  const ownServer = ['--db', 'mysql', '--no-docker', '--yes', '--no-git']
+
+  it('CI: a password mixing quote kinds (STRUT_DB_PASSWORD) is written and reads back exactly', async () => {
+    const cwd = tempFolder()
+    const password = `p'a"s$s#w\\rd`
+    const { environment } = fakeEnvironment({ cwd, argv: ['acme', ...ownServer], env: { STRUT_DB_PASSWORD: password }, spawn: fakePrograms().spawn })
+    expect(await main(environment)).not.toBe(1)
+    const text = readFileSync(join(cwd, 'acme', '.env'), 'utf8')
+    const { parseEnv } = await import('node:util')
+    expect(parseEnv(text)['DB_PASSWORD']).toBe(password)
+  })
+
+  for (const [label, password] of [['a line break', 'Hunter2-secret\nAPP_DEBUG=true'], ['all three quote kinds', `Hunter2-secret'"\``]] as const) {
+    it(`CI: a password with ${label} stops with exit 1, nothing created, the password never shown`, async () => {
+      const cwd = tempFolder()
+      const { environment, output } = fakeEnvironment({ cwd, argv: ['acme', ...ownServer], env: { STRUT_DB_PASSWORD: password } })
+      expect(await main(environment)).toBe(1)
+      expect(existsSync(join(cwd, 'acme'))).toBe(false)
+      expect(output()).toMatch(/database password .*cannot/)
+      expect(output()).not.toContain('Hunter2-secret')
+    })
+  }
+
+  it('interactive: an impossible password is asked again (with the reason), never echoed', async () => {
+    const cwd = tempFolder()
+    const { prompter, infos } = scriptedPrompter({
+      ...RECOMMENDED_ANSWERS, database: 'mysql', docker: 'host', dbHost: '', dbPort: '', dbName: '', dbUser: '', dbPassword: ['Hunter2-secret\nX=1', 'good pass word'], review: 'create', dev: false,
+    })
+    const { environment, output } = fakeEnvironment({ cwd, argv: ['acme', '--no-git'], interactiveTerminal: true, prompter, spawn: fakePrograms().spawn })
+    expect(await main(environment)).not.toBe(1)
+    expect(infos.join('\n')).toMatch(/line break/)
+    expect(`${infos.join('\n')}${output()}`).not.toContain('Hunter2-secret')
+    const { parseEnv } = await import('node:util')
+    expect(parseEnv(readFileSync(join(cwd, 'acme', '.env'), 'utf8'))['DB_PASSWORD']).toBe('good pass word')
+  })
+})
