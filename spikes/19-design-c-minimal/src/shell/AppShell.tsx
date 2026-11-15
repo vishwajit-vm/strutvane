@@ -9,7 +9,7 @@
  * screen-reader users start reading the new page instead of staying on the old link.
  */
 import { Dialog, VisuallyHidden } from 'radix-ui'
-import { type ReactNode, useEffect, useRef, useState } from 'react'
+import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from '../lib/router.tsx'
 import { CommandPalette } from './CommandPalette.tsx'
 import { useOverlays } from './overlays.tsx'
@@ -25,7 +25,11 @@ export function AppShell({ children }: { children: ReactNode }) {
   const main = useRef<HTMLElement>(null)
   const firstRender = useRef(true)
 
-  useGlobalShortcuts({ openPalette: () => setPaletteOpen(true), openShortcuts: () => setShortcutsOpen(true), navigate })
+  // Stable handlers: inline lambdas re-installed the global key listener on every shell render,
+  // which also dropped a pending "g" of a G-sequence.
+  const openPalette = useCallback(() => setPaletteOpen(true), [setPaletteOpen])
+  const openShortcuts = useCallback(() => setShortcutsOpen(true), [setShortcutsOpen])
+  useGlobalShortcuts({ openPalette, openShortcuts, navigate })
 
   useEffect(() => {
     if (firstRender.current) {

@@ -151,8 +151,10 @@ export function InvoiceTable({ rows, columns, density, sort, onSort, selected, o
   const selectedOnPage = pageIds.filter((id) => selected.has(id)).length
   const headerState = selectedOnPage === 0 ? false : selectedOnPage === pageIds.length ? true : 'indeterminate'
 
-  // A new page or sort resets the roving focus to the first row.
-  useEffect(() => setFocusIndex(0), [rows])
+  // A new page or sort resets the roving focus to the first row. Keyed by the row ids, not the
+  // array: the list rebuilds the array on every render, which reset focus on every keystroke.
+  const pageKey = pageIds.join(',')
+  useEffect(() => setFocusIndex(0), [pageKey])
 
   const moveTo = (index: number) => {
     const next = Math.max(0, Math.min(rows.length - 1, index))

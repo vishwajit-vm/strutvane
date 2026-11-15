@@ -53,6 +53,10 @@ export function InvoiceList() {
   const toast = useToast()
   const { confirm, peek } = useOverlays()
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set())
+  // A new filter or search hides rows; a bulk action must never reach rows the user cannot see, so
+  // the selection starts again (paging keeps it: the rows are still in the same result set).
+  const filterKey = JSON.stringify(state.filters)
+  useEffect(() => setSelected(new Set()), [filterKey])
 
   const source = forced === 'empty' ? [] : edits.rows
   const page = queryInvoices(source, state.filters, state.sort, state.page, state.pageSize)

@@ -4,8 +4,8 @@
  * navigation, selection + bulk delete with confirm and Undo, filter chips, form validation focus,
  * theme memory, notifications and the drawer.
  */
-import { screen, waitFor, within } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { act, screen, waitFor, within } from '@testing-library/react'
+import { describe, expect, it, vi } from 'vitest'
 import { THEME_KEY } from '../src/lib/theme.tsx'
 import { renderAt } from './render.tsx'
 
@@ -58,6 +58,74 @@ describe('shortcuts stand aside for widgets that own the keyboard', () => {
     await user.keyboard('gi')
     expect(window.location.pathname).toBe('/invoices/inv-2264/edit')
     expect(screen.queryByRole('dialog', { name: 'Keyboard shortcuts' })).toBeNull()
+  })
+})
+
+describe('audit lows (2026-11-15)', () => {
+  it('X keeps the roving focus on the row it selected (no reset to row 1 on re-render)', async () => {
+    const { user } = renderAt('/invoices')
+    const first = await screen.findByRole('row', { name: /INV-2278/ })
+    first.focus()
+    await user.keyboard('jj')
+    const third = screen.getByRole('row', { name: /INV-2276/ })
+    expect(third).toHaveFocus()
+    await user.keyboard('x')
+    expect(third).toHaveAttribute('tabindex', '0')
+    expect(first).toHaveAttribute('tabindex', '-1')
+  })
+
+  it('a filter or search change clears the bulk selection (no acting on rows you cannot see)', async () => {
+    const { user } = renderAt('/invoices')
+    await user.click(await screen.findByRole('checkbox', { name: 'Select INV-2278' }))
+    expect(screen.getByRole('toolbar', { name: 'Bulk actions' })).toHaveTextContent('1 selected')
+    const searchBox = screen.getByRole('searchbox')
+    await user.type(searchBox, 'zzz-no-match')
+    await waitFor(() => expect(window.location.search).toContain('q='))
+    await user.clear(searchBox)
+    await waitFor(() => expect(window.location.search).not.toContain('q='))
+    expect(screen.queryByRole('toolbar', { name: 'Bulk actions' })).toBeNull()
+  })
+
+  it('Ctrl+K does not open the palette over an open confirm dialog', async () => {
+    const { user } = renderAt('/invoices')
+    await user.click(await screen.findByRole('checkbox', { name: 'Select INV-2278' }))
+    await user.click(within(screen.getByRole('toolbar', { name: 'Bulk actions' })).getByRole('button', { name: /Delete/ }))
+    await screen.findByRole('alertdialog')
+    await user.keyboard('{Control>}k{/Control}')
+    expect(screen.queryByPlaceholderText('Search invoices, pages and actions…')).toBeNull()
+  })
+
+  it('asks before leaving a changed form; Keep editing stays, Discard leaves', async () => {
+    const { user } = renderAt('/invoices/inv-2264/edit')
+    const notes = await screen.findByRole('textbox', { name: /Notes/ })
+    await user.type(notes, 'half-written')
+    await user.click(within(screen.getByRole('navigation', { name: 'Main' })).getByRole('link', { name: /^Invoices/ }))
+    const dialog = await screen.findByRole('alertdialog', { name: 'Leave without saving?' })
+    await user.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+    expect(window.location.pathname).toBe('/invoices/inv-2264/edit')
+    expect((screen.getByRole('textbox', { name: /Notes/ }) as HTMLTextAreaElement).value).toContain('half-written')
+    await user.click(within(screen.getByRole('navigation', { name: 'Main' })).getByRole('link', { name: /^Invoices/ }))
+    await user.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Discard changes' }))
+    await waitFor(() => expect(window.location.pathname).toBe('/invoices'))
+  })
+
+  it('leaving while a save is finishing never pulls the user back to the invoice', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    try {
+      const { user } = renderAt('/invoices/inv-2264/edit')
+      const notes = await screen.findByRole('textbox', { name: /Notes/ })
+      await user.type(notes, ' more')
+      await user.click(screen.getByRole('button', { name: 'Save changes' }))
+      await user.click(within(screen.getByRole('navigation', { name: 'Main' })).getByRole('link', { name: /^Invoices/ }))
+      expect(screen.queryByRole('alertdialog')).toBeNull() // the save is already under way
+      await waitFor(() => expect(window.location.pathname).toBe('/invoices'))
+      await act(async () => {
+        vi.advanceTimersByTime(2000)
+      })
+      expect(window.location.pathname).toBe('/invoices')
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })
 

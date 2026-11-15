@@ -10,9 +10,14 @@
  * const { pathname, search, navigate } = useRouter()
  * <Link to="/invoices?status=overdue">Overdue</Link>
  */
-import { type AnchorHTMLAttributes, createContext, type MouseEvent, type ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import { type AnchorHTMLAttributes, createContext, type MouseEvent, type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
+
+/** Asked before an in-app navigation leaves the page; resolve `true` to leave. */
+export type LeaveGuard = () => Promise<boolean>
 
 interface RouterState {
+  /** Install (or with `null`, remove) the guard asked before navigating away. */
+  setGuard: (guard: LeaveGuard | null) => void
   pathname: string
   /** The current query string, parsed. Treat as read-only; change it through `navigate`. */
   search: URLSearchParams
@@ -29,22 +34,62 @@ function readLocation(): { pathname: string; search: string } {
 /** Provide routing to the app; re-renders on `navigate` and on Back/Forward. */
 export function RouterProvider({ children }: { children: ReactNode }) {
   const [location, setLocation] = useState(readLocation)
+  const guard = useRef<LeaveGuard | null>(null)
+  const shown = useRef(readLocation())
+  const setGuard = useCallback((next: LeaveGuard | null) => {
+    guard.current = next
+  }, [])
 
   useEffect(() => {
-    const onPop = () => setLocation(readLocation())
+    const onPop = () => {
+      const target = readLocation()
+      const ask = guard.current
+      if (ask === null || target.pathname === shown.current.pathname) {
+        shown.current = target
+        setLocation(target)
+        return
+      }
+      // Back/Forward already moved the URL: put it back, ask, then go if allowed.
+      window.history.pushState(null, '', shown.current.pathname + shown.current.search)
+      void ask().then((leave) => {
+        if (!leave) return
+        guard.current = null
+        window.history.replaceState(null, '', target.pathname + target.search)
+        shown.current = target
+        setLocation(target)
+      })
+    }
     window.addEventListener('popstate', onPop)
     return () => window.removeEventListener('popstate', onPop)
   }, [])
 
-  const navigate = useCallback((to: string, options?: { replace?: boolean }) => {
-    if (options?.replace === true) window.history.replaceState(null, '', to)
+  const go = useCallback((to: string, replace: boolean) => {
+    if (replace) window.history.replaceState(null, '', to)
     else window.history.pushState(null, '', to)
-    setLocation(readLocation())
+    shown.current = readLocation()
+    setLocation(shown.current)
   }, [])
 
+  const navigate = useCallback(
+    (to: string, options?: { replace?: boolean }) => {
+      const ask = guard.current
+      const samePage = new URL(to, window.location.href).pathname === window.location.pathname
+      if (ask === null || samePage) {
+        go(to, options?.replace === true)
+        return
+      }
+      void ask().then((leave) => {
+        if (!leave) return
+        guard.current = null
+        go(to, options?.replace === true)
+      })
+    },
+    [go],
+  )
+
   const value = useMemo(
-    () => ({ pathname: location.pathname, search: new URLSearchParams(location.search), navigate }),
-    [location, navigate],
+    () => ({ pathname: location.pathname, search: new URLSearchParams(location.search), navigate, setGuard }),
+    [location, navigate, setGuard],
   )
   return <RouterContext value={value}>{children}</RouterContext>
 }
@@ -92,6 +137,28 @@ export function withParams(search: URLSearchParams, changes: Record<string, stri
   }
   const text = next.toString()
   return text === '' ? '' : `?${text}`
+}
+
+/**
+ * Guard a page with unsaved changes: in-app navigation (links, Back/Forward, shortcuts) asks
+ * `ask()` first, and closing or reloading the tab shows the browser's own prompt.
+ *
+ * @example useLeaveGuard(dirty && !saving, () => confirm({ title: 'Leave without saving?', … }))
+ */
+export function useLeaveGuard(when: boolean, ask: LeaveGuard): void {
+  const { setGuard } = useRouter()
+  const latest = useRef(ask)
+  latest.current = ask
+  useEffect(() => {
+    if (!when) return undefined
+    setGuard(() => latest.current())
+    const onBeforeUnload = (event: BeforeUnloadEvent) => event.preventDefault()
+    window.addEventListener('beforeunload', onBeforeUnload)
+    return () => {
+      setGuard(null)
+      window.removeEventListener('beforeunload', onBeforeUnload)
+    }
+  }, [when, setGuard])
 }
 
 type LinkProps = Omit<AnchorHTMLAttributes<HTMLAnchorElement>, 'href'> & { to: string }

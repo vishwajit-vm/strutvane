@@ -9,7 +9,7 @@
  * The save bar sticks to the bottom of the panel and tells you whether anything is unsaved.
  */
 import { LoaderCircle, Repeat, Timer, Zap, CalendarClock, CircleAlert } from 'lucide-react'
-import { type FormEvent, useMemo, useRef, useState } from 'react'
+import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { CurrencyInput, TagsInput } from '../../components/form/inputs.tsx'
 import { FileDrop } from '../../components/form/file-drop.tsx'
 import { RelationSelect } from '../../components/form/relation-select.tsx'
@@ -24,7 +24,8 @@ import { useToast } from '../../components/ui/toast.tsx'
 import { invoiceById, type PaymentTerms, TAGS } from '../../data/invoices.ts'
 import { cn } from '../../lib/cn.ts'
 import type { Currency } from '../../lib/format.ts'
-import { useRouter } from '../../lib/router.tsx'
+import { useLeaveGuard, useRouter } from '../../lib/router.tsx'
+import { useOverlays } from '../../shell/overlays.tsx'
 import { NotFound } from '../NotFound.tsx'
 import {
   addDays,
@@ -74,6 +75,19 @@ function InvoiceFormScreen({ initial, existingId, existingStatus }: ScreenProps)
   const form = useRef<HTMLFormElement>(null)
   const editing = existingId !== undefined
   const dirty = useMemo(() => JSON.stringify(values) !== JSON.stringify(initial), [values, initial])
+  const { confirm } = useOverlays()
+  // Unsaved changes: ask before leaving (not while saving: the changes are already on their way).
+  useLeaveGuard(dirty && !saving, () =>
+    confirm({ title: 'Leave without saving?', description: 'Your changes to this invoice will be lost.', confirmLabel: 'Discard changes' }),
+  )
+  // The save finishes after a delay; if the user left meanwhile it must not pull them back.
+  const mounted = useRef(true)
+  useEffect(
+    () => () => {
+      mounted.current = false
+    },
+    [],
+  )
 
   /** Update one field; after a failed submit, re-validate live so errors clear as they are fixed. */
   const set = <K extends keyof InvoiceFormValues>(key: K, value: InvoiceFormValues[K]) => {
@@ -102,7 +116,7 @@ function InvoiceFormScreen({ initial, existingId, existingStatus }: ScreenProps)
     setSaving(true)
     window.setTimeout(() => {
       toast({ title: editing ? 'Changes saved' : 'Invoice created', description: `${values.number} for ${values.customer?.name ?? ''} is ready to send.` })
-      navigate(`/invoices/${existingId ?? 'inv-2264'}`)
+      if (mounted.current) navigate(`/invoices/${existingId ?? 'inv-2264'}`)
     }, 600)
   }
 

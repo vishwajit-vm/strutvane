@@ -75,6 +75,9 @@ export function useGlobalShortcuts({ openPalette, openShortcuts, navigate }: Han
     let awaitingGo: number | null = null
     const onKeyDown = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+        // Not over another dialog (a confirm, the drawer): stacking the palette on top of it
+        // leaves two modals fighting for focus. The open dialog's own keys win.
+        if (document.querySelector('[role="dialog"], [role="alertdialog"]') !== null) return
         event.preventDefault()
         openPalette()
         return
