@@ -103,7 +103,7 @@ function dropColumnSql(state: SchemaState, before: TableState, after: TableState
   const column = findColumn(before, name)
   if (isMysqlFamily(dialect)) {
     // MySQL refuses to drop a column while a foreign key constraint still uses it.
-    const dropForeignKey = column?.references === undefined ? [] : [`ALTER TABLE ${q(before.name)} DROP FOREIGN KEY ${q(foreignKeyName(before.name, name))}`]
+    const dropForeignKey = column?.references === undefined ? [] : [`ALTER TABLE ${q(before.name)} DROP FOREIGN KEY ${q(column.references.name ?? foreignKeyName(before.name, name))}`]
     return [...dropForeignKey, `ALTER TABLE ${q(before.name)} DROP COLUMN ${q(name)}`]
   }
   if (dialect === 'postgres') return [`ALTER TABLE ${q(before.name)} DROP COLUMN ${q(name)}`]
@@ -253,7 +253,7 @@ function referencesSql(reference: ForeignKeyDef, dialect: Dialect): string {
 
 function foreignKeyConstraintSql(table: string, column: string, reference: ForeignKeyDef, dialect: Dialect): string {
   const q = (name: string): string => quoteIdentifier(name, dialect)
-  return `CONSTRAINT ${q(foreignKeyName(table, column))} FOREIGN KEY (${q(column)}) ${referencesSql(reference, dialect)}`
+  return `CONSTRAINT ${q(reference.name ?? foreignKeyName(table, column))} FOREIGN KEY (${q(column)}) ${referencesSql(reference, dialect)}`
 }
 
 /** Laravel's foreign key naming: `posts_author_id_foreign`. */

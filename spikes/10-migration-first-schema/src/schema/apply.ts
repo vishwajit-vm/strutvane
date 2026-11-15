@@ -79,9 +79,13 @@ function applyTableActions(state: SchemaState, name: string, actions: readonly T
 function applyTableAction(state: SchemaState, tableName: string, action: TableAction, mode: 'create' | 'alter'): SchemaState {
   const table = requireTable(state, tableName)
   switch (action.type) {
-    case 'addColumn':
+    case 'addColumn': {
       assertColumnCanBeAdded(state, table, action.column, mode)
-      return replaceTable(state, tableName, { ...table, columns: [...table.columns, action.column] })
+      // Name the foreign key now (Laravel's convention), so later renames don't change it.
+      const references = action.column.references
+      const column = references === undefined || references.name !== undefined ? action.column : { ...action.column, references: { ...references, name: `${tableName}_${action.column.name}_foreign` } }
+      return replaceTable(state, tableName, { ...table, columns: [...table.columns, column] })
+    }
     case 'renameColumn':
       return renameColumn(state, table, action.from, action.to)
     case 'dropColumn':

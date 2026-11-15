@@ -28,7 +28,7 @@ describe('replaying the blog app', () => {
       'created_at', 'updated_at', 'deleted_at', 'subtitle', 'category_id',
     ])
     expect(findColumn(posts, 'content')).toEqual({ name: 'content', kind: 'text', nullable: true })
-    expect(findColumn(posts, 'category_id')?.references).toEqual({ table: 'categories', column: 'id', onDelete: 'set null' })
+    expect(findColumn(posts, 'category_id')?.references).toEqual({ table: 'categories', column: 'id', onDelete: 'set null', name: 'posts_category_id_foreign' })
     expect(posts.indexes.map((index) => index.name)).toEqual(['posts_slug_unique', 'posts_status_index'])
     // `labels` was renamed to `tags`; its index keeps its original name, as in every database.
     expect(findTable(state, 'tags')?.indexes.map((index) => index.name)).toEqual(['labels_name_unique'])

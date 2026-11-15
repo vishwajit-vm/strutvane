@@ -141,6 +141,25 @@ describe('engine-specific ALTER handling', () => {
     expect(createSchemaSql(base, 'mariadb').join('\n')).toContain('CONSTRAINT `posts_author_id_foreign` FOREIGN KEY (`author_id`) REFERENCES `users` (`id`)')
   })
 
+  test('MySQL drops a foreign key by the name it was created with, after table and column renames', () => {
+    // MySQL keeps a constraint's name when its table or column is renamed. The name used to be
+    // derived from the *current* names at drop time, so after labels → tags the migration ran
+    // DROP FOREIGN KEY tags_owner_id_foreign: "Can't DROP … check that column/key exists"
+    // (checked on MySQL 8.4.13), leaving a half-applied migration (MySQL DDL isn't transactional).
+    const withOwner = state((schema) => {
+      schema.create('labels', (t) => {
+        t.id()
+        t.foreignId('owner_id').nullable().constrained('users').nullOnDelete()
+      })
+      schema.rename('labels', 'tags')
+    }, base)
+    const drop = (schema: SchemaBuilder): void => schema.table('tags', (t) => t.dropConstrainedForeignId('owner_id'))
+    expect(compile(withOwner, drop, 'mysql')).toEqual(['ALTER TABLE `tags` DROP FOREIGN KEY `labels_owner_id_foreign`', 'ALTER TABLE `tags` DROP COLUMN `owner_id`'])
+    const renamedColumn = state((schema) => schema.table('posts', (t) => t.renameColumn('author_id', 'writer_id')), base)
+    const dropWriter = (schema: SchemaBuilder): void => schema.table('posts', (t) => t.dropConstrainedForeignId('writer_id'))
+    expect(compile(renamedColumn, dropWriter, 'mariadb')[0]).toBe('ALTER TABLE `posts` DROP FOREIGN KEY `posts_author_id_foreign`')
+  })
+
   test('table renames: ALTER … RENAME TO, except MySQL\'s RENAME TABLE', () => {
     const rename = (schema: SchemaBuilder): void => schema.rename('posts', 'articles')
     expect(compile(base, rename, 'postgres')).toEqual(['ALTER TABLE "posts" RENAME TO "articles"'])

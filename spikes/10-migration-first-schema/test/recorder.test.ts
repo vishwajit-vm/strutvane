@@ -50,7 +50,7 @@ describe('create', () => {
     const posts = findTable(state, 'posts')
     expect(posts?.columns.map((column) => column.name)).toEqual(['id', 'title', 'slug', 'body', 'author_id'])
     expect(posts === undefined ? undefined : findColumn(posts, 'title')).toEqual({ name: 'title', kind: 'string', nullable: false, length: 200 })
-    expect(posts === undefined ? undefined : findColumn(posts, 'author_id')?.references).toEqual({ table: 'users', column: 'id', onDelete: 'no action' })
+    expect(posts === undefined ? undefined : findColumn(posts, 'author_id')?.references).toEqual({ table: 'users', column: 'id', onDelete: 'no action', name: 'posts_author_id_foreign' })
     expect(posts?.indexes).toEqual([{ name: 'posts_slug_unique', columns: ['slug'], unique: true }])
   })
 
@@ -64,7 +64,7 @@ describe('create', () => {
       })
     })
     const posts = findTable(state, 'posts')
-    expect(posts === undefined ? undefined : findColumn(posts, 'category_id')?.references).toEqual({ table: 'categories', column: 'id', onDelete: 'set null' })
+    expect(posts === undefined ? undefined : findColumn(posts, 'category_id')?.references).toEqual({ table: 'categories', column: 'id', onDelete: 'set null', name: 'posts_category_id_foreign' })
   })
 
   test('a self-referencing key works inside create', () => {

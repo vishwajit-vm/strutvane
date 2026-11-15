@@ -54,6 +54,11 @@ export interface ForeignKeyDef {
   readonly column: string
   /** What the database does to this row when the parent row is deleted. */
   readonly onDelete: ReferentialAction
+  /**
+   * The constraint's name, fixed when the column is added (`posts_author_id_foreign`). MySQL keeps
+   * it through table and column renames, so it must be remembered, not re-derived when dropping.
+   */
+  readonly name?: string
 }
 
 /**
