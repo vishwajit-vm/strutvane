@@ -197,9 +197,20 @@ function stringToDatabase(table: string, column: ColumnDef, value: unknown): str
   return value
 }
 
+/**
+ * The only timestamp strings accepted: ISO 8601 with an explicit zone (`Z` or `±hh:mm`), or a bare
+ * date meaning UTC midnight. `new Date()` alone would also take `'2026-11-14T10:00:00'` (read in the
+ * *server's* time zone, so the stored instant depended on where the app ran), `'Nov 14 2026'` or `'1'`.
+ */
+const TIMESTAMP_TEXT = /^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2})(?::(\d{2})(?:\.\d{1,9})?)?(?:Z|[+-]\d{2}:\d{2}))?$/
+/** Years every engine stores (MySQL DATETIME: 1000–9999); outside them the engines disagree. */
+const YEARS = { min: 1000, max: 9999 } as const
+
 function timestampToDatabase(table: string, column: ColumnDef, value: unknown, dialect: Dialect): string {
-  const date = value instanceof Date ? value : typeof value === 'string' ? new Date(value) : undefined
-  if (date === undefined || Number.isNaN(date.getTime())) throw new CastError(table, column.name, `expected a Date or an ISO-8601 string, got ${describe(value)}`)
+  const date = value instanceof Date ? value : typeof value === 'string' ? parseTimestamp(value) : undefined
+  if (date === undefined || Number.isNaN(date.getTime()) || !inYearRange(date)) {
+    throw new CastError(table, column.name, `expected a Date or an ISO-8601 string with a time zone (2026-11-14T09:30:00Z), years ${YEARS.min}–${YEARS.max}, got ${describe(value)}`)
+  }
   const iso = date.toISOString()
   // MySQL DATETIME(3) has no time zone and rejects the "Z": store UTC as "YYYY-MM-DD HH:MM:SS.mmm"
   // (the driver reads it back as UTC). Elsewhere always the same ISO text, so SQLite's text
@@ -208,9 +219,31 @@ function timestampToDatabase(table: string, column: ColumnDef, value: unknown, d
 }
 
 function dateToDatabase(table: string, column: ColumnDef, value: unknown): string {
-  const text = value instanceof Date ? value.toISOString().slice(0, 10) : value
-  if (typeof text !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(text)) throw new CastError(table, column.name, `expected a date like 2026-11-14, got ${describe(value)}`)
+  const text = value instanceof Date && !Number.isNaN(value.getTime()) ? value.toISOString().slice(0, 10) : value
+  if (typeof text !== 'string' || !isCalendarDate(text)) throw new CastError(table, column.name, `expected a real date like 2026-11-14 (years ${YEARS.min}–${YEARS.max}), got ${describe(value)}`)
   return text
+}
+
+/** A timestamp string in the accepted shape, or `undefined`. Calendar fields must round-trip. */
+function parseTimestamp(text: string): Date | undefined {
+  const match = TIMESTAMP_TEXT.exec(text)
+  if (match === null || !isCalendarDate(text.slice(0, 10))) return undefined
+  // 24:00 and 23:60 are not times of day (Date would roll them into the next day or hour).
+  if (Number(match[4] ?? 0) > 23 || Number(match[5] ?? 0) > 59 || Number(match[6] ?? 0) > 59) return undefined
+  const date = new Date(text.length === 10 ? `${text}T00:00:00.000Z` : text)
+  return Number.isNaN(date.getTime()) ? undefined : date
+}
+
+/** `YYYY-MM-DD` that exists on the calendar (no 2026-02-30) within the portable years. */
+function isCalendarDate(text: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(text)) return false
+  const date = new Date(`${text}T00:00:00.000Z`)
+  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === text && inYearRange(date)
+}
+
+function inYearRange(date: Date): boolean {
+  const year = date.getUTCFullYear()
+  return year >= YEARS.min && year <= YEARS.max
 }
 
 const DECIMAL = /^(-?)(\d+)(?:\.(\d+))?$/

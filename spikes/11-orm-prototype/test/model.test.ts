@@ -97,6 +97,29 @@ describe.each(engines)('models on $name', (engine) => {
       })
     })
 
+    test('dates and timestamps are validated the same way on every engine (no time-zone guessing)', async () => {
+      const ada = await makeUser('Ada')
+      const post = await makePost(ada, 'Dated')
+      // Calendar dates that do not exist: SQLite stored them, PostgreSQL and MySQL failed with a
+      // database error (a 500), and new Date() would have rolled 2026-02-30 over to March 2.
+      for (const day of ['2026-02-30', '2026-13-01', '0999-12-31']) {
+        post.fill({ published_on: day })
+        await expect(post.save(), day).rejects.toBeInstanceOf(CastError)
+        await post.refresh()
+      }
+      // Timestamps need an explicit zone: '2026-11-14T10:00:00' meant 10:00 in the *server's* zone.
+      for (const moment of ['2026-11-14T10:00:00', '2026-11-14 10:00:00', 'Nov 14 2026', '1', '2026-11-14T24:00:00Z', '+010000-01-01T00:00:00Z']) {
+        expect(() => Post.query().filter('created_at', 'gt', moment), moment).toThrow(CastError)
+      }
+      expect(() => Post.query().where('created_at', '>', new Date('+010000-01-01T00:00:00Z'))).toThrow(CastError)
+      // Offsets are honoured and stored as UTC; a date-only string means UTC midnight.
+      // What a JS caller (or a decoded JSON body) can hand over: a string, not a Date.
+      ;(post as unknown as { setAttribute(column: string, value: unknown): unknown }).setAttribute('created_at', '2026-11-14T10:00:00+05:30')
+      await post.save()
+      expect((await Post.findOrFail(post.id)).created_at?.toISOString()).toBe('2026-11-14T04:30:00.000Z')
+      expect(await Post.query().filter('created_at', 'gte', '2026-11-14').filter('created_at', 'lt', '2026-11-14T04:30:00.001Z').count()).toBe(1)
+    })
+
     test('enum and length violations fail the same way on every engine', async () => {
       const ada = await makeUser('Ada')
       const post = await makePost(ada, 'Strict')
