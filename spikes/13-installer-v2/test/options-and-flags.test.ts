@@ -1,11 +1,15 @@
 /**
  * Choices, defaults, flag parsing and npm's swallowed flags.
  */
+import { existsSync } from 'node:fs'
+import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { ArgsError, parseCommandLine } from '../src/args.ts'
 import { OptionsError, resolveOptions, teamsNote } from '../src/options.ts'
 import { findSwallowedFlags, swallowedFlagsMessage } from '../src/swallowed-flags.ts'
 import { validateProjectName } from '../src/validate-name.ts'
+import { main } from '../src/main.ts'
+import { fakeEnvironment, tempFolder } from './helpers/fakes.ts'
 
 const NPM = 'npm/11.19.0 node/v24.21.0 win32 x64 workspaces/false'
 
@@ -178,6 +182,64 @@ describe('flags swallowed by npm (options before "--")', () => {
     const message = swallowedFlagsMessage({ npm_config_user_agent: NPM, npm_config_db: 'sqlite', npm_config_git: 'false' }, ['my-app', 'sqlite'])
     expect(message).toContain('npm create strutvane@latest my-app -- --db sqlite --no-git')
     expect(message).toContain('npx create-strutvane@latest my-app --db sqlite --no-git')
+  })
+
+  // Regression (class: npm's real traces, not guessed ones). Recorded with real npm 11.19.0,
+  // `npm create` against a local package, no "--" (2026-11-15):
+  // - `--db sqlite` (space) leaves npm_config_db=true and "sqlite" as a stray positional; the
+  //   old check refused "true" as a value, so no corrected command was printed, and for free-text
+  //   flags it printed a WRONG one (`-- --db-host true`);
+  // - `--git` / `--editor` (npm's own string settings) leave the variable EMPTY; the old code read
+  //   empty as "--no-git", the opposite of what was typed;
+  // - `--pwa` is split by npm into -p -w -a (parseable, workspace) and the installer ran inside a
+  //   new folder named "--all": the traces are npm_config_parseable=true and "workspaces/true".
+  describe('what real npm leaves behind', () => {
+    const AGENT = 'npm/11.19.0 node/v24.21.0 win32 x64 workspaces/false'
+
+    it('`--db sqlite`: the value is taken back from the stray positional', () => {
+      const message = swallowedFlagsMessage({ npm_config_user_agent: AGENT, npm_config_db: 'true' }, ['my-app', 'sqlite'])
+      expect(message).toContain('npm create strutvane@latest my-app -- --db sqlite')
+    })
+
+    it('a free-text flag is never rebuilt with the value "true"', () => {
+      const message = swallowedFlagsMessage({ npm_config_user_agent: AGENT, npm_config_db_host: 'true' }, ['my-app', 'db.example.com'])
+      expect(message).toContain('-- --db-host db.example.com')
+      expect(message).not.toContain('--db-host true')
+    })
+
+    it('two value flags: the words npm left behind are listed, never guessed into the wrong flag', () => {
+      const message = swallowedFlagsMessage({ npm_config_user_agent: AGENT, npm_config_db: 'true', npm_config_design: 'true' }, ['my-app', 'sqlite', 'vivid']) ?? ''
+      expect(message).toMatch(/--design <value> --db <value>|--db <value> --design <value>/)
+      expect(message).toContain('npm left these words behind: sqlite, vivid')
+    })
+
+    it('`--git` and `--editor` leave an empty value: that means yes, not --no-git', () => {
+      const message = swallowedFlagsMessage({ npm_config_user_agent: AGENT, npm_config_git: '', npm_config_editor: '' }, ['my-app']) ?? ''
+      expect(message).toContain('-- --git --editor')
+      expect(message).not.toContain('--no-git')
+      expect(swallowedFlagsMessage({ npm_config_user_agent: AGENT, npm_config_git: 'false' }, ['my-app'])).toContain('-- --no-git')
+      // A flag npm does not know: --no-teams is stored as an empty value (verified for all 13).
+      expect(swallowedFlagsMessage({ npm_config_user_agent: AGENT, npm_config_teams: '', npm_config_pwa: '' }, ['my-app'])).toContain('-- --no-teams --no-pwa')
+      expect(swallowedFlagsMessage({ npm_config_user_agent: AGENT, npm_config_teams: 'true' }, ['my-app'])).toContain('-- --teams')
+    })
+
+    it('`--pwa` (npm reads -p -w -a): recognised from its traces before anything is written', () => {
+      const message = swallowedFlagsMessage({ npm_config_user_agent: 'npm/11.19.0 node/v24.21.0 win32 x64 workspaces/true', npm_config_parseable: 'true' }, ['my-app'])
+      expect(message).toContain('-- --pwa')
+    })
+
+    it('`--feature-option a=b` leaves its value behind too', () => {
+      const message = swallowedFlagsMessage({ npm_config_user_agent: AGENT, npm_config_feature_option: 'true' }, ['my-app', 'billing.provider=paddle'])
+      expect(message).toContain('-- --feature-option billing.provider=paddle')
+    })
+
+    it('the installer stops with that message (exit 1, nothing created) when it got a stray word', async () => {
+      const cwd = tempFolder()
+      const { environment, output } = fakeEnvironment({ cwd, argv: ['my-app', 'sqlite'], env: { npm_config_user_agent: AGENT, npm_config_db: 'true' } })
+      expect(await main(environment)).toBe(1)
+      expect(output()).toContain('-- --db sqlite')
+      expect(existsSync(join(cwd, 'my-app'))).toBe(false)
+    })
   })
 
   it('ignores npm\'s own git setting (a path) and anything not started by npm', () => {

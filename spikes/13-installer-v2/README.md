@@ -172,11 +172,17 @@ Exit codes: 0 ready, 1 nothing created, 2 created but setup unfinished, 130 canc
 
 ## Findings
 
-1. **npm swallows flags before `--` in a recognisable way** (verified): `npm_config_<flag>` is
-   set and the flag's value stays behind as an extra positional. npm also **expands prefixes**:
-   `--auth none` becomes `npm_config_auth_type=none` (with an "invalid config" warning), and
-   `--dev` turns into `--include=dev` without leaving a variable. The installer detects the traces
-   and prints the corrected `npm create … -- …` and `npx create-strutvane …` commands.
+1. **npm swallows flags before `--`** (re-verified 2026-11-15 for every flag with real npm 11.19.0,
+   `npm create` against a local package): `--db sqlite` leaves `npm_config_db=true` and `sqlite`
+   as a stray positional (`--db=sqlite` keeps the value); `--teams` → `true`, `--no-teams` →
+   `""`; npm's own settings differ: `--git` / `--editor` → `""`, `--no-git` → `false`.
+   `--pwa` is split into `-p -w -a` (parseable, workspace) and the installer ran **inside a new
+   folder named `--all`**. The installer now reads all of these correctly and prints the right
+   `npm create … -- …` / `npx …` command for 57 of 60 flag forms. **Undetectable** (no trace at
+   all): `--auth X` (expanded to npm's `--auth-type`, dropped as invalid, so the project silently
+   gets the default sign-in) and `--ci` / `--no-ci` (expanded to `--cidr`). Renaming those two
+   flags (`--sign-in`, `--ci-workflow`) is the only real fix; the message now warns about them.
+   `--dev` turns into `--include=dev` without leaving a variable.
 2. **`node <npm-cli.js>` without a shell is enough everywhere**: `npm_execpath` points at
    `npm-cli.js` under `npm create`; next to `node.exe` otherwise. Real-process test: `a&b`,
    `100%PATH%`, `^`, quotes and `title:string(120)` arrive intact.
@@ -253,9 +259,8 @@ inside the container), Host allowlist · F-20 owner/app PostgreSQL roles, every 
   or run**; it has no database service (SQLite works; server databases need your own DB_*).
 - **The clack `groupMultiselect` / `autocompleteMultiselect` pickers** (question 22) were not
   driven in a real terminal; the flows are proven with the scripted prompter only.
-- **Swallowed new flags** (`--design`, `--security`, `--cache-store`, ...) are detected from
-  `npm_config_<flag>` by analogy with the verified ones; not re-checked with a real npm. `--cache`
-  was avoided on purpose: npm owns `npm_config_cache`.
+- **`--auth` and `--ci` before `--`** are swallowed by npm without a trace (finding 1); not fixable
+  in the installer. `--cache` was avoided on purpose: npm owns `npm_config_cache`.
 - A typed admin password is memory-only, so a **resumed** setup (`npm run setup`) generates one
   instead and shows it once.
 - CI action versions (`actions/checkout@v4`, `setup-node@v4`) are *(unverified)* for 2026.

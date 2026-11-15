@@ -16,7 +16,11 @@ import { QUESTIONS } from './question-registry.ts'
 export interface SwallowedFlag {
   /** Our flag name without dashes, e.g. `db`. */
   readonly flag: string
-  /** What npm stored: `'true'`, `'false'`, `''` (from `--no-x`) or the value. */
+  /**
+   * What npm stored. Verified with npm 11.19.0: `--db=sqlite` stores `sqlite`; `--db sqlite`
+   * stores `true` and leaves `sqlite` behind as a positional; `--teams` stores `true`,
+   * `--no-teams` `false`; `--git` / `--editor` (npm's own string settings) store `''`.
+   */
   readonly value: string
 }
 
@@ -50,6 +54,8 @@ const WATCHED: readonly Watched[] = QUESTIONS.flatMap((question) => {
       keys: [`npm_config_${flag.name.replaceAll('-', '_')}`, ...(flag.npmAliases ?? [])],
       accepts: (value: string) => {
         if (flag.type === 'boolean') return ['true', 'false', ''].includes(value)
+        // `--db sqlite` (with a space): npm keeps only "true"; the value stays a positional.
+        if (value === 'true') return true
         const problems: string[] = []
         question.read(flag.multiple === true ? [value] : value, problems)
         return problems.length === 0
@@ -57,6 +63,9 @@ const WATCHED: readonly Watched[] = QUESTIONS.flatMap((question) => {
     },
   ]
 })
+
+/** Our yes/no flags that are also npm settings of its own (strings), so npm stores them its way. */
+const NPM_OWN_STRING_SETTINGS: ReadonlySet<string> = new Set(['git', 'editor'])
 
 /** Boolean flags: npm stores `true`, or `false`/`''` for the `--no-` form. */
 const BOOLEAN_FLAGS: ReadonlySet<string> = new Set(QUESTIONS.flatMap((q) => (q.flag?.type === 'boolean' ? [q.flag.name] : [])))
@@ -84,6 +93,12 @@ export function startedByNpm(env: NodeJS.ProcessEnv): boolean {
 export function findSwallowedFlags(env: NodeJS.ProcessEnv): SwallowedFlag[] {
   if (!startedByNpm(env)) return []
   const found: SwallowedFlag[] = []
+  // `--pwa` is not one of npm's settings, so npm reads it as the short flags -p -w -a
+  // (parseable, workspace) and even runs us inside a new folder. Its traces: parseable output on,
+  // and npm saying it works with workspaces. Nobody passes those to `npm create` on purpose.
+  if (env['npm_config_parseable'] === 'true' && /\bworkspaces\/true\b/.test(env['npm_config_user_agent'] ?? '')) {
+    found.push({ flag: 'pwa', value: 'true' })
+  }
   for (const { flag, keys, accepts } of WATCHED) {
     for (const key of keys) {
       const value = env[key]
@@ -101,11 +116,14 @@ export function findSwallowedFlags(env: NodeJS.ProcessEnv): SwallowedFlag[] {
  * @example
  * flagText({ flag: 'git', value: 'false' }) // '--no-git'
  */
-export function flagText(swallowed: SwallowedFlag): string {
+export function flagText(swallowed: SwallowedFlag, value: string = swallowed.value): string {
   if (BOOLEAN_FLAGS.has(swallowed.flag)) {
-    return swallowed.value === 'true' ? `--${swallowed.flag}` : `--no-${swallowed.flag}`
+    // npm 11.19.0, verified for every flag: a flag npm does not know stores "true" / "" (--no-x);
+    // npm's own string settings (git, editor) store "" for --x and "false" for --no-x.
+    const no = swallowed.value === 'false' || (swallowed.value === '' && !NPM_OWN_STRING_SETTINGS.has(swallowed.flag))
+    return no ? `--no-${swallowed.flag}` : `--${swallowed.flag}`
   }
-  return `--${swallowed.flag} ${swallowed.value}`
+  return `--${swallowed.flag} ${value}`
 }
 
 /**
@@ -128,13 +146,26 @@ export function swallowedFlagsMessage(
   const swallowed = findSwallowedFlags(env)
   if (swallowed.length === 0) return undefined
   const name = positionals[0] ?? 'my-app'
-  const flags = swallowed.map(flagText).join(' ')
+  // `--db sqlite`: npm kept "true" and left "sqlite" behind as a positional. With one such flag
+  // the word is its value; with several, npm does not say which word was whose, so we show
+  // placeholders and the words rather than guess (a wrong guess would be a wrong project).
+  const lost = swallowed.filter((flag) => !BOOLEAN_FLAGS.has(flag.flag) && flag.value === 'true')
+  const leftovers = positionals.slice(1)
+  const valueOf = (flag: SwallowedFlag): string => {
+    if (!lost.includes(flag)) return flag.value
+    return lost.length === 1 && leftovers.length === 1 ? (leftovers[0] ?? '<value>') : '<value>'
+  }
+  const flags = swallowed.map((flag) => flagText(flag, valueOf(flag))).join(' ')
+  const words = lost.length > 1 && leftovers.length > 0 ? [`npm left these words behind: ${leftovers.join(', ')} (put each after its option).`] : []
   return [
     `npm kept these options for itself, so the installer never received them: ${flags}`,
+    ...words,
     'With npm create, options go after "--". Run this instead:',
     '',
     `  npm create strutvane@latest ${name} -- ${flags}`,
     '',
     `Or without the "--" rule:  npx create-strutvane@latest ${name} ${flags}`,
+    '',
+    'npm also turns --auth into its own --auth-type and --ci into --cidr without telling us: write them after "--" too.',
   ].join('\n')
 }
