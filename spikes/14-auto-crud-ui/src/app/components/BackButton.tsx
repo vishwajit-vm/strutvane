@@ -15,6 +15,7 @@
 import { useCanGoBack, useNavigate, useRouter, type NavigateOptions } from '@tanstack/react-router'
 import { IconArrowLeft } from '@tabler/icons-react'
 import { useCallback, useEffect, type ReactElement } from 'react'
+import { shortcutBlocked } from '../lib/hooks.ts'
 
 /**
  * Where "back" goes when there is no in-app history: a typed route target.
@@ -87,7 +88,8 @@ export function BackButton({ label, parent }: BackButtonProps): ReactElement {
 function useAltLeft(goBack: () => void): void {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent): void => {
-      if (event.altKey && event.key === 'ArrowLeft' && !event.ctrlKey && !event.metaKey && !event.shiftKey) {
+      // Alt+Left is "word left" in macOS text fields: never steal it while typing or in a dialog.
+      if (event.altKey && event.key === 'ArrowLeft' && !event.ctrlKey && !event.metaKey && !event.shiftKey && !shortcutBlocked(event)) {
         event.preventDefault()
         goBack()
       }

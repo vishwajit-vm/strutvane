@@ -2,9 +2,10 @@
  * Keyboard shortcuts for the whole admin, and the `?` overlay that lists them (DESIGN.md §11).
  *
  * Rules that keep shortcuts from getting in the way:
- * - single keys (`/`, `?`, `n`, `e`, `g d`) never fire while you type in a field, or while a
- *   dialog is open;
- * - modifier chords (Ctrl/Cmd+K, Alt+←) work everywhere, because they never collide with typing;
+ * - single keys (`/`, `?`, `n`, `e`, `g d`) never fire while you type in a field, while a menu or
+ *   listbox has focus, or while a dialog is open (`shortcutBlocked`);
+ * - Ctrl/Cmd+K works everywhere; Alt+← follows the single-key rule, because it IS a typing key
+ *   (word left on macOS);
  * - every shortcut has a visible, clickable equivalent (search button, New, Edit, Back).
  *
  * @module
@@ -14,7 +15,7 @@ import { useEffect, useId, useRef, type ReactElement } from 'react'
 import { useSession } from '../auth/session.tsx'
 import { Button } from '../components/ui/button.tsx'
 import { Dialog } from '../components/ui/dialog.tsx'
-import { isTypingTarget } from '../lib/hooks.ts'
+import { shortcutBlocked } from '../lib/hooks.ts'
 import { useRegistry } from '../registry.tsx'
 
 /** How long after `g` the second key of a "go to" sequence is accepted. */
@@ -66,8 +67,7 @@ export function useShortcuts({ openSearch, openHelp }: { readonly openSearch: ()
     const [route, key, action] = pathSegments(pathname)
     const resource = route === undefined ? undefined : byRoute.get(route)
     const onKeyDown = (event: KeyboardEvent): void => {
-      if (event.ctrlKey || event.metaKey || event.altKey || isTypingTarget(event.target)) return
-      if (document.querySelector('[aria-modal="true"]') !== null) return
+      if (event.ctrlKey || event.metaKey || event.altKey || shortcutBlocked(event)) return
       const press = event.key
       if (press === 'd' && Date.now() - pendingG.current < SEQUENCE_MS) {
         pendingG.current = 0

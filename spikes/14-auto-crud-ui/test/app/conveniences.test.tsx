@@ -224,6 +224,36 @@ describe('lists', () => {
 })
 
 describe('keyboard shortcuts', () => {
+  it('Alt+Left never fires while typing (it is "word left" on macOS) or with a dialog open', async () => {
+    const app = renderApp({ path: '/tags/1/edit' })
+    const name = await screen.findByRole('textbox', { name: /^Name/ })
+    name.focus()
+    fireEvent.keyDown(name, { key: 'ArrowLeft', altKey: true })
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(app.history.location.pathname).toBe('/tags/1/edit')
+    expect(screen.queryByRole('alertdialog')).toBeNull()
+    app.unmount()
+
+    const detail = renderApp({ path: '/posts/shipping-notes' })
+    await screen.findAllByRole('heading', { name: 'Shipping: notes' })
+    await detail.user.keyboard('?')
+    const dialog = screen.getByRole('dialog', { name: 'Keyboard shortcuts' })
+    fireEvent.keyDown(dialog, { key: 'ArrowLeft', altKey: true })
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(detail.history.location.pathname).toBe('/posts/shipping-notes')
+  })
+
+  it('single-key shortcuts do not fire while a menu or listbox has focus', async () => {
+    const app = renderApp({ path: '/posts' })
+    await waitForTable('Posts')
+    await app.user.click(screen.getByRole('button', { name: 'Columns' }))
+    expect(screen.getByRole('menuitemcheckbox', { name: 'Slug' })).toBeInTheDocument()
+    expect(document.activeElement?.closest('[role="menu"]')).not.toBeNull()
+    await app.user.keyboard('n')
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(app.history.location.pathname).toBe('/posts')
+  })
+
   it('? lists them; g d, n, e and / work outside fields and never while typing', async () => {
     const app = renderApp({ path: '/posts/shipping-notes' })
     await screen.findByRole('heading', { name: 'Shipping: notes' })
