@@ -280,4 +280,26 @@ describe('config', () => {
     expect(() => defineAuthConfig({ appUrl: 'http://x.test', limits: { loginPerIp: { max: 0, windowSeconds: 60 } } })).toThrow(RangeError)
     expect(() => defineAuthConfig({ appUrl: 'not a url' })).toThrow()
   })
+  it('fails at boot on settings that would silently weaken a control', () => {
+    const base = { appUrl: 'https://app.example.com' }
+    const pk = (rpId: string, origins: readonly string[]) => () =>
+      defineAuthConfig({ ...base, features: { passkeys: true }, passkeys: { rpId, rpName: 'Acme', origins } })
+    // Passkeys: origins must be exact http(s) origins under the rpId; https except on localhost.
+    expect(pk('example.com', ['https://app.example.com'])).not.toThrow()
+    expect(pk('localhost', ['http://localhost:3000'])).not.toThrow()
+    expect(pk('example.com', ['https://evil.test'])).toThrow(/passkeys/)
+    expect(pk('example.com', ['https://notexample.com'])).toThrow(/passkeys/)
+    expect(pk('example.com', ['http://app.example.com'])).toThrow(/passkeys/)
+    expect(pk('example.com', ['*'])).toThrow(/passkeys/)
+    expect(pk('example.com', ['https://app.example.com/login'])).toThrow(/passkeys/)
+    expect(pk('example.com', [])).toThrow(/passkeys/)
+    expect(pk('https://example.com', ['https://example.com'])).toThrow(/passkeys/)
+    // The lockout threshold: Infinity or NaN switched the lockout off without a word.
+    for (const threshold of [0, -1, 1.5, Number.NaN, Number.POSITIVE_INFINITY])
+      expect(() => defineAuthConfig({ ...base, lockout: { threshold } }), String(threshold)).toThrow(RangeError)
+    expect(() => defineAuthConfig({ ...base, lockout: { baseSeconds: 600, maxSeconds: 60 } })).toThrow(RangeError)
+    // Links are built on appUrl: only http(s) makes sense (javascript: has origin "null").
+    expect(() => defineAuthConfig({ appUrl: 'javascript:alert(1)' })).toThrow(TypeError)
+    expect(() => defineAuthConfig({ appUrl: 'file:///etc/passwd' })).toThrow(TypeError)
+  })
 })

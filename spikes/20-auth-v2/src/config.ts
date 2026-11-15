@@ -201,6 +201,41 @@ export const DEFAULT_LIMITS: RateLimits = Object.freeze({
 const MINUTE = 60_000
 const ABILITY = /^(\*|[a-z][a-zA-Z0-9-]*(\.([a-z][a-zA-Z0-9-]*|\*))*)$/
 
+const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]'])
+
+/**
+ * Check the WebAuthn relying party at boot. The library compares origins exactly, but a wrong
+ * list fails OPEN in ways it cannot see: a foreign origin (`https://evil.test`) or a plain-http
+ * origin would let that site answer ceremonies for this rpId. Each origin must be an exact http(s)
+ * origin (no path, no wildcard), https unless it is localhost, and its host must be the rpId or a
+ * subdomain of it (the browser rule).
+ */
+function checkPasskeys(config: PasskeyConfig): PasskeyConfig {
+  const fail = (why: string): never => {
+    throw new TypeError(`auth config: passkeys ${why}`)
+  }
+  const rpId = config.rpId
+  if (typeof rpId !== 'string' || !/^[a-z0-9.-]+$/.test(rpId) || rpId.startsWith('.') || rpId.endsWith('.'))
+    fail('rpId must be a bare lowercase host name, e.g. `example.com`')
+  if (!Array.isArray(config.origins) || config.origins.length === 0) fail('origins must list at least one origin')
+  for (const origin of config.origins) {
+    let url: URL | undefined
+    try {
+      url = new URL(origin)
+    } catch {
+      url = undefined
+    }
+    if (!url || url.origin !== origin) fail(`origin ${JSON.stringify(origin)} must be an exact origin like https://app.example.com`)
+    else {
+      if (url.protocol !== 'https:' && !(url.protocol === 'http:' && LOCAL_HOSTS.has(url.hostname)))
+        fail(`origin ${JSON.stringify(origin)} must use https (http only on localhost)`)
+      if (url.hostname !== rpId && !url.hostname.endsWith(`.${rpId}`))
+        fail(`origin ${JSON.stringify(origin)} is not ${rpId} or a subdomain of it`)
+    }
+  }
+  return Object.freeze({ ...config, origins: Object.freeze([...config.origins]) })
+}
+
 function positive(name: string, value: number): number {
   if (!Number.isFinite(value) || value <= 0) throw new RangeError(`auth config: ${name} must be a positive number`)
   return value
@@ -221,6 +256,8 @@ function positive(name: string, value: number): number {
  */
 export function defineAuthConfig(input: AuthConfigInput): AuthConfig {
   const url = new URL(input.appUrl)
+  // Every mailed link is built on appUrl; `javascript:`/`file:` URLs have origin "null".
+  if (url.protocol !== 'https:' && url.protocol !== 'http:') throw new TypeError('auth config: appUrl must be an http(s) URL')
   const features: AuthFeatures = { ...DEFAULT_FEATURES, ...input.features }
   if (features.passkeys && input.passkeys === undefined)
     throw new TypeError('auth config: features.passkeys needs a `passkeys: { rpId, rpName, origins }` block')
@@ -239,6 +276,12 @@ export function defineAuthConfig(input: AuthConfigInput): AuthConfig {
     if (!Number.isInteger(rule.max) || rule.max < 1) throw new RangeError(`auth config: limits.${name}.max must be a positive integer`)
     positive(`limits.${name}.windowSeconds`, rule.windowSeconds)
   }
+  // A threshold of NaN or Infinity silently switched the lockout off; 0 or a fraction is nonsense.
+  const threshold = input.lockout?.threshold ?? 5
+  if (!Number.isInteger(threshold) || threshold < 1) throw new RangeError('auth config: lockout.threshold must be a positive integer')
+  const lockoutBaseMs = positive('lockout.baseSeconds', input.lockout?.baseSeconds ?? 60) * 1000
+  const lockoutMaxMs = positive('lockout.maxSeconds', input.lockout?.maxSeconds ?? 3600) * 1000
+  if (lockoutMaxMs < lockoutBaseMs) throw new RangeError('auth config: lockout.maxSeconds must be at least lockout.baseSeconds')
   const prefix = input.tokens?.prefix ?? 'svp_'
   if (!/^[a-z]{2,8}_$/.test(prefix)) throw new TypeError('auth config: tokens.prefix must look like `abc_`')
   return Object.freeze({
@@ -272,13 +315,9 @@ export function defineAuthConfig(input: AuthConfigInput): AuthConfig {
       prefix,
     },
     roles: Object.freeze([...ROLE_PRESETS[input.roles ?? 'admin-member']]),
-    passkeys: input.passkeys,
+    passkeys: input.passkeys === undefined ? undefined : checkPasskeys(input.passkeys),
     limits: Object.freeze(limits),
-    lockout: {
-      threshold: input.lockout?.threshold ?? 5,
-      baseMs: positive('lockout.baseSeconds', input.lockout?.baseSeconds ?? 60) * 1000,
-      maxMs: positive('lockout.maxSeconds', input.lockout?.maxSeconds ?? 3600) * 1000,
-    },
+    lockout: { threshold, baseMs: lockoutBaseMs, maxMs: lockoutMaxMs },
   })
 }
 
