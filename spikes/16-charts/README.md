@@ -7,7 +7,7 @@
 ```bash
 cd spikes/16-charts
 npm install
-npm test             # tsc --noEmit (incl. type-level tests) + vitest run (178 tests)
+npm test             # tsc --noEmit (incl. type-level tests) + vitest run (181 tests)
 npm run build        # tsc --noEmit + vite build of the demo
 npm run charts:sync  # regenerate example/.strutvane/charts.gen.ts + lock from resources.json
 npm run dev          # demo on http://localhost:5173, served by the REAL aggregate handler on SQLite
@@ -130,7 +130,7 @@ export default defineResourceCharts('invoices', {
 
 ## 3. Evidence
 
-`npm test` exits 0: `tsc --noEmit` plus **11 files, 178 tests**. `npm run build` exits 0. The full suite was run 5 times in a row green after the Windows fix in Finding 6.
+`npm test` exits 0: `tsc --noEmit` plus **11 files, 181 tests** (2026-11-15). `npm run build` exits 0. The full suite was run 5 times in a row green after the Windows fix in Finding 6.
 
 | File | Tests | What it proves |
 |---|---|---|
