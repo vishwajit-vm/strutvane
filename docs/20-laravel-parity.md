@@ -43,14 +43,14 @@
 | Middleware: global, groups, aliases, parameters | framework | P1 | ✅ spike 12 |
 | Terminable middleware, `defer()` (work after the response) | `terminate()` hook + `defer(fn)`; errors are logged, never lost | P1 | 🆕 |
 | CSRF | every style (§5.2) | P1 | ✅ spike 12 |
-| Controllers: resource, API resource, invokable | framework | P1 | ✅ spike 12 |
+| Controllers: resource, API resource, invokable | framework | P1 | ✅ spike 12 (resource, API resource); 🟡 invokable |
 | Singleton resources, shallow nesting | `Route.singleton()`, `{ shallow: true }` | P1 | 🆕 |
 | Requests: input, files, old input, flash | framework + session flash | P1 | 🟡 |
 | Responses: JSON, download, file, redirect | framework | P1 | ✅ spike 12 |
 | Streamed responses, server-sent events (`response()->eventStream`) | `stream()` and `eventStream()` with back-pressure and abort on disconnect | P2 | 🆕 |
 | Views / Blade | ➖ React UI is owned by the app; mail templates use React components | — | ➖ |
 | Vite | Vite through `@strutvane/ui`; one port in dev | P1 | ✅ spike 14 |
-| URL generation, signed URLs | typed `route()`, `url.signed()`, `url.temporarySigned()` | P1 | ✅ spike 12 |
+| URL generation, signed URLs | typed `route()`, `url.signedRoute()`, `url.temporarySignedRoute()` | P1 | ✅ spike 12 |
 | Session: drivers, flash, regenerate | framework (database/cookie/redis) | P1 | ✅ spike 20 |
 | Session blocking (one request per session at a time) | `.block()` on routes | P2 | 🆕 |
 | Validation: rules, form requests, nested arrays, files, conditional | Zod schemas from migrations + `make:request` | P1 | ✅ spike 10 |
@@ -74,7 +74,7 @@
 | Events after the DB commit (`ShouldDispatchAfterCommit`) | `afterCommit: true` on events, jobs and mail | P2 | 🆕 |
 | File storage: disks, temporary URLs, visibility | local disk in framework; S3/Azure in `files` | P1 / P3 | 🟡 |
 | Helpers: `Str`, `Number`, `Arr`, `retry`, `rescue`, `once`, `tap`, `Benchmark`, `Pipeline`, `Sleep`, `Timebox`, `Lottery` | `@strutvane/framework/support`: `Str`, `Num` (Intl), `retry`, `rescue`, `once`, `Benchmark`, `Pipeline`, fakeable `Sleep`, `Timebox` (constant-time responses), `Lottery` | P1 | 🆕 |
-| HTTP client: retry, pool, middleware, `Http::fake` | SSRF-safe client (§5.2) + `Http.fake()` and `Http.preventStrayRequests()` | P1 | ✅ spike 12; 🆕 fake |
+| HTTP client: retry, pool, middleware, `Http::fake` | SSRF-safe client (§5.2) + `Http.fake()` and `Http.preventStrayRequests()` | P1 | 🟡 (spike 12 has only `safeFetch`); 🆕 fake |
 | Localization: lang files, JSON strings, pluralisation, per-request locale | message catalogues (RFC-0003) + `t()` with ICU plurals | P1 | 🟡 |
 | Mail: mailers, attachments, queueing, local dev inbox | framework mail core (SMTP + dev inbox) | P1 | 🟡 |
 | Markdown mail, mail preview in the browser, failover/round-robin mailers | React mail templates, `/_strutvane/mail/preview/<mailable>`, `failover` and `roundrobin` transports | P2 | 🆕 |
@@ -99,12 +99,12 @@
 
 | Laravel | Strutvane | Phase | Status |
 |---|---|---|---|
-| Multiple connections, transactions, deadlock retries | ORM | P1 | ✅ spike 11 |
+| Multiple connections, transactions, deadlock retries | ORM | P1 | ✅ spike 11 (connections, transactions); 🟡 multiple connections, deadlock retries |
 | Read/write splitting, sticky writes | `read` / `write` hosts in `config/database.ts`, `sticky: true` | P3 | 🆕 |
 | `db:show`, `db:table`, `db:monitor` | same commands (`--json`) | P2 | 🆕 |
 | Query builder | ORM builder (Builder → Grammar → Connection) | P1 | ✅ spike 11 |
 | Pagination: length-aware, simple, cursor | ORM + API | P1 | ✅ spikes 10 and 11 |
-| Migrations: `fresh`, `refresh`, `rollback --step`, `--pretend`, `--isolated` | migration-first runner | P1 | ✅ spike 10 |
+| Migrations: `fresh`, `refresh`, `rollback --step`, `--pretend`, `--isolated` | migration-first runner | P1 | ✅ spike 10 (`migrate`, rollback); 🟡 `fresh`, `refresh`, `--pretend`, `--isolated` |
 | Migration squashing (`schema:dump`) | `schema:dump` per engine | P2 | 🆕 |
 | Seeding | seeders tracked once, auto-registered | P1 | ✅ spike 10 |
 | Redis | `@strutvane/redis` | P2 | 🟡 |
@@ -114,7 +114,7 @@
 
 | Laravel | Strutvane | Phase | Status |
 |---|---|---|---|
-| Models, mass assignment, upserts, chunking, `cursor()` / `lazy()` | ORM | P1 | ✅ spike 11 |
+| Models, mass assignment, upserts, chunking, `cursor()` / `lazy()` | ORM | P1 | ✅ spike 11 (models, mass assignment); 🟡 upserts, chunking, `cursor()` / `lazy()` |
 | Global and local scopes | ORM (the tenant scope is a global scope) | P1 | ✅ spike 11 |
 | Model events, **observers** (`make:observer`) | model hooks + observer classes | P1 | 🆕 observers |
 | Soft deletes, `restore`, `forceDelete` | ORM | P1 | ✅ spike 11 |
@@ -122,9 +122,9 @@
 | `replicate()` | `model.replicate()` (also used by UI "Duplicate") | P1 | 🆕 |
 | Strict mode (`preventLazyLoading`, silently discarded attributes, missing attributes) | `Model.strict()` on in development, throws with a fix hint | P1 | 🆕 |
 | Relationships: one/many, belongs-to-many with pivot, has-many-through, polymorphic, eager-load constraints, `withCount` / `withSum`, `touches` | ORM | P1 / P2 | ✅ spike 11 (core); 🆕 polymorphic and through named explicitly |
-| Mutators, casts, enum casts, encrypted casts, custom casts | ORM casts | P1 | ✅ spike 11 |
+| Mutators, casts, enum casts, encrypted casts, custom casts | ORM casts | P1 | ✅ spike 11 (casts); 🟡 enum, encrypted and custom casts |
 | **API resources** (`JsonResource`, collections, conditional fields, pagination meta) | `make:resource` → typed transformers used by the auto API and controllers | P1 | 🆕 |
-| Serialization: hidden, visible, appends | ORM | P1 | ✅ spike 11 |
+| Serialization: hidden, visible, appends | ORM | P1 | ✅ spike 11 (hidden); 🟡 visible, appends |
 | Factories: states, sequences, `for` / `has`, **recycle** | factories (recycle stops new parents being created per row, a demo bug) | P1 | ✅ spike 10; 🆕 recycle |
 
 ## Testing
