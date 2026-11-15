@@ -18,6 +18,7 @@ import type { CounterStore } from '../ports/counter-store.ts'
 import type { AuthEvent, AuthEventSink, AuthLogger } from '../ports/events.ts'
 import type { AuthMail, AuthMailer } from '../ports/mailer.ts'
 import type { AuthStore } from '../ports/store.ts'
+import { parseSecret } from '../tokens/formats.ts'
 
 /** Work started after the response (mail delivery), tracked so tests and shutdown can await it. */
 export interface Background {
@@ -71,11 +72,31 @@ export interface AuthDeps {
 type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never
 
 /** An event without the fields {@link emit} fills in. */
-export type EventInput = DistributiveOmit<AuthEvent, 'at' | 'ip'>
+export type EventInput = DistributiveOmit<AuthEvent, 'at' | 'ip' | 'actorId' | 'subjectId'>
 
-/** Emit an audit event, stamped with the time and client address. Never throws. */
+/**
+ * Who is acting on this request: the impersonating admin when the presented session is an
+ * impersonation, else the session's user when it is active, else `null`. Read from the session
+ * row (not from what a service passes), so no event can forget it while impersonating.
+ */
+async function actorOf(deps: AuthDeps, req: AuthRequest | undefined): Promise<string | null> {
+  const raw = parseSecret(req?.cookies.get(cookieName(deps, 'sv_session')))
+  if (raw === undefined) return null
+  const session = await deps.store.findSession(deps.keys.digest('session', raw))
+  if (!session || session.state !== 'active') return null
+  return session.impersonatorId ?? session.userId
+}
+
+/** Emit an audit event, stamped with the time, client address, actor and subject. Never throws. */
 export async function emit(deps: AuthDeps, req: AuthRequest | undefined, event: EventInput): Promise<void> {
-  const full = { ...event, at: deps.clock.now(), ip: normalizeIp(req?.ip) ?? null } as AuthEvent
+  let actorId: string | null = null
+  try {
+    actorId = await actorOf(deps, req)
+  } catch {
+    // An audit stamp must not break the action it records.
+  }
+  const subjectId = 'userId' in event && typeof event.userId === 'string' ? event.userId : null
+  const full = { ...event, at: deps.clock.now(), ip: normalizeIp(req?.ip) ?? null, actorId, subjectId } as AuthEvent
   try {
     await deps.events.emit(full)
   } catch {

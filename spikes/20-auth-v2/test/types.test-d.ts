@@ -25,13 +25,13 @@ export function configTypes(): void {
 }
 
 export function eventTypes(): AuthEvent[] {
-  const ok: AuthEvent = { type: 'login', at: 1, ip: null, userId: 'u', method: 'password', secondFactor: null }
+  const ok: AuthEvent = { type: 'login', at: 1, ip: null, actorId: null, subjectId: 'u', userId: 'u', method: 'password', secondFactor: null }
   // @ts-expect-error events have no free-form fields, so a secret cannot ride along
-  const leaky: AuthEvent = { type: 'login', at: 1, ip: null, userId: 'u', method: 'password', secondFactor: null, password: 'x' }
+  const leaky: AuthEvent = { type: 'login', at: 1, ip: null, actorId: null, subjectId: 'u', userId: 'u', method: 'password', secondFactor: null, password: 'x' }
   // @ts-expect-error a token event carries the token ID, never the token
-  const tokenLeak: AuthEvent = { type: 'token.created', at: 1, ip: null, userId: 'u', tokenId: 't', plainText: 'svp_x' }
+  const tokenLeak: AuthEvent = { type: 'token.created', at: 1, ip: null, actorId: null, subjectId: 'u', userId: 'u', tokenId: 't', plainText: 'svp_x' }
   // @ts-expect-error unknown event types do not exist
-  const unknown: AuthEvent = { type: 'password.leaked', at: 1, ip: null }
+  const unknown: AuthEvent = { type: 'password.leaked', at: 1, ip: null, actorId: null, subjectId: null }
   return [ok, leaky, tokenLeak, unknown]
 }
 

@@ -22,6 +22,13 @@ export type FailureReason = 'invalid-credentials' | 'invalid-code' | 'locked' | 
 interface Base {
   readonly at: number
   readonly ip: string | null
+  /**
+   * Who did it: the impersonating admin while impersonating (CONSISTENCY #115), else the signed-in
+   * user making the request, else `null` (anonymous: a sign-in attempt, a reset request).
+   */
+  readonly actorId: string | null
+  /** Whose account it concerns: the event's `userId`, or `null` when there is none. */
+  readonly subjectId: string | null
 }
 
 /** Every audit event the auth core emits. */

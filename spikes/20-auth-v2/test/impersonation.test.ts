@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { APP_KEY, harness, PASSWORD, rejectsWith, STORES } from './helpers/harness.ts'
+import { APP_KEY, Browser, harness, PASSWORD, rejectsWith, STORES } from './helpers/harness.ts'
 
 const config = { features: { impersonation: true, tokens: true, twoFactor: true } }
 
@@ -91,6 +91,46 @@ describe.each(STORES)('impersonation (%s store)', (store) => {
     expect((await h.store.findMember(teamId, colleague.id))?.role).toBe('member')
     // Reading is still fine: support can look.
     expect(await h.auth.teams.members(browser.req, { teamId })).toHaveLength(2)
+  })
+
+  it('audit events name both the actor (the admin) and the subject (the user) while impersonating', async () => {
+    const h = harness({ store, config: { features: { impersonation: true, teams: true } } })
+    const admin = await h.user('root@acme.test', { roles: ['admin'] })
+    const vic = await h.user('vic@acme.test')
+    const own = await h.signedIn(vic.email)
+    await h.auth.teams.create(own.req, { name: 'Vic alone' })
+    expect(h.eventsOf('team.created').at(-1)).toMatchObject({ userId: vic.id, actorId: vic.id, subjectId: vic.id })
+
+    const browser = await h.signedIn(admin.email)
+    await h.auth.passwords.confirm(browser.req, { password: PASSWORD })
+    await h.auth.impersonation.start(browser.req, { userId: vic.id })
+    expect(h.eventsOf('impersonation.started').at(-1)).toMatchObject({ actorId: admin.id, subjectId: vic.id })
+    await h.auth.teams.create(browser.req, { name: 'Made by support' })
+    // Without actorId the log said Vic created this team.
+    expect(h.eventsOf('team.created').at(-1)).toMatchObject({ userId: vic.id, actorId: admin.id, subjectId: vic.id })
+    await h.auth.impersonation.stop(browser.req)
+    expect(h.eventsOf('impersonation.stopped').at(-1)).toMatchObject({ actorId: admin.id, subjectId: vic.id })
+    // Anonymous attempts have no actor.
+    await h.auth.passwords.login(new Browser().req, { email: vic.email, password: 'not the password' }).catch(() => undefined)
+    expect(h.eventsOf('login.failed').at(-1)).toMatchObject({ actorId: null, subjectId: vic.id })
+  })
+
+  it('the user sees an impersonation session labelled, without the admin\'s IP or user agent', async () => {
+    const { h, member, browser } = await setup(store)
+    browser.ip = '198.51.100.77'
+    browser.userAgent = 'AdminBrowser/9'
+    await h.auth.passwords.confirm(browser.req, { password: PASSWORD })
+    await h.auth.impersonation.start(browser.req, { userId: member.id })
+    const own = await h.signedIn(member.email, '192.0.2.5')
+    const list = await h.auth.sessions.list(own.req)
+    const support = list.find((s) => s.impersonated)
+    expect(support).toMatchObject({ impersonated: true, label: 'Signed in by an administrator', ip: null, userAgent: null })
+    expect(JSON.stringify(list)).not.toContain('198.51.100')
+    expect(JSON.stringify(list)).not.toContain('AdminBrowser')
+    expect(list.find((s) => s.current)).toMatchObject({ impersonated: false, label: null, ip: '192.0.2.5' })
+    // The user can still end it.
+    await h.auth.sessions.revoke(own.req, { handle: support?.handle })
+    expect(await h.auth.state(browser.req)).toBeNull()
   })
 
   it('the impersonation session expires after one hour', async () => {

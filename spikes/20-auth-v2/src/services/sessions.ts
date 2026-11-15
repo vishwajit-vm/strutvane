@@ -19,6 +19,10 @@ import { assertNotImpersonating, requireActive, requireRecentConfirmation, rotat
 export interface SessionView {
   readonly handle: string
   readonly current: boolean
+  /** True for a session an administrator opened by impersonating this user (#116). */
+  readonly impersonated: boolean
+  /** "Signed in by an administrator" for impersonation sessions, else `null`. */
+  readonly label: string | null
   readonly method: LoginMethod
   readonly createdAt: number
   readonly lastSeenAt: number
@@ -45,6 +49,9 @@ export interface SessionService {
 
 const handleOf = (digest: string): string => digest.slice(0, 16)
 
+/** The label of an impersonation session in the user's list (the framework may translate it). */
+export const IMPERSONATION_LABEL = 'Signed in by an administrator'
+
 /** Build the {@link SessionService}. */
 export function sessionService(deps: AuthDeps): SessionService {
   return {
@@ -57,11 +64,15 @@ export function sessionService(deps: AuthDeps): SessionService {
         .map((s) => ({
           handle: handleOf(s.digest),
           current: s.digest === active.session.digest,
+          // An impersonation session is shown for what it is, but the admin's address and browser
+          // are the admin's personal data, not the user's (CONSISTENCY #116).
+          impersonated: s.impersonatorId !== null,
+          label: s.impersonatorId !== null ? IMPERSONATION_LABEL : null,
           method: s.method,
           createdAt: s.createdAt,
           lastSeenAt: s.lastSeenAt,
-          ip: s.ip,
-          userAgent: s.userAgent,
+          ip: s.impersonatorId !== null ? null : s.ip,
+          userAgent: s.impersonatorId !== null ? null : s.userAgent,
         }))
     },
 

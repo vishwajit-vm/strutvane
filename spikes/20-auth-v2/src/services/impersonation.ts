@@ -76,9 +76,10 @@ export function impersonationService(deps: AuthDeps): ImpersonationService {
       requireFeature(deps, 'impersonation')
       const session = await readSession(deps, req)
       if (!session || session.impersonatorId === null) throw new AuthError('NOT_FOUND')
+      // Recorded while the impersonation session still exists, so the actor is the admin.
+      await emit(deps, req, { type: 'impersonation.stopped', adminId: session.impersonatorId, userId: session.userId })
       await endSession(deps, req)
       const admin = await deps.store.findUserById(session.impersonatorId)
-      await emit(deps, req, { type: 'impersonation.stopped', adminId: session.impersonatorId, userId: session.userId })
       // The admin returns with a fresh session (and must confirm the password again for anything
       // sensitive). If the admin was deleted meanwhile, they are simply signed out.
       if (admin) await startSession(deps, req, { userId: admin.id, state: 'active', method: session.method, remember: false })
