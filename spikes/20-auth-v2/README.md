@@ -2,7 +2,7 @@
 
 **Question:** can one small, dependency-light TypeScript core cover every sign-in option the v2 installer offers (blueprint §2.1, questions 5–12; §6), with secure defaults, behind a storage interface the framework can implement on its ORM?
 
-**Answer: yes.** `src/` is pure services over seven small ports. The same code runs on an in-memory store and on a real SQLite store (`node:sqlite`), and an example Fetch/`node:http` adapter shows the routes. **245 tests pass** (the behaviour suites run once per store; 215 at first commit, 30 added by the adversarial audit of 2026-11-15), plus type-level tests checked by `tsc`.
+**Answer: yes.** `src/` is pure services over seven small ports. The same code runs on an in-memory store and on a real SQLite store (`node:sqlite`), and an example Fetch/`node:http` adapter shows the routes. **264 tests pass** (the behaviour suites run once per store; 215 at first commit, 49 added by the adversarial audit of 2026-11-15 and the decisions that followed it, CONSISTENCY #114–117), plus type-level tests checked by `tsc`.
 
 ```bash
 npm install          # .npmrc sets ignore-scripts=true; nothing here needs an install script
@@ -30,14 +30,14 @@ Status: spike (2026-11-15). Standalone: imports nothing from other spikes or `pa
 |---|---|---|---|
 | 1 | Email + password | `services/passwords.ts`, `password/*` | scrypt (`$scrypt$ln=17,r=8,p=1$…`), rehash-on-login, legacy verifier plug-in (bcrypt import), optional breached/common check hook (`commonPasswordCheck`, k-anonymity `rangeBreachCheck`), timing-safe sign-in (dummy hash), one `INVALID_CREDENTIALS` for every failure, sliding-window limits per IP (/64) and per account, lockout with exponential backoff |
 | 2 | Password reset | `services/password-reset.ts` | 256-bit token, keyed digest only, 60 min, single-use (atomic consume), dies on any password change; a reset revokes every session, PAT, remembered device and email link, and lifts the lockout |
-| 3 | Email verification | `services/verification.ts` | Laravel's `/email/verify/{id}/{hash}?expires&signature`, HMAC-signed, bound to the current address; resend: 60 s cooldown + 6/hour |
-| 4 | Email link (passwordless) | `services/email-link.ts` | 15 min, single-use, **bound to the requesting browser by a nonce cookie**; same answer for unknown accounts; consumed by POST (mail scanners prefetch GETs); still goes through 2FA |
+| 3 | Email verification | `services/verification.ts` | Laravel's `/email/verify/{id}/{hash}?expires&signature`, HMAC-signed, bound to the current address; resend: 60 s cooldown + 6/hour; **password sign-in waits for it**, and the first mailbox proof wipes what was set before it (#114) |
+| 4 | Email link (passwordless) | `services/email-link.ts` | 15 min, single-use, **bound to the requesting browser by a `__Host-` nonce cookie** (HTTPS required outside local, #117); same answer for unknown accounts; consumed by POST (mail scanners prefetch GETs); still goes through 2FA |
 | 5 | Two-factor | `services/two-factor.ts`, `totp/totp.ts` | RFC 6238 on `node:crypto` (RFC vectors pass); secret AES-256-GCM-sealed and bound to the user id; confirm-before-enable; 10 recovery codes (8–10 configurable), keyed digests, single-use, regenerate; replay protection via atomic `advanceTotpStep`; "remember this device" (30 days, per user) |
 | 6 | Passkeys | `services/passkeys.ts` | `@simplewebauthn/server` 14.1.0; registration, passwordless sign-in (discoverable, UV required), second factor (own passkey only), password confirmation for passwordless accounts, several per user, rename/remove |
 | 7 | Sessions | `core/sessions.ts`, `services/sessions.ts` | raw id in the cookie, keyed digest in the store; new id on every sign-in and privilege change; idle (2 h) + absolute (12 h; "remember me" 30 days); list by handle, revoke one, sign out others; "confirm password" 3 h window |
 | 8 | Personal access tokens | `services/tokens.ts`, `tokens/formats.ts` | `svp_<40 base62><6 base62 CRC-32>`, shown once, keyed digest only, abilities within the app's allowed patterns, 1-year default expiry, last-used at most once a minute, revoke |
 | 9 | Teams | `services/teams.ts` | invitations (keyed digest, 7 days, email-bound, single-use), presets `admin-member` / `admin-manager-member-viewer`, last-admin guard, switching (rotates the session), `current()` for the framework's tenant |
-| 10 | Impersonation | `services/impersonation.ts` | global `admin` only, after password confirmation, never another admin, audited start/stop, `AuthState.impersonator` banner flag, 1 h, one-click leave, credentials/factors/tokens/sessions locked while impersonating |
+| 10 | Impersonation | `services/impersonation.ts` | global `admin` only, after password confirmation, never another admin, audited start/stop, `AuthState.impersonator` banner flag, 1 h, one-click leave, credentials/factors/tokens/sessions and team grants locked while impersonating, re-checked on every request, every event names the actor and the subject (#115), labelled in the user's sessions list without the admin's IP (#116) |
 | 11 | Feature switches | `config.ts`, `http/routes.ts`, every service | `registration` off by default; a disabled feature has no routes AND its services throw `NOT_FOUND`; the HTTP 404 is byte-identical to an unknown path |
 | 12 | Events | `ports/events.ts` | closed event union (ids, enums, counts only); a full-run test proves no secret reaches events or logs |
 
@@ -74,7 +74,7 @@ All ports are in `src/ports/`. `createAuth({ config, store, counters, mailer, ev
 
 | Port | File | What the framework implements | Spike implementation |
 |---|---|---|---|
-| **Storage** `AuthStore` | `ports/store.ts` | 42 small methods over the app's own migrations (`users`, `user_roles`, `sessions`, `auth_one_time_tokens`, `two_factor_recovery_codes`, `passkeys`, `personal_access_tokens`, `teams`, `team_members`, `team_invitations`), all marked `internal`. **Must be atomic** for `consumeOneTime`, `consumeRecoveryCode`, `consumeInvitation`, `advanceTotpStep` (`DELETE … RETURNING`, conditional `UPDATE`); emails compared byte for byte (MySQL: binary collation) | `store/memory.ts`, `store/sqlite.ts` (+ `sqlite-schema.ts`) |
+| **Storage** `AuthStore` | `ports/store.ts` | 44 small methods over the app's own migrations (`users`, `user_roles`, `sessions`, `auth_one_time_tokens`, `two_factor_recovery_codes`, `passkeys`, `personal_access_tokens`, `teams`, `team_members`, `team_invitations`), all marked `internal`. **Must be atomic** for `consumeOneTime`, `consumeRecoveryCode`, `consumeInvitation`, `advanceTotpStep`, `advancePasskeyCounter` and the last-admin guard `changeMemberRole` (`DELETE … RETURNING`, conditional `UPDATE`); unknown enum values in a row fail closed; emails compared byte for byte (MySQL: binary collation) | `store/memory.ts`, `store/sqlite.ts` (+ `sqlite-schema.ts`) |
 | **Counters** `CounterStore` | `ports/counter-store.ts` | `increment(key, ttl)`, `get`, `set`, `delete` on the SHARED cache (`cache` table or Redis). A per-process store multiplies every limit by the instance count | memory; SQLite (`INSERT … ON CONFLICT … RETURNING`), tested across two instances |
 | **Mailer** `AuthMailer` | `ports/mailer.ts` | `send(mail)` for a closed union of six mails; queue them (Laravel's queued notifications). Each mail carries one secret URL; never log it | test recorder |
 | **Clock** `Clock` | `ports/clock.ts` | `now()` (spike 12's `ClockToken`) | `systemClock`, `manualClock` |
@@ -95,6 +95,26 @@ What the framework still owns around this core: the router and Fortify-style rou
 7. **Timing equality holds structurally, not just statistically:** every sign-in failure path runs exactly one full-cost hash verification (counted with a spy hasher), and a loose median test (known vs unknown email, real scrypt) stays within 0.6–1.6×. Remaining timing gap: a reset request for an existing account does one extra DB write.
 8. **WebAuthn can be tested without a browser.** `test/helpers/authenticator.ts` is a ~150-line software authenticator (ES256, attestation `none`, CBOR) driving the real `@simplewebauthn/server` verification, including clone detection (counter), wrong origin, missing user verification, and challenge replay.
 
+### Adversarial audit (2026-11-15)
+
+An attack-first pass, which did not trust the spike's own tests, found 18 bugs. Each is fixed with a failing test first and a regression test for its class. The lessons for the port:
+
+9. **Re-check every precondition while a privilege lasts, not only when it starts.** Impersonation was checked at start only, so a demoted admin kept acting for an hour. It is now re-checked on every request. Grants that outlive an impersonation (team invites, role changes, accepting) are refused, like tokens.
+10. **Every place that checks a password needs the same budget and the same length measure.** "Change password" verified the current one with no rate limit. Setting and checking measured length differently (NFKC code points vs UTF-16 units).
+11. **Without transactions, order writes so a failure fails closed:** revoke first, grant last. Reset and change used to write the new hash before revoking sessions; 2FA confirm switched 2FA on before storing recovery codes. `test/storage-failures.test.ts` breaks each step in turn.
+12. **Check-then-act is a race.** The last-admin guard and the passkey counter are now single conditional writes (#117), raced across two SQLite connections.
+13. **Bound the product of cost parameters, not each one.** scrypt's ln=16, r=32, p=16 passed every per-field range and cost 27 s per verification.
+14. **Normalise every spelling of an identifier you rate-limit on.** The hex and expanded IPv4-mapped IPv6 forms put all IPv4 clients behind such a proxy into one /64 bucket. Invisible Unicode characters allowed look-alike email accounts.
+15. **Account pre-hijacking needs a rule, not a patch (#114).** With verification on, password sign-in waits for the mailbox proof. That first proof wipes the pre-verification password, sessions and tokens, and the owner sets a new password.
+16. **Audit "who" and "whose" separately (#115).** While impersonating, an event that names only the user blames the user.
+17. **Smaller items, all fixed:**
+    - a malformed `%` in a route param answered 500;
+    - single-use expiry was judged before the slow step, not at the consume;
+    - narrowing token abilities did not narrow old tokens;
+    - invitations had no rate limit (a mail cannon);
+    - the verification-link hash equalled the limiter key;
+    - passkey origins, the lockout threshold and appUrl were not validated at boot.
+
 ## Tests
 
 `npm test` runs `tsc --noEmit` (sources, tests, and `test/types.test-d.ts`) then vitest. Behaviour suites run against **both** stores (`describe.each(STORES)`); SQLite is real (`node:sqlite`, in-memory and file-backed).
@@ -111,6 +131,7 @@ What the framework still owns around this core: the router and Fortify-style rou
 | `impersonation.test.ts` | admin-only + confirmation, banner flag, audited, leave, **impersonating an admin**, self, nesting, non-admins, locked actions while impersonating, 1 h expiry, feature off |
 | `http.test.ts` | **disabled features byte-identical to unknown paths**, service-level refusal, cookies (`__Host-`, HttpOnly, SameSite, Secure), problem+json + Retry-After, cross-site / same-site / `Origin: null` refused, JSON only, body cap, bearer never falls back to the cookie, real `node:http` server with **forged `X-Forwarded-For`** |
 | `redaction.test.ts` | a full run through every feature: **no password, token, code, cookie, link or TOTP secret in events or logs**; failing mailer/sink logged by kind only; errors never echo credentials |
+| `pre-hijacking.test.ts` | #114: password sign-in refused until verified (no oracle without the password); the verification link and an email-link sign-in wipe the pre-verification password, sessions and tokens and hand the owner a set-password token; verified accounts untouched |
 | `parsers.fuzz.test.ts` | fast-check: every parser on arbitrary input never throws; any one-character change to a valid PAT, secret, recovery code or **signed link** is refused (the link at service level) |
 | `store-contract.test.ts` | the atomic store rules on both stores, two SQLite connections to one file, **two app instances sharing limits**, counter expiry, unknown session state or method fails closed |
 | `storage-failures.test.ts` | each store step of reset, password change and 2FA confirm made to throw in turn: **never a new password with a thief's session alive, never 2FA on without recovery codes** |
