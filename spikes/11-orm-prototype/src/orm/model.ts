@@ -850,6 +850,9 @@ function isSensitiveColumn(column: string): boolean {
   return /^is_/.test(column) || /_(at|by)$/.test(column) || ['role', 'roles', 'plan', 'permissions', 'owner_id', 'user_id'].includes(column)
 }
 
+/** Names a query builder must never have as methods, or it would be mistaken for a promise. */
+const PROMISE_MEMBERS: ReadonlySet<string> = new Set(['then', 'catch', 'finally'])
+
 /** Columns a "Did you mean" hint may name: never a hidden one (its name alone is a leak). */
 function hintableColumns(info: TableInfo, hidden: ReadonlySet<string>): string[] {
   return [...info.columns.keys()].filter((column) => !hidden.has(column))
@@ -966,6 +969,11 @@ function buildSettings(
   }
   for (const name of scopes.keys()) {
     if (name in Builder.prototype) throw new OrmUsageError('SCOPE_CLASHES_WITH_METHOD', `${modelName} has a scope named "${name}", which clashes with the query method ${name}(). Rename the scope.`)
+    // Promise members: a builder with a `then` method is "thenable", so `await query` would call the
+    // scope instead of running the query (and catch/finally make it look like a promise to tools).
+    if (PROMISE_MEMBERS.has(name)) {
+      throw new OrmUsageError('SCOPE_CLASHES_WITH_METHOD', `${modelName} has a scope named "${name}", which clashes with promises: \`await query\` would call it instead of running the query. Rename the scope.`)
+    }
   }
   return {
     fillable: options.fillable === undefined ? undefined : new Set(options.fillable),

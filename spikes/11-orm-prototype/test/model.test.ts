@@ -14,6 +14,17 @@ import { makePost, makeUser } from './support/seed.ts'
 
 const TENANT = '0193a0b2-7c1e-7d4f-8a9b-0c1d2e3f4a5b'
 
+/** Scopes named like Promise members: `await Tag.query()` would call them instead of running the query. */
+class ThenScope extends Model('tags', { fillable: ['name'] }) {
+  static readonly scopes = { then: (query: unknown) => query }
+}
+class CatchScope extends Model('tags', { fillable: ['name'] }) {
+  static readonly scopes = { catch: (query: unknown) => query }
+}
+class FinallyScope extends Model('tags', { fillable: ['name'] }) {
+  static readonly scopes = { finally: (query: unknown) => query }
+}
+
 /** The posts table without a model cast on `meta`: any JSON value may be stored there. */
 class LoosePost extends Model('posts', { fillable: ['title', 'meta'] }) {}
 
@@ -254,6 +265,15 @@ describe.each(engines)('models on $name', (engine) => {
         expect((await runWithTenant(TENANT, () => Project.create({ name: 'Launch' }))).slug).toBe('launch-3')
       } finally {
         blind.mockRestore()
+      }
+    })
+
+    test('scopes named then, catch or finally are refused when the model is first used', () => {
+      // A scope is installed as a method on the query builder. Named `then`, it made every query
+      // thenable: `await ThenScope.query()` called the scope instead of running SQL.
+      for (const model of [ThenScope, CatchScope, FinallyScope]) {
+        expect(() => model.query(), model.name).toThrow(OrmUsageError)
+        expect(() => model.query(), model.name).toThrow(/clashes with/)
       }
     })
 
