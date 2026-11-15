@@ -8,7 +8,7 @@
 - has no N+1 by default and no SQL injection by construction;
 - keeps tenants apart on MySQL and SQLite, where there is no row-level security?
 
-**Answer: yes.** The prototype passes **184 tests**: the behaviour suites run on **real MySQL 8.4** (a throwaway Docker container), PostgreSQL (PGlite) and SQLite (node:sqlite), plus compile-time type tests. The ORM's own overhead is about **25–50 µs per operation** (below). Our recommendation is to **build our own query builder and grammars** in the style of Laravel's Query Builder → Grammar → Connection, and not to wrap Drizzle or Kysely. The reasons are in the design document: `docs/research/2026-11-14-strutvane-orm-design.md`.
+**Answer: yes.** The prototype passes **283 tests** (2026-11-15): the behaviour suites run on **real MySQL 8.4 and MariaDB 11.4** (throwaway Docker containers), PostgreSQL (PGlite) and SQLite (node:sqlite), plus compile-time type tests. The ORM's own overhead is about **25–50 µs per operation** (below). Our recommendation is to **build our own query builder and grammars** in the style of Laravel's Query Builder → Grammar → Connection, and not to wrap Drizzle or Kysely. The reasons are in the design document: `docs/research/2026-11-14-strutvane-orm-design.md`.
 
 The prototype also folds in the 2026-11-14 security review (`docs/research/2026-11-14-v2-security-design-review.md`, findings F-04, F-05, F-08, F-10 and F-14): each rule below has a test.
 
@@ -17,7 +17,7 @@ The prototype also folds in the 2026-11-14 security review (`docs/research/2026-
 ```bash
 cd spikes/11-orm-prototype
 npm install
-npm test            # tsc (type tests) + vitest on MySQL 8.4 (Docker), PGlite and SQLite
+npm test            # tsc (type tests) + vitest on MySQL 8.4 and MariaDB 11.4 (Docker), PGlite and SQLite
 npm run bench       # rough ORM overhead vs raw SQL (SQLite, PGlite; set SPIKE11_MYSQL_URL for MySQL)
 ```
 
