@@ -86,6 +86,20 @@ describe.each(ENGINES)('$name', ({ open }) => {
     expect(await database.query(`SELECT COUNT(*) AS "n" FROM "posts"`)).toEqual([{ n: 0 }])
   })
 
+  test('decimal precision is enforced by every engine: SQLite refuses what PostgreSQL refuses', async () => {
+    // price is decimal(12, 2): at most 10 digits before the point. PostgreSQL (and MySQL) refuse
+    // 12345678901.00; SQLite's NUMERIC stored it, so raw SQL, a seeder or the ORM could write a
+    // value the other engines can't hold. The SQLite DDL now carries a CHECK for the magnitude.
+    const replay = await replayApp(BLOG_ROOT)
+    const database = await freshDb()
+    await migrate(database, replay)
+    await database.query(`INSERT INTO "users" ("name", "email") VALUES ('Ada', 'ada@example.com')`)
+    await expect(database.query(`INSERT INTO "posts" ("title", "slug", "author_id", "price") VALUES ('x', 'x', 1, 12345678901.00)`)).rejects.toThrow()
+    await expect(database.query(`INSERT INTO "posts" ("title", "slug", "author_id", "price") VALUES ('y', 'y', 1, -12345678901)`)).rejects.toThrow()
+    await database.query(`INSERT INTO "posts" ("title", "slug", "author_id", "price") VALUES ('z', 'z', 1, 9999999999.99)`)
+    expect(await database.query(`SELECT COUNT(*) AS "n" FROM "posts"`)).toEqual([{ n: 1 }])
+  })
+
   test('the schema dump builds the same database as running every migration', async () => {
     const replay = await replayApp(BLOG_ROOT)
     const database = await freshDb()

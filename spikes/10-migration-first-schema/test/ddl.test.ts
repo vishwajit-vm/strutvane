@@ -30,7 +30,7 @@ const base = state((schema) => {
 
 describe('column types per engine', () => {
   test.each([
-    ['sqlite', '"price" NUMERIC NOT NULL DEFAULT 0'],
+    ['sqlite', '"price" NUMERIC NOT NULL DEFAULT 0 CHECK (abs("price") < 10000000000)'],
     ['postgres', '"price" NUMERIC(12, 2) NOT NULL DEFAULT 0'],
     ['mysql', '`price` DECIMAL(12, 2) NOT NULL DEFAULT 0'],
   ] as const)('decimal on %s', (dialect, sql) => {

@@ -171,6 +171,10 @@ export function columnSql(column: ColumnDef, dialect: Dialect): string {
   const parts = [name, columnType(column, dialect), column.nullable ? 'NULL' : 'NOT NULL']
   if ('default' in column && column.default !== undefined) parts.push(`DEFAULT ${sqlLiteral(column.default, dialect)}`)
   if (column.kind === 'json' && dialect === 'mariadb') parts.push(`CHECK (JSON_VALID(${name}))`)
+  // SQLite's NUMERIC has no precision: without this it stores 12345678901.00 in a decimal(12, 2)
+  // that PostgreSQL and MySQL refuse. The scale is left to the API and ORM casts (PostgreSQL and
+  // MySQL round extra decimals instead of refusing them).
+  if (column.kind === 'decimal' && dialect === 'sqlite') parts.push(`CHECK (abs(${name}) < 1${'0'.repeat((column.precision ?? 8) - (column.scale ?? 2))})`)
   if (column.kind === 'enum' && !isMysqlFamily(dialect)) {
     const values = (column.values ?? []).map((value) => sqlLiteral(value, dialect)).join(', ')
     parts.push(`CHECK (${name} IN (${values}))`)
