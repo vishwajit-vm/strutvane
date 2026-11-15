@@ -9,6 +9,7 @@ cd spikes/10-migration-first-schema
 npm install
 npm test          # tsc --noEmit (type-level tests) + vitest run
 npm run generate  # regenerate fixtures/blog/.strutvane from its migrations
+npm run test:perf # time budgets: quiet machine or a dedicated CI job, required before release
 npm run bench     # the timing tables below
 ```
 
@@ -50,7 +51,7 @@ Two ways to derive the schema without a database were compared:
 
 ## Evidence
 
-**Tests:** `npm test` exits 0. That covers `tsc --noEmit` (all type-level tests) plus Vitest: **11 files, 267 tests, all passing** (2026-11-15; the three perf budgets need an otherwise idle machine). Every database test runs on **both real engines**: SQLite via `node:sqlite`, PostgreSQL via PGlite. No mocks.
+**Tests:** `npm test` exits 0. That covers `tsc --noEmit` (all type-level tests) plus Vitest: **11 files, 265 tests, all passing** (2026-11-15). The three time budgets run separately with `npm run test:perf`, because timings depend on machine load and the default suite must not be flaky: **run them before a release, on a quiet machine or in a dedicated CI job**. Every database test runs on **both real engines**: SQLite via `node:sqlite`, PostgreSQL via PGlite. No mocks.
 
 | Test file | Tests | What it proves |
 |---|---|---|
@@ -64,7 +65,8 @@ Two ways to derive the schema without a database were compared:
 | `database.test.ts` | 18 | ×2 engines. Migrate shows **no drift** (introspected database equals recorder state). **One batch per migration, then roll back batch by batch: no drift at any of 14 checkpoints**, ending in an empty database. Rows survive renames and the SQLite rebuild. Enum CHECK, cascade and set-null are enforced. The schema dump matches migrate. **A migration failing half-way leaves nothing behind** (transactional DDL). Hand-made changes are reported in plain words. A missing migration file stops `migrate`. Placeholder regression test. |
 | `crud.test.ts` | 103 | ×2 engines. Create fills the slug, defaults and timestamps. Slugs get `-2`, `-3`. Validation is derived from the columns, and **every issue is reported at once**. Secrets can't be written or read. Invalid JSON, a non-object body and a 70 KB body (413) are handled. Get by id and by slug, with clear 404s. Pagination meta. Search is case-insensitive across all text fields, with an exact match on numbers, and `%` / `_` are literal. Multi-field sort with NULLs last. 12 filter shapes. 14 malformed or hostile queries are refused with 422. SQL in a search term is inert. PATCH keeps the slug and bumps `updated_at`. Soft delete, hard delete, constraint race → 409. **Final test: both engines' 108-request transcripts are identical.** |
 | `naming.test.ts` | 22 | Inflection, table → model and labels, `make:migration` name → intent and stub, slugify |
-| `perf.test.ts` | 3 | Budgets for 200 migrations: cold `sv types` in a fresh process under 1 s, warm replay under 50 ms, full generation under 150 ms (minimum asserted, median under 2× the budget) |
+| `synthetic.test.ts` | 1 | The 200-migration synthetic app replays to 100 tables in a fresh process and in-process, and generates every artifact (correctness only) |
+| `perf/budgets.test.ts` (`npm run test:perf`, not in `npm test`) | 3 | Budgets for 200 migrations: cold `sv types` in a fresh process under 1 s, warm replay under 50 ms, full generation under 150 ms (minimum asserted, median under 2× the budget) |
 
 **Planted bug:** reverting the SQLite placeholder fix (see Finding 1) makes 4 tests fail, and only on SQLite.
 

@@ -10,6 +10,7 @@
   },
   "scripts": {
     "test": "tsc --noEmit -p . && vitest run",
+    "test:perf": "vitest run --config vitest.perf.config.ts",
     "typecheck": "tsc --noEmit -p .",
     "generate": "node scripts/generate.ts fixtures/blog",
     "bench": "node scripts/bench.ts"

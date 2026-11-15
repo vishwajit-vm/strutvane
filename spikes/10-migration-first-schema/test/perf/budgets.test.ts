@@ -1,5 +1,8 @@
 /**
- * Time budgets, so a regression shows up in `npm test`. Full numbers come from `npm run bench`.
+ * Time budgets for a 200-migration app. They run with `npm run test:perf` (its own config), not in
+ * `npm test`: timings depend on the machine's load, and the default suite must never be flaky.
+ * Run them on a quiet machine or in a dedicated CI job before a release. Full numbers come from
+ * `npm run bench`.
  *
  * Method (from spike 04): one warm-up is discarded, then the *minimum* is asserted against the
  * budget (what the code can do) and the *median* against twice the budget (tolerates a busy
@@ -8,10 +11,10 @@
 import { spawnSync } from 'node:child_process'
 import { join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, test } from 'vitest'
-import { buildArtifacts } from '../src/generate/artifacts.ts'
-import { discoverMigrations, loadMigrations, replayMigrations, type LoadedMigration } from '../src/schema/replay.ts'
-import { writeSyntheticApp } from '../scripts/synthetic.ts'
-import { cleanupTempDirs, makeTempDir, median, SPIKE_ROOT } from './helpers.ts'
+import { buildArtifacts } from '../../src/generate/artifacts.ts'
+import { discoverMigrations, loadMigrations, replayMigrations, type LoadedMigration } from '../../src/schema/replay.ts'
+import { writeSyntheticApp } from '../../scripts/synthetic.ts'
+import { cleanupTempDirs, makeTempDir, median, SPIKE_ROOT } from '../helpers.ts'
 
 afterAll(cleanupTempDirs)
 
