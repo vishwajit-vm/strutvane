@@ -75,11 +75,16 @@ function suite(engine: Engine): void {
       const seen = await names()
       return seen
     })()
-    setTimeout(release, 60)
+    // Pooled engines: commit only after the reader has read, so the check doesn't depend on timing
+    // (under load the reader used to start after a 60 ms commit and saw 'pending'). Single-connection
+    // engines: the reader waits for the lock, so the commit has to come first.
+    const pooled = engine.name === 'mysql' || engine.name === 'mariadb'
+    if (pooled) void reader.finally(release)
+    else setTimeout(release, 60)
     const [seenByReader] = await Promise.all([reader, writer])
     // MySQL and MariaDB (a pool): the reader runs on another connection and sees only committed data.
     // SQLite/PGlite (one connection): the reader waits for the lock, so it reads after the commit.
-    expect(seenByReader).toEqual(engine.name === 'mysql' || engine.name === 'mariadb' ? [] : ['pending'])
+    expect(seenByReader).toEqual(pooled ? [] : ['pending'])
     expect(await names()).toEqual(['pending'])
   })
 
