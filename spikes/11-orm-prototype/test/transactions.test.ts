@@ -6,6 +6,7 @@ import { describe, expect, test } from 'vitest'
 import { runWithTenant, TenantMismatchError, transaction } from '#orm'
 import { Project } from '#app/models/project'
 import { Tag } from '#app/models/tag'
+import { execute } from './support/ddl.ts'
 import { type Engine, engines, engineTitle, useEngine } from './support/engines.ts'
 import { makeTag } from './support/seed.ts'
 
@@ -111,6 +112,49 @@ function suite(engine: Engine): void {
           await runWithTenant('0193a0b2-0000-7000-8000-0000000000bb', () => Project.query().count())
         }),
       ).rejects.toBeInstanceOf(TenantMismatchError)
+    })
+
+    test('PostgreSQL: a rolled-back savepoint that set the tenant does not leave RLS without one', async () => {
+      const db = connection()
+      const tenant = '0193a0b2-0000-7000-8000-0000000000aa'
+      await runWithTenant(tenant, () => Project.create({ name: 'Kept' }))
+      // ADR-0007 RLS on projects, as a non-owner role, so the database checks app.tenant_id too.
+      for (const statement of [
+        'ALTER TABLE projects ENABLE ROW LEVEL SECURITY',
+        'ALTER TABLE projects FORCE ROW LEVEL SECURITY',
+        "CREATE POLICY savepoint_isolation ON projects AS RESTRICTIVE FOR ALL USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid) WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid)",
+        'CREATE POLICY savepoint_access ON projects AS PERMISSIVE FOR ALL USING (true) WITH CHECK (true)',
+        'CREATE ROLE spike11_savepoint NOLOGIN',
+        'GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO spike11_savepoint',
+        'SET ROLE spike11_savepoint',
+      ]) {
+        await execute(db, statement)
+      }
+      try {
+        const outcome = await runWithTenant(tenant, () =>
+          db.transaction(async () => {
+            // The first tenant statement runs inside this savepoint, so ROLLBACK TO SAVEPOINT also
+            // undoes its set_config. Before the fix the connection still believed the tenant was set,
+            // and every later statement ran with no app.tenant_id: 0 rows, and inserts refused by RLS.
+            await db
+              .transaction(async () => {
+                await Project.create({ name: 'Doomed' })
+                throw new Error('undo')
+              })
+              .catch(() => undefined)
+            const visible = await Project.query().count()
+            const after = await Project.create({ name: 'After' })
+            return [visible, after.name]
+          }),
+        )
+        expect(outcome).toEqual([1, 'After'])
+      } finally {
+        await execute(db, 'RESET ROLE')
+        await execute(db, 'DROP POLICY savepoint_isolation ON projects')
+        await execute(db, 'DROP POLICY savepoint_access ON projects')
+        await execute(db, 'ALTER TABLE projects NO FORCE ROW LEVEL SECURITY')
+        await execute(db, 'ALTER TABLE projects DISABLE ROW LEVEL SECURITY')
+      }
     })
   }
 }

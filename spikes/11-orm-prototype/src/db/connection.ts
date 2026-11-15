@@ -184,6 +184,9 @@ export class Connection {
     }
     const name = `sv_${parent.depth}`
     const child: TransactionState = { session: parent.session, depth: parent.depth + 1, shared: parent.shared, childOpen: false }
+    // ROLLBACK TO SAVEPOINT also undoes a set_config made inside the savepoint; remember what was
+    // set before, so the next tenant statement sets it again instead of running without a tenant.
+    const tenantBefore = parent.shared.tenantId
     parent.childOpen = true
     try {
       await this.#executeIn(parent, plain(`SAVEPOINT ${name}`))
@@ -195,6 +198,7 @@ export class Connection {
       } catch (error) {
         // Undo only this level, then drop the savepoint; the outer transaction carries on.
         await this.#executeIn(parent, plain(`ROLLBACK TO SAVEPOINT ${name}`))
+        parent.shared.tenantId = tenantBefore
         await this.#executeIn(parent, plain(`RELEASE SAVEPOINT ${name}`))
         throw error
       }
