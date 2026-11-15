@@ -221,8 +221,10 @@ export function columnType(column: ColumnDef, dialect: Dialect): string {
     case 'date':
       return 'DATE'
     case 'timestamp':
-      // PostgreSQL keeps the instant (with time zone); MySQL TIMESTAMP converts via the session time zone.
-      return dialect === 'postgres' ? 'TIMESTAMP(3) WITH TIME ZONE' : dialect === 'mysql' ? 'TIMESTAMP(3)' : 'DATETIME'
+      // PostgreSQL keeps the instant (with time zone). MySQL gets DATETIME(3), holding UTC written by
+      // the ORM: TIMESTAMP ends at 2038-01-19 (an expiry in 2040 is an error under strict sql_mode)
+      // and converts through the session time zone.
+      return dialect === 'postgres' ? 'TIMESTAMP(3) WITH TIME ZONE' : dialect === 'mysql' ? 'DATETIME(3)' : 'DATETIME'
     case 'json':
       return dialect === 'postgres' ? 'JSONB' : dialect === 'mysql' ? 'JSON' : 'TEXT'
   }

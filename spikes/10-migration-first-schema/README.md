@@ -218,7 +218,7 @@ POST /api/posts             PATCH /api/posts/1            DELETE /api/posts/1   
    - native `ENUM`
    - `TINYINT(1)` booleans
    - `BIGINT UNSIGNED` keys
-   - `TIMESTAMP(3)`, which converts through the session time zone
+   - `DATETIME(3)` holding UTC (not `TIMESTAMP(3)`, which ends in 2038 and converts through the session time zone)
    - `RENAME TABLE`
    - `DROP INDEX … ON table`
    - backslash escaping in literals

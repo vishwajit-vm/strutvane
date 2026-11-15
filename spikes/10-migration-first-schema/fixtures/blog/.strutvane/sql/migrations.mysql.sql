@@ -6,8 +6,8 @@ CREATE TABLE `users` (
   `name` VARCHAR(255) NOT NULL,
   `email` VARCHAR(255) NOT NULL,
   `password` VARCHAR(255) NULL,
-  `created_at` TIMESTAMP(3) NULL,
-  `updated_at` TIMESTAMP(3) NULL
+  `created_at` DATETIME(3) NULL,
+  `updated_at` DATETIME(3) NULL
 );
 CREATE UNIQUE INDEX `users_email_unique` ON `users` (`email`);
 
@@ -27,9 +27,9 @@ CREATE TABLE `posts` (
   `featured` TINYINT(1) NOT NULL DEFAULT 0,
   `published_on` DATE NULL,
   `meta` JSON NULL,
-  `created_at` TIMESTAMP(3) NULL,
-  `updated_at` TIMESTAMP(3) NULL,
-  `deleted_at` TIMESTAMP(3) NULL,
+  `created_at` DATETIME(3) NULL,
+  `updated_at` DATETIME(3) NULL,
+  `deleted_at` DATETIME(3) NULL,
   CONSTRAINT `posts_author_id_foreign` FOREIGN KEY (`author_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 );
 CREATE UNIQUE INDEX `posts_slug_unique` ON `posts` (`slug`);
@@ -54,8 +54,8 @@ CREATE TABLE `categories` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
   `name` VARCHAR(100) NOT NULL,
   `slug` VARCHAR(255) NOT NULL,
-  `created_at` TIMESTAMP(3) NULL,
-  `updated_at` TIMESTAMP(3) NULL
+  `created_at` DATETIME(3) NULL,
+  `updated_at` DATETIME(3) NULL
 );
 CREATE UNIQUE INDEX `categories_slug_unique` ON `categories` (`slug`);
 

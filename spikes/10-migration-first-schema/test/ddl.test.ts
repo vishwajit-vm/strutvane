@@ -4,10 +4,10 @@
  */
 import { describe, expect, test } from 'vitest'
 import { applyOperations } from '../src/schema/apply.ts'
-import { EMPTY_SCHEMA, type SchemaState } from '../src/schema/columns.ts'
+import { type ColumnDef, EMPTY_SCHEMA, type SchemaState } from '../src/schema/columns.ts'
 import { SchemaError } from '../src/schema/errors.ts'
 import { recordOperations, type SchemaBuilder } from '../src/schema/migration.ts'
-import { columnSql, compileOperations, createSchemaSql } from '../src/sql/ddl.ts'
+import { columnSql, columnType, compileOperations, createSchemaSql } from '../src/sql/ddl.ts'
 import { sqlLiteral, SqlParams, type Dialect } from '../src/sql/dialect.ts'
 
 function state(up: (schema: SchemaBuilder) => void, from: SchemaState = EMPTY_SCHEMA): SchemaState {
@@ -50,6 +50,15 @@ describe('column types per engine', () => {
     expect(columnSql(column, 'postgres')).toBe('"featured" BOOLEAN NOT NULL DEFAULT FALSE')
     expect(columnSql(column, 'sqlite')).toBe('"featured" INTEGER NOT NULL DEFAULT 0')
     expect(columnSql(column, 'mysql')).toBe('`featured` TINYINT(1) NOT NULL DEFAULT 0')
+  })
+
+  test('MySQL timestamps are DATETIME(3): TIMESTAMP stops at 2038-01-19 and shifts with the session zone', () => {
+    // Checked on MySQL 8.4.13 (2026-11-15): inserting 2040-01-01 into TIMESTAMP(3) is
+    // "Incorrect datetime value" under the strict sql_mode the ORM pins; DATETIME(3) stores it.
+    // Spike 11's ORM writes UTC text into DATETIME(3) and reads it back as UTC.
+    const column: ColumnDef = { name: 'expires_at', kind: 'timestamp', nullable: true }
+    expect(columnSql(column, 'mysql')).toBe('`expires_at` DATETIME(3) NULL')
+    expect(columnType(column, 'postgres')).toBe('TIMESTAMP(3) WITH TIME ZONE')
   })
 
   test('literals are escaped for each engine', () => {
