@@ -171,6 +171,26 @@ describe('engine-specific ALTER handling', () => {
     expect(compile(renamedColumn, dropWriter, 'mariadb')[0]).toBe('ALTER TABLE `posts` DROP FOREIGN KEY `posts_author_id_foreign`')
   })
 
+  test('MySQL and MariaDB compare identifier-like columns byte for byte (security review F-08)', () => {
+    // The defaults (MySQL utf8mb4_0900_ai_ci, MariaDB utf8mb4_uca1400_ai_ci) fold case and accents:
+    // a reset request for 'JÖHN@x' matched 'john@x', and '/posts/RESUME' found 'resume'. Slugs,
+    // UUIDs, emails, usernames and tokens get a binary NO PAD collation (MariaDB's utf8mb4_bin pads).
+    const cases: readonly [ColumnDef, string, string][] = [
+      [{ name: 'slug', kind: 'slug', nullable: false }, '`slug` VARCHAR(255) COLLATE utf8mb4_0900_bin NOT NULL', '`slug` VARCHAR(255) COLLATE utf8mb4_nopad_bin NOT NULL'],
+      [{ name: 'public_id', kind: 'uuid', nullable: false }, '`public_id` CHAR(36) COLLATE utf8mb4_0900_bin NOT NULL', '`public_id` CHAR(36) COLLATE utf8mb4_nopad_bin NOT NULL'],
+      [{ name: 'email', kind: 'string', nullable: false }, '`email` VARCHAR(255) COLLATE utf8mb4_0900_bin NOT NULL', '`email` VARCHAR(255) COLLATE utf8mb4_nopad_bin NOT NULL'],
+      [{ name: 'username', kind: 'string', nullable: false, length: 50 }, '`username` VARCHAR(50) COLLATE utf8mb4_0900_bin NOT NULL', '`username` VARCHAR(50) COLLATE utf8mb4_nopad_bin NOT NULL'],
+      [{ name: 'reset_token', kind: 'string', nullable: true }, '`reset_token` VARCHAR(255) COLLATE utf8mb4_0900_bin NULL', '`reset_token` VARCHAR(255) COLLATE utf8mb4_nopad_bin NULL'],
+    ]
+    for (const [column, mysql, mariadb] of cases) {
+      expect(columnSql(column, 'mysql')).toBe(mysql)
+      expect(columnSql(column, 'mariadb')).toBe(mariadb)
+      expect(columnSql(column, 'postgres')).not.toContain('COLLATE')
+    }
+    // Ordinary text keeps the server's friendly, case-insensitive collation.
+    expect(columnSql({ name: 'title', kind: 'string', nullable: false }, 'mysql')).toBe('`title` VARCHAR(255) NOT NULL')
+  })
+
   test('table renames: ALTER … RENAME TO, except MySQL\'s RENAME TABLE', () => {
     const rename = (schema: SchemaBuilder): void => schema.rename('posts', 'articles')
     expect(compile(base, rename, 'postgres')).toEqual(['ALTER TABLE "posts" RENAME TO "articles"'])

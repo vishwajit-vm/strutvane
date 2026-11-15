@@ -3,7 +3,7 @@
 CREATE TABLE `users` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
   `name` VARCHAR(255) NOT NULL,
-  `email` VARCHAR(255) NOT NULL,
+  `email` VARCHAR(255) COLLATE utf8mb4_nopad_bin NOT NULL,
   `password` VARCHAR(255) NULL,
   `created_at` DATETIME(3) NULL,
   `updated_at` DATETIME(3) NULL

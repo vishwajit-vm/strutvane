@@ -3,7 +3,7 @@
 CREATE TABLE `users` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
   `name` VARCHAR(255) NOT NULL,
-  `email` VARCHAR(255) NOT NULL,
+  `email` VARCHAR(255) COLLATE utf8mb4_0900_bin NOT NULL,
   `password` VARCHAR(255) NULL,
   `created_at` DATETIME(3) NULL,
   `updated_at` DATETIME(3) NULL
@@ -14,7 +14,7 @@ CREATE UNIQUE INDEX `users_email_unique` ON `users` (`email`);
 CREATE TABLE `categories` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
   `name` VARCHAR(100) NOT NULL,
-  `slug` VARCHAR(255) NOT NULL,
+  `slug` VARCHAR(255) COLLATE utf8mb4_0900_bin NOT NULL,
   `created_at` DATETIME(3) NULL,
   `updated_at` DATETIME(3) NULL
 );
@@ -24,7 +24,7 @@ CREATE UNIQUE INDEX `categories_slug_unique` ON `categories` (`slug`);
 CREATE TABLE `posts` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
   `title` VARCHAR(200) NOT NULL,
-  `slug` VARCHAR(255) NOT NULL,
+  `slug` VARCHAR(255) COLLATE utf8mb4_0900_bin NOT NULL,
   `content` TEXT NULL,
   `price` DECIMAL(12, 2) NOT NULL DEFAULT 0,
   `status` ENUM('draft', 'published') NOT NULL DEFAULT 'draft',

@@ -214,14 +214,11 @@ export function columnType(column: ColumnDef, dialect: Dialect): string {
       return isMysqlFamily(dialect) ? 'BIGINT UNSIGNED' : 'BIGINT'
     case 'string':
     case 'slug':
-      // MariaDB 11's default collation (utf8mb4_uca1400_ai_ci) folds case and accents: slugs
-      // compare byte for byte, so '/posts/RESUME' never finds 'resume' (security review F-08).
-      return column.kind === 'slug' && dialect === 'mariadb' ? `VARCHAR(${length}) COLLATE utf8mb4_nopad_bin` : `VARCHAR(${length})`
+      return `VARCHAR(${length})${binaryCollation(column, dialect)}`
     case 'text':
       return 'TEXT'
     case 'uuid':
-      if (dialect === 'mariadb') return 'CHAR(36) COLLATE utf8mb4_nopad_bin'
-      return dialect === 'postgres' ? 'UUID' : isMysqlFamily(dialect) ? 'CHAR(36)' : 'VARCHAR(36)'
+      return dialect === 'postgres' ? 'UUID' : isMysqlFamily(dialect) ? `CHAR(36)${binaryCollation(column, dialect)}` : 'VARCHAR(36)'
     case 'decimal':
       // SQLite has no exact decimal: NUMERIC stores up to ~15 significant digits as REAL.
       return dialect === 'sqlite' ? 'NUMERIC' : `${isMysqlFamily(dialect) ? 'DECIMAL' : 'NUMERIC'}(${column.precision ?? 8}, ${column.scale ?? 2})`
@@ -244,6 +241,25 @@ export function columnType(column: ColumnDef, dialect: Dialect): string {
       if (dialect === 'mariadb') return 'LONGTEXT COLLATE utf8mb4_nopad_bin'
       return dialect === 'postgres' ? 'JSONB' : isMysqlFamily(dialect) ? 'JSON' : 'TEXT'
   }
+}
+
+/** Columns whose values are identifiers: compared byte for byte, never case- or accent-folded. */
+const IDENTIFIER_NAME = /^(?:email|username|token)$|_(?:email|token)$/
+
+/**
+ * ` COLLATE …` for identifier-like columns on MySQL and MariaDB (security review F-08). The server
+ * defaults (utf8mb4_0900_ai_ci, utf8mb4_uca1400_ai_ci) fold case and accents, so 'JÖHN@x' found
+ * 'john@x' and '/posts/RESUME' found 'resume'. MySQL's utf8mb4_0900_bin is NO PAD; MariaDB's
+ * utf8mb4_bin pads ('resume ' = 'resume'), so MariaDB gets utf8mb4_nopad_bin. Other engines: none.
+ *
+ * @example
+ * binaryCollation({ name: 'slug', kind: 'slug', nullable: false }, 'mysql') // ' COLLATE utf8mb4_0900_bin'
+ */
+export function binaryCollation(column: ColumnDef, dialect: Dialect): string {
+  if (!isMysqlFamily(dialect)) return ''
+  const identifier = column.kind === 'slug' || column.kind === 'uuid' || (column.kind === 'string' && IDENTIFIER_NAME.test(column.name))
+  if (!identifier) return ''
+  return dialect === 'mariadb' ? ' COLLATE utf8mb4_nopad_bin' : ' COLLATE utf8mb4_0900_bin'
 }
 
 function referencesSql(reference: ForeignKeyDef, dialect: Dialect): string {
