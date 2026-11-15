@@ -131,6 +131,21 @@ describe.each(engines)('models on $name', (engine) => {
       expect(await Post.query().filter('created_at', 'gte', '2026-11-14').filter('created_at', 'lt', '2026-11-14T04:30:00.001Z').count()).toBe(1)
     })
 
+    test('malformed Unicode (a lone surrogate) is refused, never silently replaced', async () => {
+      // A JS string can hold half of a surrogate pair. Encoded to UTF-8 by the drivers it became
+      // U+FFFD on some engines and an error on others: the stored text differed from what was sent.
+      const lone = 'Ada \uD800 Lovelace'
+      await expect(User.create({ name: lone, email: 'lone@example.test' })).rejects.toBeInstanceOf(CastError)
+      await expect(User.create({ name: 'Trail \uDC00', email: 'trail@example.test' })).rejects.toBeInstanceOf(CastError)
+      expect(() => User.query().filter('name', 'eq', lone)).toThrow(CastError)
+      expect(() => User.query().search(lone, ['name'])).toThrow(CastError)
+      expect(() => User.query().filter('name', 'contains', '\uDBFF')).toThrow(CastError)
+      expect(() => User.query().filter('name', 'startsWith', '\uDBFF')).toThrow(CastError)
+      // Real pairs (emoji, astral characters) are fine and round-trip exactly.
+      const ok = await User.create({ name: 'Ada \u{1F600} \u{20BB7}', email: 'ok@example.test' })
+      expect((await User.findOrFail(ok.id)).name).toBe('Ada \u{1F600} \u{20BB7}')
+    })
+
     test('enum and length violations fail the same way on every engine', async () => {
       const ada = await makeUser('Ada')
       const post = await makePost(ada, 'Strict')

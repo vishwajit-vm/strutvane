@@ -239,6 +239,7 @@ export class Builder<TClass extends AnyModelClass, TResult> {
    * Post.query().whereContains('title', '100%')
    */
   whereContains(column: string, needle: string): this {
+    assertWellFormed(this.#model.table, column, needle)
     this.#where.push({ kind: 'raw', conjunction: 'and', fragment: this.#containsFragment(this.#requestColumn(column), needle) })
     return this
   }
@@ -252,6 +253,7 @@ export class Builder<TClass extends AnyModelClass, TResult> {
   whereStartsWith(column: string, prefix: string): this {
     const grammar = this.#model.connection().grammar
     const ref = this.#requestColumn(column)
+    assertWellFormed(this.#model.table, column, prefix)
     const folded = prefix.toLowerCase()
     // substr counts characters on every engine, so compare against the character count.
     // Built by the ORM from a checked column of this query: marked so the raw-condition guard
@@ -271,6 +273,7 @@ export class Builder<TClass extends AnyModelClass, TResult> {
     const trimmed = term.trim()
     if (trimmed === '' || columns.length === 0) return this
     if (trimmed.length > MAX_SEARCH_LENGTH) throw new OrmUsageError('SEARCH_TOO_LONG', `Search text is limited to ${MAX_SEARCH_LENGTH} characters.`)
+    assertWellFormed(this.#model.table, 'search', trimmed)
     const nodes: WhereNode[] = columns.map((column) => ({ kind: 'raw', conjunction: 'or', fragment: this.#containsFragment(this.#requestColumn(column), trimmed) }))
     this.#where.push({ kind: 'group', conjunction: 'and', nodes })
     return this
@@ -965,6 +968,11 @@ function toColumnName<TClass extends AnyModelClass>(name: string): ColumnOf<Tabl
 function withoutPaging(ast: SelectAst): SelectAst {
   const { limit: _limit, offset: _offset, ...rest } = ast
   return rest
+}
+
+/** Search and text filters bind the text as-is (not through a column cast): refuse a lone surrogate there too. */
+function assertWellFormed(table: string, column: string, text: string): void {
+  if (!text.isWellFormed()) throw new CastError(table, column, 'the text contains malformed Unicode (a lone surrogate)')
 }
 
 function assertCount(what: string, count: number): number {

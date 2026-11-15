@@ -190,6 +190,9 @@ function stringToDatabase(table: string, column: ColumnDef, value: unknown): str
   if (typeof value !== 'string') throw new CastError(table, column.name, `expected text, got ${describe(value)}`)
   // U+0000 ends strings in C: PostgreSQL rejects it, others store it. Refuse it everywhere (ADR-0008).
   if (value.includes('\u0000')) throw new CastError(table, column.name, 'text may not contain the NUL character')
+  // Half of a surrogate pair isn't text: encoded to UTF-8 it became U+FFFD on some engines and an
+  // error on others, so what was stored differed from what was sent.
+  if (!value.isWellFormed()) throw new CastError(table, column.name, 'the text contains malformed Unicode (a lone surrogate)')
   // SQLite ignores VARCHAR(n); enforcing it here makes SQLite reject what Postgres would reject.
   if (column.length !== undefined && [...value].length > column.length) {
     throw new CastError(table, column.name, `it is longer than ${column.length} characters`)
