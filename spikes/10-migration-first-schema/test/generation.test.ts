@@ -24,9 +24,11 @@ describe('golden files', () => {
     const files = buildArtifacts(await replayApp(BLOG_ROOT))
     expect([...files.keys()]).toEqual([
       '.strutvane/resources.json',
+      '.strutvane/sql/migrations.mariadb.sql',
       '.strutvane/sql/migrations.mysql.sql',
       '.strutvane/sql/migrations.postgres.sql',
       '.strutvane/sql/migrations.sqlite.sql',
+      '.strutvane/sql/schema.mariadb.sql',
       '.strutvane/sql/schema.mysql.sql',
       '.strutvane/sql/schema.postgres.sql',
       '.strutvane/sql/schema.sqlite.sql',
@@ -52,7 +54,7 @@ describe('golden files', () => {
   test('writeArtifacts only touches files whose content changed', async () => {
     const app = makeTempDir('write')
     const files = buildArtifacts(await replayApp(BLOG_ROOT))
-    expect(writeArtifacts(app, files)).toHaveLength(8)
+    expect(writeArtifacts(app, files)).toHaveLength(10)
     expect(writeArtifacts(app, files)).toEqual([])
   })
 

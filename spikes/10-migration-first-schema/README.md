@@ -240,6 +240,23 @@ POST /api/posts             PATCH /api/posts/1            DELETE /api/posts/1   
     - A field sent with an invalid value was first reported twice (invalid *and* required); now it gets one precise issue.
 13. **PGlite takes 1.2–1.8 s to boot** (WebAssembly compile). That's fine for tests and offline tooling, but types must never depend on it. They don't: the database is only for `migrate`.
 
+## MariaDB (added 2026-11-15)
+
+MariaDB is a first-class engine (`DB_CONNECTION=mariadb`; XAMPP ships it instead of MySQL). The DDL is MySQL's with a few overrides, generated as `.strutvane/sql/{schema,migrations}.mariadb.sql`. Checked on a throwaway MariaDB 11.4.13 container: the schema dump runs, every migration runs up and then down to an empty database, and invalid JSON is refused.
+
+| | MySQL 8.4 | MariaDB 10.4 / 11.4 | What the DDL does |
+|---|---|---|---|
+| JSON | native `JSON` | an alias of `LONGTEXT` (the `JSON_VALID` check is added automatically from 10.4.3) | `LONGTEXT COLLATE utf8mb4_nopad_bin … CHECK (JSON_VALID(col))`, explicit on every version |
+| Default collation | `utf8mb4_0900_ai_ci` | `utf8mb4_uca1400_ai_ci` (11.x): folds case and accents | slugs and UUIDs get `utf8mb4_nopad_bin` |
+| Binary collation | `utf8mb4_0900_bin` is NO PAD | `utf8mb4_bin` is **PAD SPACE** (`'resume ' = 'resume'` is true) | `utf8mb4_nopad_bin` |
+| Rename a column | `RENAME COLUMN` (8.0+) | `RENAME COLUMN` only from 10.5.2 | `CHANGE COLUMN old <new definition>` (works on 10.4) |
+| `CHECK` constraints | enforced from 8.0.16 | enforced from 10.2 | used for JSON; enums stay native `ENUM` |
+| Timestamps | `DATETIME(3)` (UTC) | same | same |
+| Foreign keys, `ENUM`, `TINYINT(1)`, `RENAME TABLE`, `DROP INDEX … ON` | — | same as MySQL | shared code (`isMysqlFamily`) |
+| DDL in transactions | no | no | as for MySQL: a failed migration is half-applied |
+
+Not modelled (for MySQL or MariaDB): generated columns (`t.virtualAs`/`storedAs`), sequences, MariaDB system-versioned tables.
+
 ## Limits & risks (not verified here)
 
 - **Raw SQL in migrations** (Laravel's `DB::statement`) is invisible to the recorder. A `schema.sql(…)` escape hatch would be recorded as opaque, and the post-migrate drift check is the only guard (tested: a hand-made column and index are reported). Data-only migrations would need a separate `schema.data(async (db) => …)` hook that replay skips.

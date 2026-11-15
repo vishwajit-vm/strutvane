@@ -126,6 +126,21 @@ describe('engine-specific ALTER handling', () => {
     expect(compile(withChildren, drop, 'postgres')).toEqual(['ALTER TABLE "posts" DROP COLUMN "author_id"'])
   })
 
+  test('MariaDB: MySQL DDL with explicit JSON checks, NO PAD binary slugs and CHANGE COLUMN renames', () => {
+    // Checked on MariaDB 11.4.13 (2026-11-15): JSON is only an alias of LONGTEXT; the default
+    // collation (utf8mb4_uca1400_ai_ci) folds case and accents, and utf8mb4_bin is PAD SPACE
+    // ('resume ' = 'resume'); RENAME COLUMN needs 10.5.2, but XAMPP 8.2 ships 10.4.
+    const json: ColumnDef = { name: 'meta', kind: 'json', nullable: true }
+    expect(columnSql(json, 'mariadb')).toBe('`meta` LONGTEXT COLLATE utf8mb4_nopad_bin NULL CHECK (JSON_VALID(`meta`))')
+    expect(columnSql({ name: 'slug', kind: 'slug', nullable: false }, 'mariadb')).toBe('`slug` VARCHAR(255) COLLATE utf8mb4_nopad_bin NOT NULL')
+    expect(columnSql({ name: 'expires_at', kind: 'timestamp', nullable: true }, 'mariadb')).toBe('`expires_at` DATETIME(3) NULL')
+    const rename = (schema: SchemaBuilder): void => schema.table('posts', (t) => t.renameColumn('title', 'headline'))
+    expect(compile(base, rename, 'mariadb')).toEqual(['ALTER TABLE `posts` CHANGE COLUMN `title` `headline` VARCHAR(255) NOT NULL'])
+    expect(compile(base, rename, 'mysql')).toEqual(['ALTER TABLE `posts` RENAME COLUMN `title` TO `headline`'])
+    // Foreign keys are named constraints, exactly as on MySQL.
+    expect(createSchemaSql(base, 'mariadb').join('\n')).toContain('CONSTRAINT `posts_author_id_foreign` FOREIGN KEY (`author_id`) REFERENCES `users` (`id`)')
+  })
+
   test('table renames: ALTER … RENAME TO, except MySQL\'s RENAME TABLE', () => {
     const rename = (schema: SchemaBuilder): void => schema.rename('posts', 'articles')
     expect(compile(base, rename, 'postgres')).toEqual(['ALTER TABLE "posts" RENAME TO "articles"'])

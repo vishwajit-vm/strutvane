@@ -85,7 +85,7 @@ export async function rollback(db: Database, replay: Replay, options: { readonly
  * @example
  * upSql(replay.migrations[0], 'postgres') // ['CREATE TABLE "users" (…)', …]
  */
-export function upSql(step: ReplayedMigration, dialect: Database['dialect'] | 'mysql'): string[] {
+export function upSql(step: ReplayedMigration, dialect: Database['dialect'] | 'mysql' | 'mariadb'): string[] {
   return compileOperations(step.before, step.up, dialect)
 }
 
@@ -95,7 +95,7 @@ export function upSql(step: ReplayedMigration, dialect: Database['dialect'] | 'm
  * @example
  * downSql(replay.migrations[0], 'sqlite') // ['DROP TABLE IF EXISTS "users"']
  */
-export function downSql(step: ReplayedMigration, dialect: Database['dialect'] | 'mysql'): string[] {
+export function downSql(step: ReplayedMigration, dialect: Database['dialect'] | 'mysql' | 'mariadb'): string[] {
   return compileOperations(step.after, step.down, dialect)
 }
 

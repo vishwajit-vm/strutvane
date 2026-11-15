@@ -12,7 +12,18 @@
  * @example
  * const dialect: Dialect = 'postgres'
  */
-export type Dialect = 'sqlite' | 'postgres' | 'mysql'
+export type Dialect = 'sqlite' | 'postgres' | 'mysql' | 'mariadb'
+
+/**
+ * MySQL and MariaDB share quoting, literals, `ENUM`, named foreign keys and `DROP INDEX … ON`; the
+ * DDL differs only where {@link isMysqlFamily} callers check for `'mariadb'`.
+ *
+ * @example
+ * isMysqlFamily('mariadb') // true
+ */
+export function isMysqlFamily(dialect: Dialect): dialect is 'mysql' | 'mariadb' {
+  return dialect === 'mysql' || dialect === 'mariadb'
+}
 
 /**
  * A value that can be bound as a query parameter.
@@ -31,7 +42,7 @@ export type SqlValue = string | number | boolean | null
  * quoteIdentifier('order', 'mysql') // '`order`'
  */
 export function quoteIdentifier(name: string, dialect: Dialect): string {
-  return dialect === 'mysql' ? `\`${name}\`` : `"${name}"`
+  return isMysqlFamily(dialect) ? `\`${name}\`` : `"${name}"`
 }
 
 /**
@@ -54,7 +65,7 @@ export function sqlLiteral(value: SqlValue, dialect: Dialect): string {
     return String(value)
   }
   // MySQL also treats a backslash as an escape character inside strings, so double it there.
-  const escaped = dialect === 'mysql' ? value.replace(/\\/g, '\\\\') : value
+  const escaped = isMysqlFamily(dialect) ? value.replace(/\\/g, '\\\\') : value
   return `'${escaped.replace(/'/g, "''")}'`
 }
 

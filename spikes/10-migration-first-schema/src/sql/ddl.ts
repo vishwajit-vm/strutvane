@@ -11,7 +11,7 @@ import { applyOperation } from '../schema/apply.ts'
 import { findColumn, findTable, type ColumnDef, type ForeignKeyDef, type IndexDef, type SchemaState, type TableState } from '../schema/columns.ts'
 import { SchemaError } from '../schema/errors.ts'
 import type { SchemaOperation, TableAction } from '../schema/operations.ts'
-import { quoteIdentifier, sqlLiteral, type Dialect } from './dialect.ts'
+import { isMysqlFamily, quoteIdentifier, sqlLiteral, type Dialect } from './dialect.ts'
 
 /**
  * Compile one migration's operations, starting from the schema as it was before the migration.
@@ -53,7 +53,7 @@ function compileOperation(state: SchemaState, operation: SchemaOperation, dialec
     case 'dropTable':
       return [`DROP TABLE ${operation.ifExists ? 'IF EXISTS ' : ''}${q(operation.table)}`]
     case 'renameTable':
-      return dialect === 'mysql'
+      return isMysqlFamily(dialect)
         ? [`RENAME TABLE ${q(operation.from)} TO ${q(operation.to)}`]
         : [`ALTER TABLE ${q(operation.from)} RENAME TO ${q(operation.to)}`]
   }
@@ -77,14 +77,18 @@ function compileTableAction(state: SchemaState, before: TableState, after: Table
   switch (action.type) {
     case 'addColumn': {
       const statements = [`ALTER TABLE ${table} ADD COLUMN ${columnSql(action.column, dialect)}`]
-      if (dialect === 'mysql' && action.column.references !== undefined) {
+      if (isMysqlFamily(dialect) && action.column.references !== undefined) {
         statements.push(`ALTER TABLE ${table} ADD ${foreignKeyConstraintSql(before.name, action.column.name, action.column.references, dialect)}`)
       }
       return [...statements, ...columnCommentSql(before.name, action.column, dialect)]
     }
-    case 'renameColumn':
-      // RENAME COLUMN: SQLite 3.25+, PostgreSQL, MySQL 8.0+.
+    case 'renameColumn': {
+      // RENAME COLUMN: SQLite 3.25+, PostgreSQL, MySQL 8.0+, MariaDB 10.5.2+. MariaDB 10.4 (what XAMPP
+      // 8.2 ships) only has CHANGE COLUMN, which restates the definition; it works on every MariaDB.
+      const renamed = findColumn(after, action.to)
+      if (dialect === 'mariadb' && renamed !== undefined) return [`ALTER TABLE ${table} CHANGE COLUMN ${q(action.from)} ${columnSql(renamed, dialect)}`]
       return [`ALTER TABLE ${table} RENAME COLUMN ${q(action.from)} TO ${q(action.to)}`]
+    }
     case 'dropColumn':
       return dropColumnSql(state, before, after, action.name, dialect)
     case 'addIndex':
@@ -97,7 +101,7 @@ function compileTableAction(state: SchemaState, before: TableState, after: Table
 function dropColumnSql(state: SchemaState, before: TableState, after: TableState, name: string, dialect: Dialect): string[] {
   const q = (identifier: string): string => quoteIdentifier(identifier, dialect)
   const column = findColumn(before, name)
-  if (dialect === 'mysql') {
+  if (isMysqlFamily(dialect)) {
     // MySQL refuses to drop a column while a foreign key constraint still uses it.
     const dropForeignKey = column?.references === undefined ? [] : [`ALTER TABLE ${q(before.name)} DROP FOREIGN KEY ${q(foreignKeyName(before.name, name))}`]
     return [...dropForeignKey, `ALTER TABLE ${q(before.name)} DROP COLUMN ${q(name)}`]
@@ -141,7 +145,7 @@ function rebuildSqliteTable(state: SchemaState, before: TableState, after: Table
 function createTableSql(table: TableState, dialect: Dialect): string[] {
   const q = (name: string): string => quoteIdentifier(name, dialect)
   const definitions = table.columns.map((column) => columnSql(column, dialect))
-  if (dialect === 'mysql') {
+  if (isMysqlFamily(dialect)) {
     for (const column of table.columns) {
       if (column.references !== undefined) definitions.push(foreignKeyConstraintSql(table.name, column.name, column.references, dialect))
     }
@@ -166,13 +170,14 @@ export function columnSql(column: ColumnDef, dialect: Dialect): string {
   if (column.kind === 'id') return `${name} ${PRIMARY_KEY[dialect]}`
   const parts = [name, columnType(column, dialect), column.nullable ? 'NULL' : 'NOT NULL']
   if ('default' in column && column.default !== undefined) parts.push(`DEFAULT ${sqlLiteral(column.default, dialect)}`)
-  if (column.kind === 'enum' && dialect !== 'mysql') {
+  if (column.kind === 'json' && dialect === 'mariadb') parts.push(`CHECK (JSON_VALID(${name}))`)
+  if (column.kind === 'enum' && !isMysqlFamily(dialect)) {
     const values = (column.values ?? []).map((value) => sqlLiteral(value, dialect)).join(', ')
     parts.push(`CHECK (${name} IN (${values}))`)
   }
   // MySQL ignores an inline REFERENCES clause without a word of warning, so it gets a constraint instead.
-  if (column.references !== undefined && dialect !== 'mysql') parts.push(referencesSql(column.references, dialect))
-  if (column.comment !== undefined && dialect === 'mysql') parts.push(`COMMENT ${sqlLiteral(column.comment, dialect)}`)
+  if (column.references !== undefined && !isMysqlFamily(dialect)) parts.push(referencesSql(column.references, dialect))
+  if (column.comment !== undefined && isMysqlFamily(dialect)) parts.push(`COMMENT ${sqlLiteral(column.comment, dialect)}`)
   return parts.join(' ')
 }
 
@@ -181,6 +186,7 @@ const PRIMARY_KEY: Readonly<Record<Dialect, string>> = {
   sqlite: 'INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL',
   postgres: 'BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY',
   mysql: 'BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY',
+  mariadb: 'BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY',
 }
 
 /**
@@ -196,37 +202,43 @@ export function columnType(column: ColumnDef, dialect: Dialect): string {
     case 'id':
       return dialect === 'sqlite' ? 'INTEGER' : 'BIGINT'
     case 'integer':
-      return dialect === 'mysql' ? 'INT' : 'INTEGER'
+      return isMysqlFamily(dialect) ? 'INT' : 'INTEGER'
     case 'bigInteger':
     case 'foreignId':
       // SQLite integers are already 64-bit; MySQL keys match the unsigned id they point at.
       if (dialect === 'sqlite') return 'INTEGER'
-      return dialect === 'mysql' ? 'BIGINT UNSIGNED' : 'BIGINT'
+      return isMysqlFamily(dialect) ? 'BIGINT UNSIGNED' : 'BIGINT'
     case 'string':
     case 'slug':
-      return `VARCHAR(${length})`
+      // MariaDB 11's default collation (utf8mb4_uca1400_ai_ci) folds case and accents: slugs
+      // compare byte for byte, so '/posts/RESUME' never finds 'resume' (security review F-08).
+      return column.kind === 'slug' && dialect === 'mariadb' ? `VARCHAR(${length}) COLLATE utf8mb4_nopad_bin` : `VARCHAR(${length})`
     case 'text':
       return 'TEXT'
     case 'uuid':
-      return dialect === 'postgres' ? 'UUID' : dialect === 'mysql' ? 'CHAR(36)' : 'VARCHAR(36)'
+      if (dialect === 'mariadb') return 'CHAR(36) COLLATE utf8mb4_nopad_bin'
+      return dialect === 'postgres' ? 'UUID' : isMysqlFamily(dialect) ? 'CHAR(36)' : 'VARCHAR(36)'
     case 'decimal':
       // SQLite has no exact decimal: NUMERIC stores up to ~15 significant digits as REAL.
-      return dialect === 'sqlite' ? 'NUMERIC' : `${dialect === 'mysql' ? 'DECIMAL' : 'NUMERIC'}(${column.precision ?? 8}, ${column.scale ?? 2})`
+      return dialect === 'sqlite' ? 'NUMERIC' : `${isMysqlFamily(dialect) ? 'DECIMAL' : 'NUMERIC'}(${column.precision ?? 8}, ${column.scale ?? 2})`
     case 'double':
-      return dialect === 'postgres' ? 'DOUBLE PRECISION' : dialect === 'mysql' ? 'DOUBLE' : 'REAL'
+      return dialect === 'postgres' ? 'DOUBLE PRECISION' : isMysqlFamily(dialect) ? 'DOUBLE' : 'REAL'
     case 'boolean':
-      return dialect === 'postgres' ? 'BOOLEAN' : dialect === 'mysql' ? 'TINYINT(1)' : 'INTEGER'
+      return dialect === 'postgres' ? 'BOOLEAN' : isMysqlFamily(dialect) ? 'TINYINT(1)' : 'INTEGER'
     case 'enum':
-      return dialect === 'mysql' ? `ENUM(${(column.values ?? []).map((value) => sqlLiteral(value, dialect)).join(', ')})` : 'VARCHAR(255)'
+      return isMysqlFamily(dialect) ? `ENUM(${(column.values ?? []).map((value) => sqlLiteral(value, dialect)).join(', ')})` : 'VARCHAR(255)'
     case 'date':
       return 'DATE'
     case 'timestamp':
       // PostgreSQL keeps the instant (with time zone). MySQL gets DATETIME(3), holding UTC written by
       // the ORM: TIMESTAMP ends at 2038-01-19 (an expiry in 2040 is an error under strict sql_mode)
       // and converts through the session time zone.
-      return dialect === 'postgres' ? 'TIMESTAMP(3) WITH TIME ZONE' : dialect === 'mysql' ? 'DATETIME(3)' : 'DATETIME'
+      return dialect === 'postgres' ? 'TIMESTAMP(3) WITH TIME ZONE' : isMysqlFamily(dialect) ? 'DATETIME(3)' : 'DATETIME'
     case 'json':
-      return dialect === 'postgres' ? 'JSONB' : dialect === 'mysql' ? 'JSON' : 'TEXT'
+      // MariaDB's JSON is only an alias of LONGTEXT; say so, with the validity check, so every
+      // MariaDB version (10.4 adds the check by itself, older ones don't) stores only valid JSON.
+      if (dialect === 'mariadb') return 'LONGTEXT COLLATE utf8mb4_nopad_bin'
+      return dialect === 'postgres' ? 'JSONB' : isMysqlFamily(dialect) ? 'JSON' : 'TEXT'
   }
 }
 
@@ -253,7 +265,7 @@ function createIndexSql(table: string, index: IndexDef, dialect: Dialect): strin
 
 function dropIndexSql(table: string, name: string, dialect: Dialect): string {
   // MySQL index names are per table, so it needs to know which table.
-  return dialect === 'mysql' ? `DROP INDEX ${quoteIdentifier(name, dialect)} ON ${quoteIdentifier(table, dialect)}` : `DROP INDEX ${quoteIdentifier(name, dialect)}`
+  return isMysqlFamily(dialect) ? `DROP INDEX ${quoteIdentifier(name, dialect)} ON ${quoteIdentifier(table, dialect)}` : `DROP INDEX ${quoteIdentifier(name, dialect)}`
 }
 
 function columnCommentSql(table: string, column: ColumnDef, dialect: Dialect): string[] {

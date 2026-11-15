@@ -11,7 +11,7 @@ import { downSql, upSql } from '../db/migrator.ts'
 import { generateMetadata, type ResourceOverrides } from './metadata.ts'
 import { generateModelTypes } from './types.ts'
 
-const DIALECTS: readonly Dialect[] = ['sqlite', 'postgres', 'mysql']
+const DIALECTS: readonly Dialect[] = ['sqlite', 'postgres', 'mysql', 'mariadb']
 
 /**
  * Build every generated file as `{ relative path → content }`, sorted by path.
