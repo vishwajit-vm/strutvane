@@ -172,3 +172,14 @@ The docs pass found places where the blueprint and the spikes disagree. When a m
 | 111 | `.dockerignore` | Excludes `.strutvane/local/` (not all of `.strutvane/`, whose generated files the build needs), along with `.env*`, `.git`, `node_modules`, `storage/` and tests. | spike 13 |
 | 112 | `queue:clear` | Included with the other queue commands (#81), coming in 0.3. | blueprint, docs |
 | 113 | Maximum password length | 256 characters (spike 20; scrypt cost doesn't grow with length). Amends #61's 128. | docs, auth |
+
+## Seventh pass (UI, design and auth audit, 2026-11-15)
+
+| # | Topic | Decision | Owner |
+|---|---|---|---|
+| 114 | Account pre-hijacking (**security**) | With email verification on, **password sign-in is refused until the address is verified**. On the first proof of mailbox ownership (the verification link or an email-link sign-in) for an account that was registered but never verified, the pre-verification password and every session and token are cleared, and the owner sets a new password. | spike 20, auth |
+| 115 | Audit events while impersonating | Every audit event carries both `actorId` (the impersonator) and `subjectId` (the impersonated user). | spike 20, framework audit |
+| 116 | Session list while impersonating | Impersonation sessions are labelled "Signed in by an administrator" and don't show the admin's IP or user agent to the user. | spike 20 |
+| 117 | Races in auth | The last-admin check and the passkey counter update are atomic store operations (a conditional update or row lock). The email-link nonce cookie is `__Host-` + `Secure` and needs HTTPS outside `local`. | spike 20, auth |
+| 118 | UI error parsing | The 422 parser reads `issues[].path` first and falls back to `field` (#69). | spike 14, ui |
+| 119 | Inline theme script and CSP | The static inline theme script is allowed by a CSP **hash**, generated at build time. Components that inject styles take a `nonce` prop. | spikes 14, 17 and 19, ui, designs |
