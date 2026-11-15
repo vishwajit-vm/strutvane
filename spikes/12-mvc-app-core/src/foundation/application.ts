@@ -33,7 +33,7 @@ import { EventRegistry } from '../events/registry.ts'
 import { maintenanceStage } from '../maintenance/maintenance.ts'
 import { FileSessionStore, SessionStoreToken } from '../session/file-store.ts'
 import type { CacheUse } from './bootstrap-cache.ts'
-import { loadConfigWithCache, loadListeners, routeCacheUse, routeManifest } from './cached-boot.ts'
+import { fingerprintOnce, loadConfigWithCache, loadListeners, routeCacheUse, routeManifest } from './cached-boot.ts'
 import { KeyringToken } from '../security/keyring.ts'
 import { VerifyCsrfToken } from '../http/csrf.ts'
 import { buildMiddleware, MiddlewareConfig, MiddlewareConfigToken, type MiddlewareReference } from '../http/middleware.ts'
@@ -439,7 +439,8 @@ export class Application implements ApplicationScope {
   async #boot(): Promise<void> {
     if (!this.container.has(LoggerToken)) this.container.singleton(LoggerToken, () => new StderrLogger())
     const bootLogger = this.container.make(LoggerToken)
-    const loaded = loadConfigWithCache(this.basePath, this.#blueprint.config, loadEnvSource(this.basePath, this.#blueprint.env), bootLogger)
+    const fingerprint = fingerprintOnce(this.basePath)
+    const loaded = loadConfigWithCache(this.basePath, this.#blueprint.config, loadEnvSource(this.basePath, this.#blueprint.env), bootLogger, fingerprint)
     const config = loaded.config
     const guards = checkBootGuards({
       environment: String(config.get('app.env')),
@@ -468,8 +469,8 @@ export class Application implements ApplicationScope {
     this.#extraStages.push(maintenanceStage({ basePath: this.basePath, keyring: guards.keyring, health: this.#blueprint.routing.health, clock: this.container.make(ClockToken), secureCookies: environment === 'production' }))
     const stages = [trustedHostStage(security), ...this.#extraStages, corsPreflightStage(security)]
     this.#state = { config, routes, url, hono: this.#buildHono(routes, middleware), handler, middleware, security, stages }
-    const routeUse = routeCacheUse(this.basePath, guards.keyring, logger, routeManifest(routes, (route) => middleware.get(route) ?? { references: [], optOuts: [] }).hash)
-    const listeners = await loadListeners(this.basePath, guards.keyring, logger)
+    const routeUse = routeCacheUse(this.basePath, guards.keyring, logger, routeManifest(routes, (route) => middleware.get(route) ?? { references: [], optOuts: [] }).hash, fingerprint)
+    const listeners = await loadListeners(this.basePath, guards.keyring, logger, fingerprint)
     this.events.useDiscovered(listeners.entries)
     this.cacheStatus = { config: loaded.use, routes: routeUse, events: listeners.use }
     for (const warning of guards.warnings) logger.warn(warning)

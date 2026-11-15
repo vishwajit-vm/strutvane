@@ -17,6 +17,7 @@ import { actionLabel, type CompiledRoute } from '../routing/router.ts'
 import { Keyring } from '../security/keyring.ts'
 import type { Logger } from '../support/log.ts'
 import { discoverListeners, isListenerList, type ListenerEntry } from '../events/registry.ts'
+import { codeFingerprint } from '../support/fingerprint.ts'
 import { readCache, type CacheUse } from './bootstrap-cache.ts'
 import { ConfigRepository, deepFreeze, loadConfig, type ConfigDefinition } from './config.ts'
 import type { EnvSource } from './env.ts'
@@ -27,16 +28,27 @@ import type { EnvSource } from './env.ts'
  * @example
  * const { config, use } = loadConfigWithCache(basePath, files, source, logger)
  */
-export function loadConfigWithCache(basePath: string, files: Readonly<Record<string, ConfigDefinition<unknown>>>, source: EnvSource, logger: Logger): { readonly config: ConfigRepository; readonly use: CacheUse } {
+export function loadConfigWithCache(basePath: string, files: Readonly<Record<string, ConfigDefinition<unknown>>>, source: EnvSource, logger: Logger, fingerprint: () => string): { readonly config: ConfigRepository; readonly use: CacheUse } {
   const keyring = keyringFrom(source)
   if (keyring !== undefined) {
-    const cached = readCache(basePath, 'config', keyring, logger)
+    const cached = readCache(basePath, 'config', keyring, logger, fingerprint)
     if (cached.use === 'used' && typeof cached.payload === 'object' && cached.payload !== null && !Array.isArray(cached.payload)) {
       return { config: new ConfigRepository(deepFreeze(decodeConfigTree(cached.payload) as Readonly<Record<string, unknown>>)), use: 'used' }
     }
     if (cached.use !== 'none') return { config: loadConfig(files, source), use: 'ignored' }
   }
   return { config: loadConfig(files, source), use: 'none' }
+}
+
+/**
+ * The code fingerprint, computed at most once per boot and only if a cache file exists to check.
+ *
+ * @example
+ * const fingerprint = fingerprintOnce('/srv/blog')
+ */
+export function fingerprintOnce(basePath: string): () => string {
+  let value: string | undefined
+  return () => (value ??= codeFingerprint(basePath))
 }
 
 /** Stands in for `undefined` in the config cache: JSON would drop the key, and `config()` would then throw for it. */
@@ -105,8 +117,8 @@ export function routeManifest(routes: readonly CompiledRoute[], middleware: (rou
  * @example
  * const { use } = routeCacheUse(basePath, keyring, logger, manifest.hash)
  */
-export function routeCacheUse(basePath: string, keyring: Keyring, logger: Logger, liveHash: string): CacheUse {
-  const cached = readCache(basePath, 'routes', keyring, logger)
+export function routeCacheUse(basePath: string, keyring: Keyring, logger: Logger, liveHash: string, fingerprint: () => string): CacheUse {
+  const cached = readCache(basePath, 'routes', keyring, logger, fingerprint)
   if (cached.use !== 'used') return cached.use
   const hash = typeof cached.payload === 'object' && cached.payload !== null && 'hash' in cached.payload ? cached.payload.hash : undefined
   if (hash === liveHash) return 'used'
@@ -120,8 +132,8 @@ export function routeCacheUse(basePath: string, keyring: Keyring, logger: Logger
  * @example
  * const { entries, use } = await loadListeners(basePath, keyring, logger)
  */
-export async function loadListeners(basePath: string, keyring: Keyring, logger: Logger): Promise<{ readonly entries: readonly ListenerEntry[]; readonly use: CacheUse }> {
-  const cached = readCache(basePath, 'events', keyring, logger)
+export async function loadListeners(basePath: string, keyring: Keyring, logger: Logger, fingerprint: () => string): Promise<{ readonly entries: readonly ListenerEntry[]; readonly use: CacheUse }> {
+  const cached = readCache(basePath, 'events', keyring, logger, fingerprint)
   if (cached.use === 'used' && isListenerList(cached.payload)) return { entries: cached.payload, use: 'used' }
   return { entries: await discoverListeners(basePath), use: cached.use === 'none' ? 'none' : 'ignored' }
 }

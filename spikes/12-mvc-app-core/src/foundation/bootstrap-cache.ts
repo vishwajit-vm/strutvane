@@ -78,12 +78,13 @@ export function writeCache(basePath: string, kind: CacheKind, keyring: Keyring, 
 
 /**
  * Read a cache, or `undefined` (with a warning through `logger`) when it is missing, stale,
- * from another key or tampered with.
+ * from another key or tampered with. Pass `fingerprint` to share one code hash between the three
+ * caches of a boot (hashing the app's files is the slowest part of reading a cache).
  *
  * @example
  * const tree = readCache(basePath, 'config', keyring, logger)
  */
-export function readCache(basePath: string, kind: CacheKind, keyring: Keyring, logger: Logger): { readonly use: CacheUse; readonly payload: unknown } {
+export function readCache(basePath: string, kind: CacheKind, keyring: Keyring, logger: Logger, fingerprint: () => string = () => codeFingerprint(basePath)): { readonly use: CacheUse; readonly payload: unknown } {
   const path = cachePath(basePath, kind)
   if (!existsSync(path)) return { use: 'none', payload: undefined }
   const ignore = (reason: string): { use: CacheUse; payload: unknown } => {
@@ -94,7 +95,7 @@ export function readCache(basePath: string, kind: CacheKind, keyring: Keyring, l
   if (file === undefined || file.format !== FORMAT || file.kind !== kind) return ignore('it is not a cache this version can read.')
   const key = keyring.byId(file.keyId)
   if (key === undefined) return ignore('it was built with a different APP_KEY.')
-  if (file.framework !== FRAMEWORK_VERSION || file.code !== codeFingerprint(basePath)) return ignore('it was built from another version of the code.')
+  if (file.framework !== FRAMEWORK_VERSION || file.code !== fingerprint()) return ignore('it was built from another version of the code.')
   try {
     const plaintext = openSealed(keyring.subkey('bootstrap-cache', key), unpackSealed(Buffer.from(file.payload, 'base64')), additionalData(file))
     return { use: 'used', payload: parseJsonSafely(plaintext.toString('utf8'), { maxDepth: 64, maxKeys: 1_000_000 }) }

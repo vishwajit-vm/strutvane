@@ -1,6 +1,6 @@
 # Spike 12: MVC application core (Laravel's flow, strict TypeScript)
 
-**Date:** 2026-11-14.
+**Date:** 2026-11-14; security kit and commands added 2026-11-15 (see [Security kit and commands](#security-kit-and-commands-extension-2026-11-15)).
 
 **Environment:** Windows 11, Node v24.21.0 (native type stripping), TypeScript 6.0.3, Vitest 5.1.0, Hono 4.13.18, @hono/node-server 2.1.8, Zod 4.6.7, SQLite through `node:sqlite`. npm only.
 
@@ -154,11 +154,91 @@ The app layout is Laravel's, TS-cased: `app/http/{controllers,middleware,request
     Only SQLite was executed here; the MySQL and PostgreSQL SQL text is pinned by tests *(unverified on a server)*.
 11. **Spike 10's generator worked unchanged on this app's migrations** (it wrote `.strutvane/` here). Two small things to fix there: the doc comments say "a author", and `resources.json` has no `internal` flag yet (F-01 needs it from `schema.create(…, { internal: true })`).
 
+## Security kit and commands (extension, 2026-11-15)
+
+**Question.** Can every protection in blueprint §5.2 be on by default *and* usable in every style a Laravel developer reaches for (app-wide, route, group, controller, handler wrapper, imperative call) without decorators and without one implementation per style? And can the artisan cache, key, env and maintenance commands work safely across processes, keys and deploys?
+
+**Answer: yes.** One helper, `defineProtection(alias, MiddlewareClass)`, gives `csrf`, `auth`, `can`, `throttle`, `signed` and `idempotent` all six styles, and `route:list --security` shows the result of all of them together, including every opt-out. The commands work, with one honest negative: in TypeScript the bootstrap caches don't make boot faster (finding 12).
+
+### What the developer writes
+
+| Style | Code |
+|---|---|
+| Default | `csrf` is in the `web` and `api` groups; security headers, trusted hosts, body limits and maintenance checks run for every request |
+| App-wide | `.withMiddleware((m) => m.validateCsrfTokens({ except: ['webhooks/*'] }).trustProxies({ at: ['10.0.0.0/8'] }).cors({ origins: ['https://app.example.com'], credentials: true }).securityHeaders({ csp: { 'img-src': ['https://cdn.example.com'] } }).limits({ maxBytes: 5_000_000 }).defineAbility('view-stats', (user) => hasAdminRole(user)))` |
+| Route | `Route.post('/hook', handler).withoutMiddleware('csrf')`, `.middleware('csrf', 'signed', 'can:view-stats', 'idempotent')` |
+| Group | `Route.middleware('csrf').group([...])`, `Route.withoutMiddleware('csrf').group([...])`, `Route.group({ withoutMiddleware: ['csrf'] }, [...])` |
+| Controller | `static readonly middleware = [csrf({ except: ['callback'] }), auth({ except: ['index'] }), throttle({ params: ['10', '1'], only: ['store'] })]` |
+| Handler | `export default withCsrf(async (ctx) => …)`, also `withAuth`, `withCan(h, 'ability')`, `withThrottle(h, '5', '1')`, `withSigned`, `withIdempotency` |
+| Imperative | `await csrf.verify(ctx)`, `csrf.token(ctx)`, `await auth.verify(ctx)`, `await can.verify(ctx, 'view-stats')` |
+| Views | `csrf_field(ctx)`, `csrf_meta(ctx)`, `ctx.nonce` for `<script nonce>` |
+| Tests | `client(app).withoutCsrf()` (refused unless `APP_ENV=testing`) |
+| Helpers | `encrypt()`/`decrypt()`, `signedRoute()`/`temporarySignedRoute()` (typed like `route()`), `redirect().intended(ctx, '/home')`/`.to()`/`.away()`, `safeFetch(url, { timeoutMs, maxBytes, allow })` |
+
+Opt-out rules (all checked at boot): a group opt-out yields to a more specific add (re-adding protection is always safe); a route or controller that both adds and opts out of the same alias is a boot error; an opt-out of an unknown alias, a `can:` naming an unknown ability, and controller `only`/`except` naming a missing action are boot errors with "did you mean".
+
+`node strut route:list --security` (and `--json`) prints, per route, the protections that really apply, every opt-out with where it was written (`route`, `group`, `controller`, `app: webhooks/*`), and warnings for unsafe routes with no CSRF check and `/_…` developer routes without auth.
+
+**Commands:** `optimize`, `optimize:clear`, `config:cache/clear`, `route:cache/clear`, `event:cache/clear/list`, `cache:clear [--store]`, `cache:forget <key>`, `key:generate [--show --force]`, `key:rotate`, `env:encrypt/env:decrypt [--env --key --force]` (key from `--key` or `STRUT_ENV_KEY`, never written to disk), `down [--secret | --with-secret] [--retry --refresh --redirect --render]`, `up`, `session:flush`, `security:check [--audit --json]`, and the global `--force-debug`.
+
+### Evidence
+
+`npm test`: **17 files, 307 tests** (before this extension: 9 files, 115). New files:
+
+| Test file | What it proves |
+|---|---|
+| `protections.test.ts` | CSRF in every style; the same styles for auth, can and throttle; a wrapper runs once when routed; boot errors for contradictions and typos; an ability must return exactly `true`; `route:list --security`; CSRF bypass attempts (null Origin, sibling subdomains, missing `Sec-Fetch-Site`, `Referer`, method override, cookie + fake bearer, `text/plain` and other content-type tricks) |
+| `request-security.test.ts` | Headers on every response (404 and 500 included), a fresh nonce per response, HSTS only in production over HTTPS (never from a spoofed `X-Forwarded-Proto`), header injection refused at boot and CR/LF never splitting a header, the CSP report endpoint (sanitised, capped), Host poisoning, `X-Forwarded-*` spoofing, pollution payloads, deep and key-heavy JSON, CORS off by default and `*` with credentials refused at boot |
+| `crypto-urls.test.ts` | Keyring rules, encrypt/decrypt with purposes and rotation, **4/8/12-byte GCM tags refused**, signed and temporary URLs (tampering, expiry, rotation, the `//path` regression), the `signed` middleware, 26 open-redirect payloads, `redirect().intended()`, the idempotency matrix (replay, reuse, 409 in flight, cross-user isolation, retry after failure) |
+| `ssrf.test.ts` | The special-range table; 15 blocked targets (`127.0.0.1`, `[::1]`, `2130706433`, `0x7f.0.0.1`, `0177.0.0.1`, `127.1`, `0`, `169.254.169.254`, `[fd00:ec2::254]`, `100.100.100.200`, mapped IPv6…) each proven to make **no connection**; mixed DNS answers; DNS rebinding (one resolution, socket pinned to the checked address); redirect hops re-checked; timeout, size cap, redirect limit |
+| `boot-guards.test.ts` | Debug in production refused (and `--force-debug`), weak, short or malformed keys refused without echoing them, and a hostile session that leaves no key, token, cookie or report URL in the logs |
+| `commands.test.ts` | Every command above, on copies of the example app: encrypted config cache (no secrets in the file), caches from another key, other code, a changed route table or edited by hand ignored with a warning; Windows EPERM retry; key rotation keeping old ciphertexts and links valid; env encryption round trip, wrong key and truncated tags; maintenance mode with retry/refresh, `/up` kept healthy, restart and **real multi-process** behaviour, `--with-secret` bypass cookie, `--redirect` (9 hostile values refused), `--render` path checks, corrupt state stays down; `session:flush`; `security:check` pass, production failures, refused boot and `--audit` |
+| `fuzz.test.ts` | Seeded fuzzing: the JSON limit parser agrees with `JSON.parse` and measures depth and keys exactly (6,000 values), only throws its own error on 10,000 mutated inputs, never lets `__proto__` through; the signed-URL verifier accepts a one-character change only when it changes nothing (9,000 links) and never throws (5,000 inputs) |
+| `security-types.test.ts` | Public helper types: protection options, wrappers, `csrf.token` only on `csrf`, `defineProtection` needs `handle()`, abilities return booleans, signed route helpers typed like `route()`, `decrypt()` is `unknown`, settings options, `withoutCsrf()` only on the test client |
+
+Existing tests changed only where the new boot guard applies (a production app with `APP_DEBUG=true` now needs `forceDebug`) and where the fixture's test key was shorter than 32 bytes.
+
+### Findings
+
+1. **One generic helper is enough.** Each style runs the same middleware class. The only subtlety is a wrapper on a routed handler: the router runs the middleware at its priority and marks it applied, and the wrapper then skips it (`ctx.markApplied`), so it runs exactly once; called outside the router, the wrapper runs it itself. Wrappers carry their references on a symbol property, so `route:list` still sees inside the closure. Decorators would have hidden exactly this.
+2. **Opt-outs need precedence rules, or they silently remove protection.** The rules above came out of the tests; the "same level contradiction is a boot error" rule is what keeps a forgotten `.withoutMiddleware()` from overriding a deliberate `.middleware()`.
+3. **A cookie plus a junk bearer header** skips CSRF (bearer requests are exempt) and, without care, would still be authenticated by the cookie. `ctx.sessionId()` ignores the session cookie whenever a bearer header is present (review F-07).
+4. **Content types must be compared by essence.** The original `includes('application/json')` accepted `text/plain; x=application/json`, which a cross-site form sends without a preflight.
+5. **The fuzzer found a real bug:** `verifySignedUrl('//cdn/x?…')` resolved the path as a URL with host `cdn`, so the signed path and the checked path differed (and some inputs threw). Paths are now appended to a fixed base, never resolved.
+6. **AES-GCM tag length.** Node accepts truncated tags unless told otherwise (DEP0182). Every decryption passes `authTagLength: 16` and refuses any tag that isn't exactly 16 bytes before `setAuthTag`; packed formats use fixed offsets so a short tag can't come in through a length field. Regression tests use genuine 4/8/12-byte tags made by Node.
+7. **JSON limits must run before `JSON.parse`.** A linear pre-scan (depth, and keys counted as `:` outside strings) refuses hostile bodies in one pass. `JSON.parse` creates an *own* `__proto__` property (no pollution yet, but the next deep merge would), so `__proto__` and `constructor.prototype` are refused outright.
+8. **SSRF: the URL parser is an ally, DNS is the enemy.** WHATWG URL already turns `2130706433`, `0x7f.1` and `0177.0.0.1` into `127.0.0.1` and strips tabs and newlines, so checks run on the normalised host. Rebinding is defeated by resolving once, checking every address, and pinning the socket's `lookup` to the checked address (the test's resolver is called exactly once while the request succeeds); TLS keeps the real name for SNI and certificate checks.
+9. **Security headers belong outside the error handler**, or 404/500 pages ship without CSP and `nosniff`. A route's own CSP (the debug page) wins.
+10. **A refused CORS preflight got its headers back** from the response decorator (found by a test); preflights are now answered only by the preflight stage.
+11. **Optional config values are `undefined`, which JSON drops,** so a cached config lost keys and `config()` threw for them. The config cache encodes `undefined` explicitly.
+12. **The bootstrap caches don't make boot faster in TypeScript.** Routes compile in milliseconds and config builders are cheap; the only expensive boot step the caches can skip is the per-controller route check. Meanwhile checking a cache's code fingerprint (hashing `app/`, `routes/`, `config/`, `bootstrap/`) costs about 22–55 ms on this example. Measured on a shared, heavily loaded laptop (noisy): boot without caches 110–190 ms, with all three caches 135–320 ms. The first version hashed once per cache and was worse; the fingerprint is now computed once per boot. The caches' real value here is parity (`config:cache` freezes config like Laravel), integrity (a tampered or copied cache is refused) and secrecy (the config cache is encrypted).
+13. **Maintenance mode across processes** works with a file plus a per-request `stat` (modification time, size and inode, because an atomic rename can land in the same millisecond). A corrupt file keeps the app down. Unlike Laravel, the bypass secret is never stored (an HMAC under an `APP_KEY` subkey), and the bypass cookie is bound to the current secret, so a new `down` invalidates old cookies.
+
+### Ready to port into `@strutvane/framework`
+
+- `http/protection.ts` + `http/protections.ts` (the generic styles), `http/route-middleware.ts` (resolution and boot errors), `http/security-profile.ts` and `route:list --security`.
+- `http/kernel.ts` (global stages and response decorators), `security/secure-headers.ts`, `http/csp-report.ts`, `security/trusted-hosts.ts`, `security/trusted-proxies.ts`, `security/cors.ts`, `security/safe-json.ts`, `security/settings.ts` (one boot error listing every bad setting).
+- `security/aead.ts`, `security/keyring.ts`, `security/encrypter.ts`, `security/signed-url.ts` + `http/signed.ts`, `security/redirect.ts` + `http/redirect.ts`, `security/ip.ts` + `security/http-client.ts`, `http/idempotency.ts` (with a shared store).
+- `security/boot-guards.ts`, `support/atomic-write.ts`, `support/env-file.ts`, `maintenance/maintenance.ts`, and the commands in `console/commands/{caches,cache-store,keys,env-crypt,maintenance,session-flush,security-check}.ts`.
+- Port as is, with their tests. `foundation/bootstrap-cache.ts` and `cached-boot.ts` port too, but see open question 3.
+
+### Open questions
+
+1. **`withoutCsrf()` environment name.** The brief says `APP_ENV=test`; this app's environments are `local`, `testing` and `production` (Laravel's names), so it is allowed only for `testing`. Confirm.
+2. **CSRF tokens still use an HMAC under the raw `APP_KEY`** (from the first version of this spike), not a keyring subkey, so `key:rotate` changes every token (open forms need one reload) and previous keys aren't tried. Move CSRF to the keyring?
+3. **Keep the route and event caches?** They add integrity and parity but no speed here. For production, a deploy-time build id (for example `STRUT_BUILD_ID`) could replace hashing the files at boot.
+4. **Pre-session CSRF tokens** (login and register forms) and token rotation at login belong to the session layer; `csrf.token(ctx)` refuses to issue a token without a session.
+5. **Shared stores.** Rate limits, idempotency keys and the memory cache are per process; production needs the database or Redis behind the existing interfaces (review F-22).
+6. **Request timeouts** (blueprint §5.2 "Requests") are not built; they belong in the server adapter (`serve`).
+7. **`--key` on the command line** lands in shell history; the docs should push `STRUT_ENV_KEY`.
+8. **`npm audit` in `security:check`** runs npm's CLI through the current Node binary (no bare `npm` lookup, review F-25) and is opt-in (`--audit`) because it needs the network.
+
 ## Limits (not done here)
 
 - The data layer is a deliberately tiny stand-in (`Model('posts')` with find, paginate, create, update, delete). Spike 11's ORM replaces it. The contract `ResourceController` needs is listed below.
 - No sessions, cookies or login (the auth package). The CSRF middleware is complete for cookie requests, but login CSRF and token rotation belong to the session layer. The `auth` guard is a bearer-token stub with hashed tokens.
-- Not built: OpenAPI and `.strutvane/client.gen.ts` from the route registry (the compiled route table plus `resources.json` has everything they need), `migrate`/`db:seed` commands (spike 10 and spike 11), tenancy (`runWithTenant` around each request), a transaction per test, `Mail.fake`, `asTenant`, and maintenance mode. Naming: `up`/`down` stay reserved for maintenance mode (Laravel); Docker gets `services:up`/`services:down`.
+- Not built: OpenAPI and `.strutvane/client.gen.ts` from the route registry (the compiled route table plus `resources.json` has everything they need), `migrate`/`db:seed` commands (spike 10 and spike 11), tenancy (`runWithTenant` around each request), a transaction per test, `Mail.fake`, and `asTenant`. Maintenance mode was added on 2026-11-15. Naming: `up`/`down` stay reserved for maintenance mode (Laravel); Docker gets `services:up`/`services:down`.
+- Sessions, login and the session-bound CSRF token rotation still belong to the auth package; the security kit provides the seams (`ctx.sessionId()`, `SessionStoreToken`, `session:flush`).
 - The rate limiter is a fixed window in memory. Production needs v1's sliding window and a shared store (F-22).
 - Only Windows was measured.
 
