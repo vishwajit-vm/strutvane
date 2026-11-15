@@ -7,9 +7,12 @@
  * Rules every implementation must keep (the store contract test checks them):
  * - **Secrets are never stored raw.** Every token-like column holds a keyed digest (`digest`), the
  *   TOTP secret holds AES-GCM ciphertext. The core does the hashing; the store only compares.
- * - **Single-use is atomic.** `consumeOneTime`, `consumeRecoveryCode`, `consumeInvitation` and
- *   `advanceTotpStep` must succeed for exactly one of two concurrent callers (SQL: `DELETE …
- *   RETURNING` / a conditional `UPDATE`).
+ * - **Single-use is atomic.** `consumeOneTime`, `consumeRecoveryCode`, `consumeInvitation`,
+ *   `advanceTotpStep` and `advancePasskeyCounter` must succeed for exactly one of two concurrent
+ *   callers (SQL: `DELETE … RETURNING` / a conditional `UPDATE`).
+ * - **Guards are atomic.** `changeMemberRole` decides "would this leave the team without an
+ *   admin?" in the same statement that writes (a conditional `UPDATE`/`DELETE`, or a row lock),
+ *   never as a read followed by a write (CONSISTENCY #117).
  * - **Emails arrive normalized** (`normalizeEmail`); compare them byte for byte (MySQL: a binary
  *   collation, review F-08).
  * - Times are epoch milliseconds.
@@ -205,6 +208,15 @@ export interface AuthStore {
     id: string,
     patch: Partial<Pick<PasskeyRecord, 'name' | 'counter' | 'lastUsedAt' | 'backedUp'>>,
   ): Promise<void>
+  /**
+   * Store a sign-in's new counter only if the stored one is still `expected` (compare-and-set).
+   * False when another sign-in moved it first: a cloned authenticator racing the original.
+   */
+  advancePasskeyCounter(
+    id: string,
+    expected: number,
+    patch: { readonly counter: number; readonly lastUsedAt: number; readonly backedUp: boolean },
+  ): Promise<boolean>
   /** Delete one of `userId`'s passkeys; false when it does not belong to them. */
   deletePasskey(userId: string, id: string): Promise<boolean>
 
@@ -227,6 +239,11 @@ export interface AuthStore {
   /** Insert or update a membership. */
   putMember(member: MemberRecord): Promise<void>
   removeMember(teamId: string, userId: string): Promise<void>
+  /**
+   * Change a member's role (`null` removes them), atomically refusing when it would leave the team
+   * with no admin.
+   */
+  changeMemberRole(teamId: string, userId: string, role: string | null): Promise<'ok' | 'not-found' | 'last-admin'>
   addInvitation(invitation: InvitationRecord): Promise<void>
   findInvitationByDigest(digest: string): Promise<InvitationRecord | undefined>
   listInvitations(teamId: string): Promise<readonly InvitationRecord[]>

@@ -120,6 +120,21 @@ describe('SQLite across connections (several app processes on one database)', ()
     }
   })
 
+  it('the last-admin guard and the passkey counter are atomic across two connections', async () => {
+    const file = join(dir, 'guards.sqlite')
+    const a = sqliteAuthStore(openFile(file))
+    const b = sqliteAuthStore(openFile(file))
+    await a.createTeam({ id: 't', name: 'T', personal: false, createdAt: 1 }, { teamId: 't', userId: 'u1', role: 'admin' })
+    await a.putMember({ teamId: 't', userId: 'u2', role: 'admin' })
+    // Each connection removes the OTHER admin: the second must see the first's write.
+    expect(await a.changeMemberRole('t', 'u2', 'member')).toBe('ok')
+    expect(await b.changeMemberRole('t', 'u1', null)).toBe('last-admin')
+    expect(await b.changeMemberRole('t', 'nobody', null)).toBe('not-found')
+    await a.addPasskey({ id: 'p', userId: 'u1', name: 'k', credentialId: 'c', publicKey: 'x', counter: 5, transports: [], backedUp: false, createdAt: 1, lastUsedAt: null })
+    expect(await a.advancePasskeyCounter('p', 5, { counter: 6, lastUsedAt: 2, backedUp: false })).toBe(true)
+    expect(await b.advancePasskeyCounter('p', 5, { counter: 6, lastUsedAt: 3, backedUp: false })).toBe(false)
+  })
+
   it('bypass attempt: spreading attempts over two app instances does not double the limit', async () => {
     const file = join(dir, 'limits.sqlite')
     const clock = manualClock(START)

@@ -18,6 +18,27 @@ describe.each(STORES)('teams (%s store)', (store) => {
     expect((await h.auth.state(b.req))?.team).toEqual(current)
   })
 
+  it('race: two admins demoting (or removing) each other at once never leave a team without an admin', async () => {
+    for (const action of ['demote', 'remove'] as const) {
+      const h = harness({ store, config })
+      const ada = await h.user('ada@acme.test')
+      await h.user('vic@acme.test')
+      const adaB = await h.signedIn(ada.email)
+      const team = await h.auth.teams.create(adaB.req, { name: 'Acme' })
+      const vicB = await h.signedIn('vic@acme.test')
+      await h.auth.teams.accept(vicB.req, { token: await invite(h, adaB, team.id, 'vic@acme.test', 'admin') })
+      const vic = await h.store.findUserByEmail('vic@acme.test')
+      const run = (who: Browser, target: string) =>
+        action === 'demote'
+          ? h.auth.teams.changeRole(who.req, { teamId: team.id, userId: target, role: 'member' })
+          : h.auth.teams.removeMember(who.req, { teamId: team.id, userId: target })
+      const results = await Promise.allSettled([run(adaB, vic?.id ?? ''), run(vicB, ada.id)])
+      expect(results.filter((r) => r.status === 'fulfilled'), action).toHaveLength(1)
+      const admins = (await h.store.listMembers(team.id)).filter((m) => m.role === 'admin')
+      expect(admins, action).toHaveLength(1)
+    }
+  })
+
   it('attack: invitations cannot be used to mail-bomb arbitrary addresses (per-account limit, across teams)', async () => {
     const h = harness({ store, config })
     await h.user('ada@acme.test')

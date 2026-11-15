@@ -134,11 +134,6 @@ export function teamService(deps: AuthDeps): TeamService {
     return value
   }
 
-  const assertKeepsAnAdmin = async (teamId: string, leavingUserId: string): Promise<void> => {
-    const admins = (await deps.store.listMembers(teamId)).filter((m) => m.role === 'admin' && m.userId !== leavingUserId)
-    if (admins.length === 0) throw new AuthError('LAST_ADMIN')
-  }
-
   const current = async (active: ActiveSession): Promise<CurrentTeam | null> => {
     const teamId = active.user.currentTeamId
     if (teamId === null) return null
@@ -261,11 +256,11 @@ export function teamService(deps: AuthDeps): TeamService {
       const { team } = await adminOf(active, input.teamId)
       const role = parseRole(input.role)
       if (typeof input.userId !== 'string') throw new AuthError('NOT_FOUND')
-      const target = await deps.store.findMember(team.id, input.userId)
-      if (!target) throw new AuthError('NOT_FOUND')
-      if (target.role === 'admin' && role !== 'admin') await assertKeepsAnAdmin(team.id, target.userId)
-      await deps.store.putMember({ ...target, role })
-      await emit(deps, req, { type: 'team.member.changed', userId: active.user.id, teamId: team.id, memberId: target.userId, role })
+      // One atomic store operation: a read-then-write check let two admins demote each other.
+      const outcome = await deps.store.changeMemberRole(team.id, input.userId, role)
+      if (outcome === 'not-found') throw new AuthError('NOT_FOUND')
+      if (outcome === 'last-admin') throw new AuthError('LAST_ADMIN')
+      await emit(deps, req, { type: 'team.member.changed', userId: active.user.id, teamId: team.id, memberId: input.userId, role })
     },
 
     async removeMember(req, input) {
@@ -274,13 +269,12 @@ export function teamService(deps: AuthDeps): TeamService {
       if (typeof input.userId !== 'string') throw new AuthError('NOT_FOUND')
       const leaving = input.userId === active.user.id
       if (!leaving && member.role !== 'admin') throw new AuthError('FORBIDDEN')
-      const target = await deps.store.findMember(team.id, input.userId)
-      if (!target) throw new AuthError('NOT_FOUND')
-      if (target.role === 'admin') await assertKeepsAnAdmin(team.id, target.userId)
-      await deps.store.removeMember(team.id, target.userId)
+      const outcome = await deps.store.changeMemberRole(team.id, input.userId, null)
+      if (outcome === 'not-found') throw new AuthError('NOT_FOUND')
+      if (outcome === 'last-admin') throw new AuthError('LAST_ADMIN')
       // The removed user's current team is re-checked per request (current() returns null), so
       // their sessions lose the team immediately without touching them here.
-      await emit(deps, req, { type: 'team.member.changed', userId: active.user.id, teamId: team.id, memberId: target.userId, role: null })
+      await emit(deps, req, { type: 'team.member.changed', userId: active.user.id, teamId: team.id, memberId: input.userId, role: null })
     },
   }
 }

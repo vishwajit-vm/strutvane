@@ -140,6 +140,12 @@ export function memoryAuthStore(): AuthStore {
       const p = passkeys.get(id)
       if (p) passkeys.set(id, { ...p, ...patch })
     },
+    async advancePasskeyCounter(id, expected, patch) {
+      const p = passkeys.get(id)
+      if (!p || p.counter !== expected) return false
+      passkeys.set(id, { ...p, ...patch })
+      return true
+    },
     async deletePasskey(userId, id) {
       const p = passkeys.get(id)
       if (!p || p.userId !== userId) return false
@@ -196,6 +202,16 @@ export function memoryAuthStore(): AuthStore {
     },
     async removeMember(teamId, userId) {
       members.delete(mKey(teamId, userId))
+    },
+    async changeMemberRole(teamId, userId, role) {
+      // Synchronous between the check and the write: atomic within the process.
+      const m = members.get(mKey(teamId, userId))
+      if (!m) return 'not-found'
+      const otherAdmin = [...members.values()].some((o) => o.teamId === teamId && o.userId !== userId && o.role === 'admin')
+      if (m.role === 'admin' && role !== 'admin' && !otherAdmin) return 'last-admin'
+      if (role === null) members.delete(mKey(teamId, userId))
+      else members.set(mKey(teamId, userId), { ...m, role })
+      return 'ok'
     },
     async addInvitation(invitation) {
       invitations.set(invitation.id, invitation)

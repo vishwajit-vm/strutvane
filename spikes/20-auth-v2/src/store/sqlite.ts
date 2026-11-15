@@ -324,6 +324,14 @@ export function sqliteAuthStore(db: DatabaseSync): AuthStore {
       const set = setClause(patch, PASSKEY_COLUMNS)
       if (set.sql) run(`UPDATE passkeys SET ${set.sql} WHERE id = ?`, ...set.values, id)
     },
+    async advancePasskeyCounter(id, expected, patch) {
+      return (
+        run(
+          'UPDATE passkeys SET counter = ?, last_used_at = ?, backed_up = ? WHERE id = ? AND counter = ?',
+          patch.counter, patch.lastUsedAt, patch.backedUp ? 1 : 0, id, expected,
+        ) === 1
+      )
+    },
     async deletePasskey(userId, id) {
       return run('DELETE FROM passkeys WHERE id = ? AND user_id = ?', id, userId) === 1
     },
@@ -380,6 +388,21 @@ export function sqliteAuthStore(db: DatabaseSync): AuthStore {
     },
     async removeMember(teamId, userId) {
       run('DELETE FROM team_members WHERE team_id = ? AND user_id = ?', teamId, userId)
+    },
+    async changeMemberRole(teamId, userId, role) {
+      // The "another admin remains" check is part of the write: SQLite runs the statement under the
+      // database write lock, so two connections demoting each other cannot both pass it.
+      const keepsAdmin = `(role <> 'admin' OR EXISTS (SELECT 1 FROM team_members o
+        WHERE o.team_id = team_members.team_id AND o.user_id <> team_members.user_id AND o.role = 'admin'))`
+      const changed =
+        role === null
+          ? run(`DELETE FROM team_members WHERE team_id = ? AND user_id = ? AND ${keepsAdmin}`, teamId, userId)
+          : run(
+              `UPDATE team_members SET role = ? WHERE team_id = ? AND user_id = ? AND (? = 'admin' OR ${keepsAdmin})`,
+              role, teamId, userId, role,
+            )
+      if (changed === 1) return 'ok'
+      return get('SELECT 1 AS x FROM team_members WHERE team_id = ? AND user_id = ?', teamId, userId) ? 'last-admin' : 'not-found'
     },
     async addInvitation(i) {
       run(

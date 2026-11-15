@@ -98,6 +98,26 @@ describe.each(STORES)('passkeys (%s store)', (store) => {
     await rejectsWith(() => passwordless(h, device, new Browser(), { uv: false }), 'INVALID_CODE')
   })
 
+  it('race: two sign-ins from a cloned authenticator with the SAME counter, at once: exactly one wins', async () => {
+    const h = harness({ store, config })
+    const user = await h.user()
+    const device = new SoftAuthenticator(ORIGIN)
+    await addPasskey(h, await h.signedIn(user.email), device)
+    await passwordless(h, device) // stored counter: 1
+    const a = new Browser()
+    const b = new Browser()
+    const optionsA = await h.auth.passkeys.authenticationOptions(a.req, { mode: 'passwordless' })
+    const optionsB = await h.auth.passkeys.authenticationOptions(b.req, { mode: 'passwordless' })
+    const responseA = device.assert(optionsA) // counter 2
+    const responseB = device.assert(optionsB, { keepCounter: true }) // the clone: also 2
+    const results = await Promise.allSettled([
+      h.auth.passkeys.authenticate(a.req, { response: responseA }),
+      h.auth.passkeys.authenticate(b.req, { response: responseB }),
+    ])
+    expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1)
+    expect((await h.store.listPasskeys(user.id))[0]?.counter).toBe(2)
+  })
+
   it('a registration answered for another challenge or origin is refused', async () => {
     const h = harness({ store, config })
     const user = await h.user()

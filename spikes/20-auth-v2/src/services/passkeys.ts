@@ -267,11 +267,14 @@ export function passkeyService(deps: AuthDeps): PasskeyService {
       }
       if (!verified.verified) throw new AuthError('INVALID_CODE')
       const now = deps.clock.now()
-      await deps.store.updatePasskey(passkey.id, {
+      // Compare-and-set on the counter the verification used: of two concurrent sign-ins with the
+      // same counter (a clone racing the original), only one may record it (CONSISTENCY #117).
+      const advanced = await deps.store.advancePasskeyCounter(passkey.id, passkey.counter, {
         counter: verified.authenticationInfo.newCounter,
         lastUsedAt: now,
         backedUp: verified.authenticationInfo.credentialBackedUp,
       })
+      if (!advanced) throw new AuthError('INVALID_CODE')
       const user = await deps.store.findUserById(passkey.userId)
       if (!user) throw new AuthError('INVALID_CODE')
 
