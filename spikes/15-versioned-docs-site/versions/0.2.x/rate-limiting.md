@@ -130,7 +130,7 @@ Route.post('/exports', [ExportController, 'store']).middleware('auth', 'throttle
 |---|---|
 | App-wide | it's in the `api` group already; change the `api` limiter |
 | One route | `.middleware('throttle:5,1')` |
-| A group | `Route.middleware('throttle:reports').group(() => [ … ])` |
+| A group | `Route.middleware('throttle:reports').group(() => { Route.get(…) })` |
 | A whole resource | `Route.apiResource('posts', PostController).middleware('throttle:30,1')` |
 | Some resource actions | `.middlewareFor(['store'], 'throttle:10,1')` |
 | A controller | `static readonly middleware = [throttle({ params: ['10', '1'], only: ['store'] })]` |

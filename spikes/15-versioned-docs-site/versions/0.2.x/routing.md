@@ -230,23 +230,23 @@ import { ProfileController } from '../app/http/controllers/profile.controller.ts
 import { StatsController } from '../app/http/controllers/stats.controller.ts'
 
 export default defineRoutes([
-  // the callback form, as in Laravel
-  Route.middleware('auth').group(() => [
-    Route.get('/me', [ProfileController, 'show']).name('me'),
-    Route.patch('/me', [ProfileController, 'update']).name('me.update'),
-  ]),
+  // the callback form, as in Laravel: register the routes inside the callback
+  Route.middleware('auth').group(() => {
+    Route.get('/me', [ProfileController, 'show']).name('me')
+    Route.patch('/me', [ProfileController, 'update']).name('me.update')
+  }),
 
-  // the array form: the same thing
+  // also accepted: return an array from the callback, or pass the array directly
   Route.middleware('auth', 'can:view-stats').group([
     Route.get('/admin/stats', [StatsController, 'show']).name('admin.stats'),
   ]),
 ])
 ```
 
-Either way the callback **returns** the routes: nothing is registered as a side effect, because routes are values.
+Inside the callback, `Route.get()` and friends add their routes **to that group**, exactly like Laravel. The callback runs only when Strutvane builds the route table, never when the file is imported, so loading a routes file twice (the server, `route:list`, your tests) still registers nothing twice.
 
 :::caution[Coming in 0.2]
-The callback form is the decided syntax (it matches Laravel); the prototype (spike 12) accepts only the array form so far.
+Registering routes inside the callback is the decided syntax (it matches Laravel), with a returned array also accepted; the prototype (spike 12) accepts only the array form so far.
 :::
 
 ### Versioned APIs

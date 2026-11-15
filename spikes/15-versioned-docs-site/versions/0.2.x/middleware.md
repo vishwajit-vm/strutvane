@@ -229,7 +229,7 @@ Only the status, body, `content-type` and `location` are replayed, never cookies
 |---|---|
 | Default / app-wide | in the `web` and `api` groups, or `withMiddleware(…)` in `bootstrap/app.ts` |
 | One route | `Route.post('/import', handler).middleware('throttle:10,1')` / `.withoutMiddleware('csrf')` |
-| A group | `Route.middleware('auth').group(() => [...])` (or an array), `Route.withoutMiddleware('csrf').group([...])`, `Route.group({ withoutMiddleware: ['csrf'] }, [...])` |
+| A group | `Route.middleware('auth').group(() => { Route.get(…) })` (or an array), `Route.withoutMiddleware('csrf').group([...])`, `Route.group({ withoutMiddleware: ['csrf'] }, [...])` |
 | A controller | `static readonly middleware = [auth({ except: ['index', 'show'] })]` |
 | A handler function | `export default withAuth(async (ctx) => …)` |
 | Imperative | `await auth.verify(ctx)` |

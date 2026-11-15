@@ -74,7 +74,7 @@ Press **Enter** for **Recommended**. You're asked these questions; press Enter o
 | With Docker or without? | **With Docker** | Docker runs the database and a mail inbox for you, like Laravel Sail. |
 | AI coding assistants? | **Yes** | Adds an `AGENTS.md` and helpers so AI tools understand your project. |
 
-A question that brings a package is shown only once that package is published and works with your framework version. The AI assistants question brings `@strutvane/agent-tools`, planned after 0.2, so in 0.2 Recommended mode asks the first six.
+A question that brings a package is shown only once that package is published and works with your framework version. The AI assistants question brings `@strutvane/agent-tools`, coming in 0.3, so in 0.2 Recommended mode asks the first six.
 
 **Custom** asks about 35 questions in groups (sign-in security, roles, cache, storage, mail, tests, CI, deployment, and more). Every question also has a flag, so a whole setup can be one line: `npm create strutvane@latest my-app -- --db sqlite --yes`. [Installation](../installation/) lists every question and flag.
 
