@@ -50,7 +50,7 @@ Two ways to derive the schema without a database were compared:
 
 ## Evidence
 
-**Tests:** `npm test` exits 0. That covers `tsc --noEmit` (all type-level tests) plus Vitest: **11 files, 248 tests, all passing**. Every database test runs on **both real engines**: SQLite via `node:sqlite`, PostgreSQL via PGlite. No mocks.
+**Tests:** `npm test` exits 0. That covers `tsc --noEmit` (all type-level tests) plus Vitest: **11 files, 267 tests, all passing** (2026-11-15; the three perf budgets need an otherwise idle machine). Every database test runs on **both real engines**: SQLite via `node:sqlite`, PostgreSQL via PGlite. No mocks.
 
 | Test file | Tests | What it proves |
 |---|---|---|
@@ -247,7 +247,7 @@ MariaDB is a first-class engine (`DB_CONNECTION=mariadb`; XAMPP ships it instead
 | | MySQL 8.4 | MariaDB 10.4 / 11.4 | What the DDL does |
 |---|---|---|---|
 | JSON | native `JSON` | an alias of `LONGTEXT` (the `JSON_VALID` check is added automatically from 10.4.3) | `LONGTEXT COLLATE utf8mb4_nopad_bin … CHECK (JSON_VALID(col))`, explicit on every version |
-| Default collation | `utf8mb4_0900_ai_ci` | `utf8mb4_uca1400_ai_ci` (11.x): folds case and accents | slugs and UUIDs get `utf8mb4_nopad_bin` |
+| Default collation | `utf8mb4_0900_ai_ci` | `utf8mb4_uca1400_ai_ci` (11.x): folds case and accents | slugs, UUIDs, emails, usernames and tokens get `utf8mb4_0900_bin` (MySQL) / `utf8mb4_nopad_bin` (MariaDB) |
 | Binary collation | `utf8mb4_0900_bin` is NO PAD | `utf8mb4_bin` is **PAD SPACE** (`'resume ' = 'resume'` is true) | `utf8mb4_nopad_bin` |
 | Rename a column | `RENAME COLUMN` (8.0+) | `RENAME COLUMN` only from 10.5.2 | `CHANGE COLUMN old <new definition>` (works on 10.4) |
 | `CHECK` constraints | enforced from 8.0.16 | enforced from 10.2 | used for JSON; enums stay native `ENUM` |
@@ -255,7 +255,16 @@ MariaDB is a first-class engine (`DB_CONNECTION=mariadb`; XAMPP ships it instead
 | Foreign keys, `ENUM`, `TINYINT(1)`, `RENAME TABLE`, `DROP INDEX … ON` | — | same as MySQL | shared code (`isMysqlFamily`) |
 | DDL in transactions | no | no | as for MySQL: a failed migration is half-applied |
 
+**Offline index lint (MySQL and MariaDB):** an index on a TEXT or JSON column (no prefix length can be declared) or a key over 3072 bytes (an indexed VARCHAR above 768 characters) is a `SchemaError` (`INDEX_NOT_PORTABLE`) with a fix, instead of a server error half-way through a migration. Apps on PostgreSQL or SQLite keep such indexes; their MySQL/MariaDB SQL files then say why they weren't generated.
+
 Not modelled (for MySQL or MariaDB): generated columns (`t.virtualAs`/`storedAs`), sequences, MariaDB system-versioned tables.
+
+## Required before release: sandboxed migration replay (F-06)
+
+Replay *executes* migration files (`await import()`), in-process, with the full environment, during `sv types` and `sv dev` as well as `migrate`. A hostile or careless migration's top-level code (reading `process.env`, network calls, file writes) therefore runs whenever types are regenerated, for example right after `gh pr checkout`. This spike now refuses async migrations and late calls on the recorder, but the sandbox is **not built here** and is required in the framework before release:
+- a static gate before import (only `@strutvane/framework/schema` and relative `database/` imports; no `process`, `globalThis`, `import()`, `eval`, `fetch` at top level);
+- replay in a child process with an allowlisted environment (no `.env`), Node's permission model, a timeout, and JSON operations as the only output;
+- symlinked migration files refused (`realpath` must stay inside `database/migrations`).
 
 ## Limits & risks (not verified here)
 
