@@ -3,9 +3,11 @@
  * lives once, as a CSS variable in `src/styles/tokens.css`, so dark mode and a different accent
  * change everything from one place and the contrast test covers every colour actually used.
  *
- * Fails on: hex colours, colour functions (rgb/hsl/oklch/…), Tailwind palette classes
- * (`bg-blue-500`, `text-white`), arbitrary colour values (`bg-[#fff]`) and CSS named colours in
- * style props. Allowed: token utilities (`bg-accent`), `var(--token)`, `currentColor`.
+ * Fails on: hex colours, colour functions in any case (rgb, hsl, hwb, oklch, oklab, lab, lch,
+ * color, color-mix, device-cmyk), any utility ending in a Tailwind palette colour or black/white,
+ * arbitrary colour values (`bg-[#fff]`, `bg-[red]`) and the 148 CSS named colours used as values
+ * (`backgroundColor: 'red'`, `fill="white"`, `color: red;` in CSS). Allowed: token utilities
+ * (`bg-accent`), `var(--token)`, `currentColor`, `transparent`.
  */
 import { readdirSync, readFileSync } from 'node:fs'
 import { join, relative } from 'node:path'
@@ -15,16 +17,43 @@ const SRC = join(process.cwd(), 'src')
 /** The one file allowed to define colours. */
 const TOKENS = join(SRC, 'styles', 'tokens.css')
 
-const PALETTE = 'slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose'
-const UTILITIES = 'bg|text|border|border-[xytrbl]|fill|stroke|ring|ring-offset|outline|from|via|to|decoration|accent|caret|divide|shadow|placeholder'
+const PALETTE = 'slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose|mauve|olive|mist|taupe'
 
+/** Every CSS named colour (CSS Color 4), except `transparent` and `currentColor`, which are fine. */
+const NAMED = [
+  'aliceblue', 'antiquewhite', 'aqua', 'aquamarine', 'azure', 'beige', 'bisque', 'black', 'blanchedalmond', 'blue', 'blueviolet', 'brown',
+  'burlywood', 'cadetblue', 'chartreuse', 'chocolate', 'coral', 'cornflowerblue', 'cornsilk', 'crimson', 'cyan', 'darkblue', 'darkcyan',
+  'darkgoldenrod', 'darkgray', 'darkgreen', 'darkgrey', 'darkkhaki', 'darkmagenta', 'darkolivegreen', 'darkorange', 'darkorchid', 'darkred',
+  'darksalmon', 'darkseagreen', 'darkslateblue', 'darkslategray', 'darkslategrey', 'darkturquoise', 'darkviolet', 'deeppink', 'deepskyblue',
+  'dimgray', 'dimgrey', 'dodgerblue', 'firebrick', 'floralwhite', 'forestgreen', 'fuchsia', 'gainsboro', 'ghostwhite', 'gold', 'goldenrod',
+  'gray', 'green', 'greenyellow', 'grey', 'honeydew', 'hotpink', 'indianred', 'indigo', 'ivory', 'khaki', 'lavender', 'lavenderblush',
+  'lawngreen', 'lemonchiffon', 'lightblue', 'lightcoral', 'lightcyan', 'lightgoldenrodyellow', 'lightgray', 'lightgreen', 'lightgrey',
+  'lightpink', 'lightsalmon', 'lightseagreen', 'lightskyblue', 'lightslategray', 'lightslategrey', 'lightsteelblue', 'lightyellow', 'lime',
+  'limegreen', 'linen', 'magenta', 'maroon', 'mediumaquamarine', 'mediumblue', 'mediumorchid', 'mediumpurple', 'mediumseagreen',
+  'mediumslateblue', 'mediumspringgreen', 'mediumturquoise', 'mediumvioletred', 'midnightblue', 'mintcream', 'mistyrose', 'moccasin',
+  'navajowhite', 'navy', 'oldlace', 'olive', 'olivedrab', 'orange', 'orangered', 'orchid', 'palegoldenrod', 'palegreen', 'paleturquoise',
+  'palevioletred', 'papayawhip', 'peachpuff', 'peru', 'pink', 'plum', 'powderblue', 'purple', 'rebeccapurple', 'red', 'rosybrown',
+  'royalblue', 'saddlebrown', 'salmon', 'sandybrown', 'seagreen', 'seashell', 'sienna', 'silver', 'skyblue', 'slateblue', 'slategray',
+  'slategrey', 'snow', 'springgreen', 'steelblue', 'tan', 'teal', 'thistle', 'tomato', 'turquoise', 'violet', 'wheat', 'white', 'whitesmoke',
+  'yellow', 'yellowgreen',
+].join('|')
+
+/** Every hard-coded colour form, each with a friendly name for the failure message. */
 const RULES: readonly (readonly [name: string, pattern: RegExp])[] = [
   ['hex colour', /#[0-9a-fA-F]{3,8}\b(?![\w-])/g],
-  ['colour function', /\b(?:rgba?|hsla?|oklch|oklab|lab|lch|hwb|color)\(/g],
-  ['Tailwind palette class', new RegExp(String.raw`(?<![\w-])(?:[\w-]+:)*(?:${UTILITIES})-(?:${PALETTE})-\d{2,3}\b`, 'g')],
-  ['black/white class', new RegExp(String.raw`(?<![\w-])(?:[\w-]+:)*(?:${UTILITIES})-(?:black|white)\b`, 'g')],
-  ['arbitrary colour value', /(?:bg|text|border|fill|stroke|ring|shadow)-\[(?:#|rgb|hsl|oklch)/g],
-  ['named colour in a style', /\b(?:color|background|fill|stroke|stopColor|borderColor):\s*['"](?:white|black|red|blue|green|gray|grey)['"]/g],
+  // Case-insensitive: CSS function names are (`RGB(` is valid CSS).
+  ['colour function', /\b(?:rgba?|hsla?|hwb|oklch|oklab|lab|lch|color|color-mix|device-cmyk)\(/gi],
+  // ANY utility ending in a palette colour (`bg-`, `inset-shadow-`, `border-s-`, `drop-shadow-` …):
+  // a fixed list of utility names always misses the next one Tailwind adds.
+  ['Tailwind palette class', new RegExp(String.raw`(?<![\w-])(?:[\w-]+:)*[a-z][\w-]*-(?:${PALETTE})-\d{2,3}\b`, 'g')],
+  ['black/white class', new RegExp(String.raw`(?<![\w-])(?:[\w-]+:)*[a-z][\w-]*-(?:black|white)\b(?!-)`, 'g')],
+  ['arbitrary colour value', /-\[(?:color:)?(?:#|rgba?\(|hsla?\(|hwb\(|oklch\(|oklab\(|lab\(|lch\(|color\()/gi],
+  ['arbitrary named colour', new RegExp(String.raw`-\[(?:color:)?(?:${NAMED})\]`, 'gi')],
+  // A named colour as a whole string value (`color: 'red'`, `fill="white"`), in a border-like
+  // shorthand (`1px solid crimson`), or as a CSS declaration value (`color: red;`).
+  ['named colour', new RegExp(String.raw`(['"\x60])\s*(?:${NAMED})\s*\1`, 'gi')],
+  ['named colour', new RegExp(String.raw`\b(?:solid|dashed|dotted|double|groove|ridge|inset|outset)\s+(?:${NAMED})\b`, 'gi')],
+  ['named colour', new RegExp(String.raw`[\w-]:\s*(?:${NAMED})\s*[;}!]`, 'gi')],
 ]
 
 function sourceFiles(directory: string): string[] {
@@ -55,6 +84,33 @@ describe('no hard-coded colours outside tokens.css', () => {
     expect(violations).toEqual([])
   })
 
+  it('catches the forms that used to slip past (regression corpus for the rule)', () => {
+    const sneaky = [
+      `style={{ color: 'red' }}`,
+      `style={{ backgroundColor: 'Tomato' }}`,
+      `<path fill="white" />`,
+      `<circle stroke='rebeccapurple' />`,
+      `style={{ border: '1px solid crimson' }}`,
+      `className="bg-[red]"`,
+      `className="text-[color:tomato]"`,
+      `className="bg-[hwb(0_0%_0%)]"`,
+      `style={{ background: 'RGB(0 0 0)' }}`,
+      `style={{ color: 'hwb(0 0% 0%)' }}`,
+      `style={{ color: 'color-mix(in srgb, red 40%, white)' }}`,
+      `className="inset-shadow-red-500"`,
+      `className="drop-shadow-red-500"`,
+      `className="text-shadow-red-500"`,
+      `className="border-s-red-500"`,
+      `className="inset-ring-red-500"`,
+      `className="md:hover:border-e-black"`,
+      `.badge { color: red; }`,
+      `.badge { border: 1px solid Navy; }`,
+    ]
+    for (const source of sneaky) expect(findHardCodedColours('x.tsx', source), source).not.toEqual([])
+    // Still allowed: tokens, currentColor, transparent, and words that merely contain a colour name.
+    expect(findHardCodedColours('ok.tsx', `<div className="border-transparent bg-transparent whitespace-nowrap text-primary" style={{ fill: 'currentColor', color: 'var(--danger)' }} aria-label="Redo" data-tone="danger" />`)).toEqual([])
+  })
+
   it('the rule itself catches every kind of literal colour', () => {
     const bad = `<div className="bg-blue-500 hover:text-white dark:bg-black/50 bg-[#fff]" style={{ color: '#3366ff', background: 'rgb(0 0 0)', fill: 'oklch(0.5 0.1 200)', stopColor: 'white' }} />`
     expect(findHardCodedColours('x.tsx', bad).map((line) => line.slice(line.indexOf(': ') + 2))).toEqual([
@@ -65,8 +121,8 @@ describe('no hard-coded colours outside tokens.css', () => {
       'Tailwind palette class "bg-blue-500"',
       'black/white class "hover:text-white"',
       'black/white class "dark:bg-black"',
-      'arbitrary colour value "bg-[#"',
-      `named colour in a style "stopColor: 'white'"`,
+      'arbitrary colour value "-[#"',
+      `named colour "'white'"`,
     ])
     expect(findHardCodedColours('ok.tsx', `<div className="bg-accent text-fg-muted border-border" style={{ color: 'var(--fg)', stroke: 'currentColor' }} />`)).toEqual([])
   })
