@@ -205,4 +205,19 @@ describe('responsive layout', () => {
     await app.user.click(close)
     expect(close.closest('aside')).toHaveClass('-translate-x-full')
   })
+
+  it('a closed drawer is out of the tab order on small screens; Escape closes an open one', async () => {
+    const app = renderApp({ path: '/' })
+    const open = await screen.findByRole('button', { name: 'Open menu' })
+    const aside = screen.getByRole('button', { name: 'Close menu' }).closest('aside')
+    // Off-screen by transform alone, its links stayed focusable: Tab walked into an invisible menu.
+    // `visibility: hidden` below md removes them (jsdom has no layout, so the class is the proof).
+    expect(aside).toHaveClass('max-md:invisible')
+    expect(aside).not.toHaveClass('md:invisible')
+    await app.user.click(open)
+    expect(aside).not.toHaveClass('max-md:invisible')
+    await app.user.keyboard('{Escape}')
+    expect(aside).toHaveClass('-translate-x-full')
+    expect(aside).toHaveClass('max-md:invisible')
+  })
 })

@@ -11,7 +11,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import { IconChevronDown, IconLayoutDashboard, IconLayoutSidebarLeftCollapse, IconLayoutSidebarLeftExpand, IconX } from '@tabler/icons-react'
-import { useId, useMemo, useState, type ReactElement, type ReactNode } from 'react'
+import { useEffect, useId, useMemo, useRef, useState, type ReactElement, type ReactNode } from 'react'
 import { buildNavigation, type NavigationEntry, type NavigationGroup } from '../../shared/navigation.ts'
 import { useSession } from '../auth/session.tsx'
 import { ResourceIcon } from '../icons.tsx'
@@ -53,6 +53,12 @@ export function Sidebar({ mobileOpen, onCloseMobile, collapsed, onToggleCollapse
   const groups = useMemo(() => buildNavigation(resources, (name) => can('viewAny', name)), [resources, can])
   // In the drawer the full labels are always shown: collapsing is a desktop space saver.
   const iconsOnly = collapsed && !mobileOpen
+  // Opening the drawer moves focus into it (onto Close), so keyboard users land in the menu and
+  // Escape reaches it.
+  const closeButton = useRef<HTMLButtonElement>(null)
+  useEffect(() => {
+    if (mobileOpen) closeButton.current?.focus()
+  }, [mobileOpen])
 
   return (
     <>
@@ -61,15 +67,21 @@ export function Sidebar({ mobileOpen, onCloseMobile, collapsed, onToggleCollapse
         className={cn(
           'fixed inset-y-0 left-0 z-(--z-sidebar) flex flex-col bg-sidebar shadow-card transition-[width,translate] duration-(--duration-base) ease-(--ease-standard)',
           iconsOnly ? 'w-(--sidebar-width-collapsed)' : 'w-(--sidebar-width)',
-          mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0',
+          // Closed on a small screen: off-screen AND invisible, so its links leave the tab order and
+          // the accessibility tree (a transform alone left an invisible menu reachable by Tab).
+          mobileOpen ? 'translate-x-0' : '-translate-x-full max-md:invisible md:translate-x-0',
         )}
+        onKeyDown={(event) => {
+          // Escape closes the open drawer, like any other overlay.
+          if (event.key === 'Escape' && mobileOpen) onCloseMobile()
+        }}
       >
         <div className="flex h-(--navbar-height) shrink-0 items-center justify-between gap-2 px-5">
           <Link to="/" className="flex items-center gap-2.5 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" onClick={onCloseMobile}>
             <BrandMark />
             <span className={cn('text-xl font-semibold tracking-tight', iconsOnly && 'sr-only')}>Strutvane</span>
           </Link>
-          <button type="button" className="rounded-lg p-1.5 text-muted-foreground hover:bg-accent md:hidden" onClick={onCloseMobile} aria-label="Close menu">
+          <button ref={closeButton} type="button" className="rounded-lg p-1.5 text-muted-foreground hover:bg-accent md:hidden" onClick={onCloseMobile} aria-label="Close menu">
             <IconX aria-hidden="true" className="size-5" />
           </button>
         </div>
