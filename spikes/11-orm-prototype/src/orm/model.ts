@@ -330,7 +330,7 @@ export class ModelBase {
    */
   setAttribute(column: string, value: unknown): this {
     const info = this.runtime().info()
-    if (!info.columns.has(column)) throw new MassAssignmentError(info.name, column, 'unknown', closest(column, info.columns.keys()))
+    if (!info.columns.has(column)) throw new MassAssignmentError(info.name, column, 'unknown', closest(column, hintableColumns(info, this.runtime().settings().hidden)))
     defineColumn(this, column, value)
     return this
   }
@@ -347,7 +347,7 @@ export class ModelBase {
     const info = runtime.info()
     const fillable = runtime.settings().fillable
     for (const [key, value] of Object.entries(input)) {
-      if (!info.columns.has(key)) throw new MassAssignmentError(info.name, key, 'unknown', closest(key, info.columns.keys()))
+      if (!info.columns.has(key)) throw new MassAssignmentError(info.name, key, 'unknown', closest(key, hintableColumns(info, runtime.settings().hidden)))
       if (isSystemColumn(key)) throw new MassAssignmentError(info.name, key, 'system')
       if (fillable === undefined || !fillable.has(key)) throw new MassAssignmentError(info.name, key, 'not-fillable')
       defineColumn(this, key, value)
@@ -364,7 +364,7 @@ export class ModelBase {
   forceFill(input: object): this {
     const info = this.runtime().info()
     for (const [key, value] of Object.entries(input)) {
-      if (!info.columns.has(key)) throw new MassAssignmentError(info.name, key, 'unknown', closest(key, info.columns.keys()))
+      if (!info.columns.has(key)) throw new MassAssignmentError(info.name, key, 'unknown', closest(key, hintableColumns(info, this.runtime().settings().hidden)))
       // tenant_id and timestamps are Strutvane's; a uuid id may be chosen by trusted code.
       if (isSystemColumn(key) && !(key === 'id' && info.primaryKey.kind === 'uuid')) throw new MassAssignmentError(info.name, key, 'system')
       defineColumn(this, key, value)
@@ -847,6 +847,11 @@ function isSensitiveColumn(column: string): boolean {
   return /^is_/.test(column) || /_(at|by)$/.test(column) || ['role', 'roles', 'plan', 'permissions', 'owner_id', 'user_id'].includes(column)
 }
 
+/** Columns a "Did you mean" hint may name: never a hidden one (its name alone is a leak). */
+function hintableColumns(info: TableInfo, hidden: ReadonlySet<string>): string[] {
+  return [...info.columns.keys()].filter((column) => !hidden.has(column))
+}
+
 /** Store a column as an own, enumerable data property (never through a setter). */
 function defineColumn(model: object, column: string, value: unknown): void {
   Object.defineProperty(model, column, { value, enumerable: true, writable: true, configurable: true })
@@ -937,7 +942,7 @@ function buildSettings(
   }
   const acknowledged = new Set(options.allowSensitive ?? [])
   for (const column of options.fillable ?? []) {
-    if (!info.columns.has(column)) throw new MassAssignmentError(info.name, column, 'unknown', closest(column, info.columns.keys()))
+    if (!info.columns.has(column)) throw new MassAssignmentError(info.name, column, 'unknown', closest(column, hintableColumns(info, new Set(options.hidden ?? []))))
     if (isSystemColumn(column)) throw new MassAssignmentError(info.name, column, 'system')
     if (isSensitiveColumn(column) && !acknowledged.has(column)) {
       throw new OrmUsageError(

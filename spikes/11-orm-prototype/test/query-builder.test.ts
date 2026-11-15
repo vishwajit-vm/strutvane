@@ -105,6 +105,48 @@ function suite(engine: Engine): void {
     expect(await Post.query().count()).toBe(4)
   })
 
+  test('hidden columns are never filterable, sortable or searchable, and never named in hints', async () => {
+    const ada = await makeUser('Ada')
+    expect(ada.toJSON()).not.toHaveProperty('password')
+    // Request-driven methods: a hidden column answers exactly like a column that doesn't exist,
+    // so filter[password][startsWith]=a can't extract it one character at a time (F-03, F-13).
+    const attempts: readonly [string, () => unknown][] = [
+      ['filter startsWith', () => User.query().filter('password', 'startsWith', 'n')],
+      ['filter eq', () => User.query().filter('password', 'eq', 'not-a-real-secret')],
+      ['filter null', () => User.query().filter('password', 'null', false)],
+      ['sort', () => User.query().sort('-password')],
+      ['search', () => User.query().search('secret', ['name', 'password'])],
+      ['whereContains', () => User.query().whereContains('password', 'x')],
+      ['whereStartsWith', () => User.query().whereStartsWith('password', 'x')],
+    ]
+    const nowhere = (() => {
+      try {
+        User.query().filter('nowhere', 'eq', 'x')
+      } catch (error) {
+        return error
+      }
+      return undefined
+    })()
+    for (const [label, attempt] of attempts) {
+      let thrown: unknown
+      try {
+        attempt()
+      } catch (error) {
+        thrown = error
+      }
+      expect(thrown, label).toBeInstanceOf(OrmUsageError)
+      expect((thrown as OrmUsageError).code, label).toBe((nowhere as OrmUsageError).code)
+      expect((thrown as Error).message, label).not.toMatch(/Did you mean/)
+    }
+    // Typos never suggest a hidden column, in queries or in mass assignment.
+    for (const typo of [() => User.query().sort('passwor'), () => User.query().filter('pasword', 'eq', 'x'), () => User.make().fill(JSON.parse('{"passwrd": "x"}'))]) {
+      expect(typo).toThrow()
+      expect(() => typo()).not.toThrow(/password/)
+    }
+    // Trusted, typed code may still use it (e.g. a login lookup by a token column).
+    expect(await User.query().where('password', 'not-a-real-secret').count()).toBe(1)
+  })
+
   test('raw SQL only through the sql tag, values always bound', async () => {
     await seedPosts()
     const minimum = 5

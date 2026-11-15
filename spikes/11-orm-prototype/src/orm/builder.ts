@@ -239,7 +239,7 @@ export class Builder<TClass extends AnyModelClass, TResult> {
    * Post.query().whereContains('title', '100%')
    */
   whereContains(column: string, needle: string): this {
-    this.#where.push({ kind: 'raw', conjunction: 'and', fragment: this.#containsFragment(this.#column(column), needle) })
+    this.#where.push({ kind: 'raw', conjunction: 'and', fragment: this.#containsFragment(this.#requestColumn(column), needle) })
     return this
   }
 
@@ -251,7 +251,7 @@ export class Builder<TClass extends AnyModelClass, TResult> {
    */
   whereStartsWith(column: string, prefix: string): this {
     const grammar = this.#model.connection().grammar
-    const ref = this.#column(column)
+    const ref = this.#requestColumn(column)
     const folded = prefix.toLowerCase()
     // substr counts characters on every engine, so compare against the character count.
     // Built by the ORM from a checked column of this query: marked so the raw-condition guard
@@ -271,7 +271,7 @@ export class Builder<TClass extends AnyModelClass, TResult> {
     const trimmed = term.trim()
     if (trimmed === '' || columns.length === 0) return this
     if (trimmed.length > MAX_SEARCH_LENGTH) throw new OrmUsageError('SEARCH_TOO_LONG', `Search text is limited to ${MAX_SEARCH_LENGTH} characters.`)
-    const nodes: WhereNode[] = columns.map((column) => ({ kind: 'raw', conjunction: 'or', fragment: this.#containsFragment(this.#column(column), trimmed) }))
+    const nodes: WhereNode[] = columns.map((column) => ({ kind: 'raw', conjunction: 'or', fragment: this.#containsFragment(this.#requestColumn(column), trimmed) }))
     this.#where.push({ kind: 'group', conjunction: 'and', nodes })
     return this
   }
@@ -283,7 +283,7 @@ export class Builder<TClass extends AnyModelClass, TResult> {
    * query.filter('status', 'in', ['draft', 'published']).filter('published_on', 'null', false)
    */
   filter(column: string, operator: FilterOperator, operand: unknown): this {
-    const ref = this.#column(column)
+    const ref = this.#requestColumn(column)
     switch (operator) {
       case 'eq':
       case 'ne':
@@ -320,7 +320,7 @@ export class Builder<TClass extends AnyModelClass, TResult> {
       const trimmed = part.trim()
       if (trimmed === '') continue
       const descending = trimmed.startsWith('-')
-      const ref = this.#column(descending ? trimmed.slice(1) : trimmed)
+      const ref = this.#requestColumn(descending ? trimmed.slice(1) : trimmed)
       this.#orderBy.push({ column: ref, direction: descending ? 'desc' : 'asc' })
     }
     return this
@@ -726,8 +726,24 @@ export class Builder<TClass extends AnyModelClass, TResult> {
 
   /** Check a column name against the snapshot and qualify it with this query's alias. */
   #column(name: string): ColumnRef {
-    if (!this.#model.info().columns.has(name)) throw unknownColumn(this.#model.table, name, this.#model.info().columns.keys())
+    if (!this.#model.info().columns.has(name)) throw unknownColumn(this.#model.table, name, this.#visibleColumns())
     return { alias: this.#alias, column: name }
+  }
+
+  /**
+   * A column named by a request (`search`, `filter`, `sort`): a hidden column answers exactly like
+   * one that doesn't exist. Filtering, sorting or searching on it is an oracle even when it is never
+   * returned (`filter[password][startsWith]=a`, one character at a time; security review F-03/F-13).
+   */
+  #requestColumn(name: string): ColumnRef {
+    if (this.#model.settings().hidden.has(name)) throw unknownColumn(this.#model.table, name, this.#visibleColumns())
+    return this.#column(name)
+  }
+
+  /** Column names that may appear in hints: never a hidden one. */
+  #visibleColumns(): string[] {
+    const hidden = this.#model.settings().hidden
+    return [...this.#model.info().columns.keys()].filter((column) => !hidden.has(column))
   }
 
   /** Convert a value to its stored form (booleans, dates, decimals…), so comparisons match. */
@@ -743,7 +759,7 @@ export class Builder<TClass extends AnyModelClass, TResult> {
 
   #definition(name: string): ColumnDef {
     const column = this.#model.info().columns.get(name)
-    if (column === undefined) throw unknownColumn(this.#model.table, name, this.#model.info().columns.keys())
+    if (column === undefined) throw unknownColumn(this.#model.table, name, this.#visibleColumns())
     return column
   }
 
