@@ -97,10 +97,11 @@ describe('refusals (422), each with the parameter and a fix', () => {
     expect(group?.message).toBe('"api_key" can\'t be grouped by here. Group fields: created_at, updated_at, country, tier.')
   })
 
-  it('with privacy on, filters are equality on group fields only', () => {
-    expect(codes('metric=count&filter[name][eq]=x', employees)).toEqual(['filter[name][eq]:not_filterable'])
-    expect(codes('metric=count&filter[department][ne]=sales', employees)).toEqual(['filter[department][ne]:invalid_operator'])
-    expect(codes('metric=count&filter[remote][eq]=true', employees)).toEqual([])
+  it('with privacy on, filters are refused altogether (a filtered total minus an unfiltered one is a hidden cell)', () => {
+    expect(codes('metric=count&filter[name][eq]=x', employees)).toEqual(['filter:not_allowed_with_privacy'])
+    expect(codes('metric=count&filter[department][ne]=sales', employees)).toEqual(['filter:not_allowed_with_privacy'])
+    expect(codes('metric=count&filter[remote][eq]=true', employees)).toEqual(['filter:not_allowed_with_privacy'])
+    expect(codes('metric=count&groupBy=department&filter[department][in]=sales,support', employees)).toEqual(['filter:not_allowed_with_privacy'])
   })
 })
 

@@ -201,26 +201,30 @@ describe.each(engines)('small-group suppression (employees, k = 5) on $name', (e
     expect(result.meta).toMatchObject({ minGroupSize: 5, suppressedCells: 2 })
   })
 
-  it('complementary suppression: one hidden cell takes the next smallest with it', async () => {
-    // engineering 6, sales 5, support 2: hiding only support would leave "total − 6 − 5" = support.
-    // So the smallest other non-empty cell (sales) is hidden as well.
-    const { body } = await get('metric=count&groupBy=department&filter[department][in]=engineering,sales,support')
-    expect((body as AggregateResult).data.map((bucket) => bucket.values['value'])).toEqual([6, null, null, 0, 0])
-    expect((body as AggregateResult).data[1]?.suppressed).toEqual(['value'])
+  it('complementary suppression: two small groups hide together, so neither is "total minus the rest"', async () => {
+    // engineering 6, sales 5, support 2, finance 1: support and finance are both hidden.
+    const { body } = await get('metric=count&groupBy=department')
+    expect((body as AggregateResult).data.map((bucket) => bucket.values['value'])).toEqual([6, 5, null, null, 0])
     expect((body as AggregateResult).meta.suppressedCells).toBe(2)
   })
 
-  it('suppresses an ungrouped total too', async () => {
-    const { body } = await get('metric=sum&field=salary&filter[department][eq]=finance')
-    expect((body as AggregateResult).data).toEqual([{ key: '__total__', values: { value: null }, suppressed: ['value'] }])
-  })
-
-  it('limits filters to equality on group fields, so nobody can be singled out', async () => {
-    for (const query of ['metric=count&filter[name][eq]=Person 14', 'metric=count&filter[salary][gte]=200000', 'metric=count&filter[department][ne]=sales']) {
-      const { status } = await get(query)
-      expect(status, query).toBe(422)
+  it('differencing attack: no filter can single out a hidden or partner cell', async () => {
+    // Before: groupBy=department hid support (2 people), but filter[department][eq]=sales (or an
+    // `in` list) returned the partner cell on its own, so support = total − engineering − sales −
+    // finance … one subtraction away. With privacy on, every filter is refused.
+    const visibleTotal = (await get('metric=count')).body as AggregateResult
+    expect(visibleTotal.data[0]?.values['value']).toBe(14)
+    for (const query of [
+      'metric=count&filter[department][eq]=sales',
+      'metric=count&filter[department][in]=engineering,sales,finance',
+      'metric=count&groupBy=department&filter[department][in]=engineering,sales',
+      'metric=sum&field=salary&filter[remote][eq]=false',
+      'metric=count&filter[name][eq]=Person 14',
+      'metric=count&filter[salary][gte]=200000',
+    ]) {
+      const { status, body } = await get(query)
+      expect([status, (body as Problem).issues?.map((issue) => issue.code)], query).toEqual([422, ['not_allowed_with_privacy']])
     }
-    expect((await get('metric=count&filter[department][in]=sales,engineering')).status).toBe(200)
   })
 })
 
@@ -248,6 +252,16 @@ describe.each([
     expect(status, query).toBe(200)
     return (body as AggregateResult).data.find((candidate) => candidate.key === key)
   }
+
+  it('suppresses an ungrouped total, and snaps a sub-day window to whole days', async () => {
+    // Only invoice 6 was created on 2026-11-08: one row, so the total is hidden.
+    const day = await api.get('/api/v1/invoices/aggregate?metric=count&from=2026-11-08&to=2026-11-09', { tenant: TENANT_A })
+    expect((day.body as AggregateResult).data).toEqual([{ key: '__total__', values: { value: null }, suppressed: ['value'] }])
+    // A window of minutes or seconds would let two visible totals be subtracted down to one row:
+    // with privacy on it is widened to whole UTC days (the bucket unit of an ungrouped range).
+    const narrow = await api.get('/api/v1/invoices/aggregate?metric=count&from=2026-11-08T23:00:00Z&to=2026-11-08T23:59:59Z', { tenant: TENANT_A })
+    expect((narrow.body as AggregateResult).meta).toMatchObject({ from: '2026-11-08T00:00:00.000Z', to: '2026-11-09T00:00:00.000Z' })
+  })
 
   it('hides an average or sum backed by fewer than k values, even when the group has k rows', async () => {
     // Before the fix the "void" group (6 rows) showed avg = sum = 77.77: one invoice's exact tax.

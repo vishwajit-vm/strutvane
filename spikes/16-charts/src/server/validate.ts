@@ -8,8 +8,10 @@
  *   hidden, secret or tenant columns; error messages list only allowed names (F-13);
  * - every value is **parsed for its column type** before it gets near SQL;
  * - ranges are aligned to whole buckets and capped at {@link AGGREGATE_LIMITS}.maxBuckets;
- * - with small-group suppression on, filters are limited to equality on allow-listed category
- *   fields, so a filter can't narrow a group down to one person (`filter[name][eq]=…`).
+ * - with small-group suppression on, **filters are refused** and from/to windows are widened to
+ *   whole buckets. Any filter that can single out a group value lets a caller subtract a filtered
+ *   total from an unfiltered one and recover a hidden cell (`filter[department][eq]=sales` returns
+ *   the complementary partner on its own), so none is accepted.
  *
  * All problems are collected and returned together, so a developer fixes a request in one go.
  *
@@ -219,8 +221,11 @@ function alignRange(draft: Draft, column: PlanColumn, from: Date | undefined, to
   const unit = interval ?? 'day'
   const defaultCount = AGGREGATE_LIMITS.defaultBuckets[unit]
   // Default end: the end of the current bucket, so "this month so far" is included.
-  const end = to === undefined ? addBuckets(startOfBucket(draft.context.now, unit), unit, 1) : interval === undefined ? to : ceilToBucket(to, unit)
-  const start = from === undefined ? addBuckets(end, unit, -defaultCount) : interval === undefined ? from : startOfBucket(from, unit)
+  // With privacy on, an ungrouped window is widened to whole days too: two visible totals over
+  // windows a second apart would otherwise subtract down to a single row.
+  const align = interval !== undefined || draft.charts.minGroupSize !== null
+  const end = to === undefined ? addBuckets(startOfBucket(draft.context.now, unit), unit, 1) : align ? ceilToBucket(to, unit) : to
+  const start = from === undefined ? addBuckets(end, unit, -defaultCount) : align ? startOfBucket(from, unit) : from
   if (start >= end) {
     draft.issues.push({ field: 'to', code: 'empty_range', message: 'to must be after from (from is inclusive, to is exclusive).' })
     return undefined
@@ -290,6 +295,14 @@ function rangeConditions(range: Range | undefined): Condition[] {
 /** Every `filter[field][op]=value`, parsed and checked. */
 function readFilters(draft: Draft): Condition[] {
   const entries = [...draft.params.entries()].filter(([key]) => key.startsWith('filter['))
+  if (entries.length > 0 && draft.charts.minGroupSize !== null) {
+    draft.issues.push({
+      field: 'filter',
+      code: 'not_allowed_with_privacy',
+      message: `${draft.charts.resource.label.plural} hide groups smaller than ${draft.charts.minGroupSize}, so filters are off: a filtered total subtracted from an unfiltered one would reveal a hidden group. Use groupBy instead.`,
+    })
+    return []
+  }
   if (entries.length > AGGREGATE_LIMITS.maxFilters) {
     draft.issues.push({ field: 'filter', code: 'too_many_filters', message: `At most ${AGGREGATE_LIMITS.maxFilters} filters per request.` })
     return []

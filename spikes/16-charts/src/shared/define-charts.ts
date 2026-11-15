@@ -196,8 +196,9 @@ export interface ResourceChartsConfig<R extends ChartResource> {
   /** The server allow-list (see {@link AggregateAllowListConfig}). Default `auto()`. */
   readonly aggregates?: AutoSelection<never> | AggregateAllowListConfig<R> | false
   /**
-   * Sensitive data: never reveal a group of fewer than `minGroupSize` rows (2..100). Also limits
-   * filters to the allow-listed group fields, so a filter can't single one person out.
+   * Sensitive data: never reveal a group of fewer than `minGroupSize` rows (2..100). Also turns
+   * filters off and widens date windows to whole days, so no subtraction of two totals can single
+   * one person out.
    */
   readonly privacy?: { readonly minGroupSize?: number }
   /** Sort position of this resource's widgets on the home dashboard (lower first). */
