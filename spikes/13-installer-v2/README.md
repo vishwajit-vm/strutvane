@@ -9,7 +9,7 @@ design names has a recovery and an exit code, and `npm run setup` continues from
 unfinished step. Verified on Windows 11 / PowerShell 5.1 / Node 24.21.0 / npm 11.19.0 /
 Docker 29.8.2 on 2026-11-14.
 
-**Evidence:** 308 tests (+1 placeholder skipped when Docker is missing), `npm test` green:
+**Evidence:** 370 tests (+1 placeholder skipped when Docker is missing), `npm test` green:
 - question flows with a scripted prompter, flags/CI mode, npm's swallowed flags;
 - the step runner with a fake spawner: success, every failure, recovery choices, resume;
 - Windows argument safety with a real child process;
@@ -215,6 +215,28 @@ Exit codes: 0 ready, 1 nothing created, 2 created but setup unfinished, 130 canc
 11. **`docker compose ... exec` with a bind mount + named volume** creates the empty
     `node_modules` mount point on the host; it is git-ignored and harmless.
 
+## Verified for real (adversarial audit, 2026-11-15)
+
+- **Real terminal:** the clack prompts driven in a pseudo-terminal (Python `pty` in a throw-away
+  `node:24` container): Ctrl+C at the name, the opener, the question-22 group picker, the
+  type-to-search picker, the masked admin password and the review all exit 130 with nothing
+  created; Ctrl+C during `npm ci` exits 130 (it exited **0** before the fix) and `npm run setup`
+  finishes; the full Custom flow (group picker, type-to-search, a package's follow-up, "Change an
+  answer", Create) ends with exit 0 and the picked packages in `strutvane.json`.
+- **Real npm 11.19.0** without `--`, every flag form: 57 of 60 get the exact corrected command;
+  `--auth` / `--ci` leave no trace (finding 1).
+- **Kill and resume** (Windows, no terminal): process tree killed during `npm ci`, then during
+  a migration; `npm run setup` resumes each time, runs only the missing migration, creates the
+  admin once, and a further `npm run setup` runs nothing. Ctrl+C in a terminal: as above.
+- **Port races:** four installers started at once in Docker mode all finish (two of three failed
+  before the fix).
+- **Production image** and **your own database server** (MySQL 8.4, MariaDB 11.4, PostgreSQL 18):
+  see their sections; both run in `npm test` when Docker is available.
+- `.env` is 0600 from creation on Linux (checked in a container; it was 0644 until the secrets
+  step).
+- Not possible here: stopping Docker Desktop (other stacks run on it); "Docker stopped/missing" is
+  covered by a missing CLI (`STRUT_CONTAINER_CLI`) and the faked engine-stopped answer.
+
 ## Security review findings folded in
 
 F-02 registration off by default · F-12 shipped lockfile + `npm ci --ignore-scripts` +
@@ -231,8 +253,6 @@ inside the container), Host allowlist · F-20 owner/app PostgreSQL roles, every 
 
 ## Not verified / not done (honest list)
 
-- **The interactive clack UI was not driven in a real terminal** (the tool has no TTY); the
-  flows are proven with the scripted prompter only.
 - **HMR and Vite** are not in the spike (the stub has no Vite); polling is set
   (`CHOKIDAR_USEPOLLING`, `STRUT_WATCH_POLLING`) but its effect is unverified. WSL2 is
   recommended in the generated README for fast watching on Windows *(unverified here)*.
@@ -258,8 +278,13 @@ inside the container), Host allowlist · F-20 owner/app PostgreSQL roles, every 
   missing from `build/`), listened on 127.0.0.1 inside the container and ignored SIGTERM; fixed.
   The stages still reference `stubs/`, which a release drops. **The dev container was not built
   or run**; it has no database service (SQLite works; server databases need your own DB_*).
-- **The clack `groupMultiselect` / `autocompleteMultiselect` pickers** (question 22) were not
-  driven in a real terminal; the flows are proven with the scripted prompter only.
+- **Within one migration** the stand-in migrator is not atomic: a kill between a migration's
+  statements and its `strut_migrations` record would make the rerun fail on "table exists".
+  Killed between migrations it resumes correctly (verified). The real migrator (spike 10/11) must
+  wrap each migration in a transaction where the engine allows (SQLite, PostgreSQL; MySQL DDL
+  commits implicitly, so it needs a lock + "dirty" marker).
+- **Windows only, really:** every real run in this audit was on Windows 11 + Docker Desktop, plus
+  Linux containers; macOS (and MAMP's port 8889) is not verified.
 - **`--auth` and `--ci` before `--`** are swallowed by npm without a trace (finding 1); not fixable
   in the installer. `--cache` was avoided on purpose: npm owns `npm_config_cache`.
 - A typed admin password is memory-only: a **resumed** setup that still has to create the admin
