@@ -105,6 +105,17 @@ function suite(engine: Engine): void {
     expect(await Post.query().count()).toBe(4)
   })
 
+  test('case-insensitive search folds non-ASCII letters on every engine (SQLite included)', async () => {
+    // SQLite's built-in lower() only folds A-Z, so 'émile' never found 'Émile' there while
+    // PostgreSQL and MySQL did. The SQLite driver now registers a Unicode-aware lower().
+    for (const name of ['Émile Zola', 'Жанна Öberg']) await makeUser(name.replace(/\s.*/, '')).then((user) => user.fill({ name }).save())
+    expect(await User.query().search('émile', ['name']).count()).toBe(1)
+    expect(await User.query().search('ZOLA', ['name']).count()).toBe(1)
+    expect(await User.query().filter('name', 'contains', 'ÖBERG').count()).toBe(1)
+    expect(await User.query().filter('name', 'startsWith', 'жан').count()).toBe(1)
+    expect(await User.query().filter('name', 'startsWith', 'ÉMI').count()).toBe(1)
+  })
+
   test('hidden columns are never filterable, sortable or searchable, and never named in hints', async () => {
     const ada = await makeUser('Ada')
     expect(ada.toJSON()).not.toHaveProperty('password')

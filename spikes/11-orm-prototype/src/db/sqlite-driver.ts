@@ -23,6 +23,10 @@ export function sqliteDriver(location: string): Driver {
   const database = new DatabaseSync(location)
   // SQLite ships with foreign keys off for backwards compatibility; Strutvane migrations rely on them.
   database.exec('PRAGMA foreign_keys = ON')
+  // SQLite's built-in lower() folds only A-Z, so a case-insensitive search for 'émile' missed
+  // 'Émile' here while PostgreSQL and MySQL found it. Replace it with JavaScript's Unicode lower
+  // case (deterministic, so SQLite may still use it in indexes and constraints).
+  database.function('lower', { deterministic: true }, (value) => (typeof value === 'string' ? value.toLowerCase() : value))
   const statements = new Map<string, StatementSync>()
   const mutex = new Mutex()
   let closed = false
