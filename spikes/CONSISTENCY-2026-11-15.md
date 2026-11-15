@@ -131,3 +131,22 @@ The docs pass found places where the blueprint and the spikes disagree. When a m
 | 85 | Phase wording | "Coming in 0.3", never "After 0.2". | docs |
 | 86 | `Process.run` on Windows | `npm`/`npx` run as `node <npm-cli.js>`, as the installer already does. Other `.cmd` files are refused with a friendly error unless `{ windowsShell: true }` (safe quoting). | framework |
 | 87 | `Concurrency.run` | Worker drivers take module tasks (`task('reports/build', args)`), not closures. Closures work only with the `sync` driver. Tenant and request context are passed explicitly and re-established in the worker. | framework, docs |
+
+## Fourth pass (docs writer B findings, 2026-11-15)
+
+| # | Topic | Decision | Owner |
+|---|---|---|---|
+| 88 | Seeder shape | `export default defineSeeder({ after?: ['users'], async run({ db, factory, env }) { … } })` in `database/seeders/post.seeder.ts`. `database.seeder.ts` is maintained by auto-registration. | spikes 12 and 13, docs |
+| 89 | Factory shape | `export default defineFactory(Post, ({ faker, sequence }) => ({ … }))` with `.state()`, `.for()`, `.has()`, `.recycle()`. | spike 12, docs |
+| 90 | Turning tenancy off | `config/tenancy.ts` = `{ enabled, column: 'tenant_id' }`. `enabled` is `false` unless the installer's teams answer was yes. The ORM tenant scope is active only when enabled. | spikes 11 and 13 |
+| 91 | Opting a model out of the generated API or UI | `Model('posts', { fillable, api: false, ui: false })`. | blueprint §2.4, spikes 10 and 14 |
+| 92 | Slug uniqueness with teams | A composite unique index on `(tenant_id, slug)` when tenancy is on, otherwise `(slug)`. Suffixes stay sequential (#49). | spike 10 |
+| 93 | Primary keys | `t.id()` = bigint auto-increment (Laravel's default). `t.uuid('id').primary()` = UUIDv7 primary key. | spike 10 |
+| 94 | Public exports | `unsafeRaw` and `TenantScopeMissingError` are exported from the ORM entry. | spike 11 |
+| 95 | MySQL timestamps | `DATETIME(3)` storing UTC (no 2038 limit). | spikes 10 and 11 |
+| 96 | SQLite default file | `database/database.sqlite` (Laravel). | spikes 12 and 13 |
+| 97 | Column modifiers and helpers | `.secret()`, `.hidden()`, `t.tenant()`, `schema.create(name, { global: true })` and `{ internal: true }` are part of the Schema builder. Spike 10 adds them. | spike 10 |
+| 98 | Parity accuracy (ORM, migrations) | Upserts, chunking, `cursor()`/`lazy()`, deadlock retries, encrypted and enum casts, `visible`/`appends`, simple pagination, multiple connections, `migrate:fresh`/`refresh`, `--pretend` and `--isolated` are 🟡 (designed), not ✅. Doc 20 is corrected. | doc 20 |
+| 99 | Blueprint §4 feature list | Each unbuilt feature is marked "planned for 0.2". | blueprint §4 |
+| 100 | `db:seed` options | `--class=PostSeeder`, `--force` (production). | framework, docs |
+| 101 | Error texts in spikes | Every message says `node strut …`, never `sv …`. | spikes 10, 11 and 14 |
