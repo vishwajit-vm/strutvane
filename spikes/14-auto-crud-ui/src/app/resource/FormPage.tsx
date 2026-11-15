@@ -167,7 +167,11 @@ export function ResourceForm({ resource, row }: ResourceFormProps): ReactElement
     save.mutate(withoutUntouchedSlug(resource, buildBody(fields, values, mode, initial), slugTouched))
   }
 
-  const errorCount = Object.keys(errors).length + formIssues.length
+  const fieldErrorCount = Object.keys(errors).length
+  const showSummary = fieldErrorCount + formIssues.length > 0
+  // Count only FIELD problems as fields: a 409, a 500 or "offline" is not "1 field needs attention".
+  const summaryTitle =
+    fieldErrorCount === 0 ? 'The form could not be saved' : fieldErrorCount === 1 ? '1 field needs attention' : `${fieldErrorCount} fields need attention`
   const heading = mode === 'create' ? `New ${resource.label.singular.toLowerCase()}` : `Edit ${row === undefined ? '' : recordTitle(resource, row)}`
   const crumbs = [
     { label: 'Home', to: '/' as const },
@@ -177,8 +181,8 @@ export function ResourceForm({ resource, row }: ResourceFormProps): ReactElement
   return (
     <div className="mx-auto max-w-4xl">
       <PageHeader title={heading} crumbs={crumbs} back={{ label: row === undefined ? `Back to ${resource.label.plural}` : `Back to ${recordTitle(resource, row)}`, parent }} />
-      {errorCount > 0 && (
-        <Alert className="mb-4" title={errorCount === 1 ? '1 field needs attention' : `${errorCount} fields need attention`}>
+      {showSummary && (
+        <Alert className="mb-4" title={summaryTitle}>
           {formIssues.length > 0 && (
             <ul className="list-disc pl-5">
               {formIssues.map((issue) => (

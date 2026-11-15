@@ -110,8 +110,10 @@ function RelationWidget({ id, field, value, onChange, invalid, describedBy }: Wi
   const { byName } = useRegistry()
   const target = field.references === undefined ? undefined : byName.get(field.references)
   if (target === undefined) {
-    // The related table has no screen (internal, or not visible): fall back to the raw id.
-    return <Input id={id} inputMode="numeric" aria-invalid={invalid} aria-describedby={describedBy} value={value === null ? '' : String(value)} onChange={(event) => onChange(event.target.value === '' ? null : Number(event.target.value))} />
+    // The related table has no screen (internal, or not visible): fall back to the raw id. Keep the
+    // TEXT as typed: the form's integer check validates it and buildBody converts it. Number("1a")
+    // here put "NaN" in the input and sent `null`, past every check.
+    return <Input id={id} inputMode="numeric" aria-invalid={invalid} aria-describedby={describedBy} value={value === null ? '' : String(value)} onChange={(event) => onChange(event.target.value === '' ? null : event.target.value)} />
   }
   return <RelationSelect id={id} target={target} value={typeof value === 'number' ? value : null} onChange={onChange} clearable={field.nullable} invalid={invalid} describedBy={describedBy} />
 }

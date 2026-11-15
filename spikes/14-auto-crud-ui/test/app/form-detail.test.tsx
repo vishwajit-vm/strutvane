@@ -6,7 +6,7 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { metadata as generatedMetadata } from '../../example/.strutvane/ui.gen.ts'
-import { commentsResource, stringField, withResource } from '../fixtures.ts'
+import { commentsResource, stringField, withoutResource, withResource } from '../fixtures.ts'
 import { lastListQuery, renderApp } from './render-app.tsx'
 
 async function openNewPost() {
@@ -121,6 +121,38 @@ describe('422 issue shapes (CONSISTENCY #69, #118)', () => {
     expect(screen.getByRole('textbox', { name: 'Slug' })).toHaveAccessibleDescription(/That slug is taken./)
     expect(screen.getByRole('textbox', { name: 'Price' })).toHaveAccessibleDescription(/Price must be a number./)
     expect(screen.getByRole('alert')).toHaveTextContent('Line 3 needs an amount.')
+  })
+})
+
+describe('form error reporting', () => {
+  it('a raw relation id (no screen for the related table) is checked as a whole number, never sent as NaN', async () => {
+    const app = renderApp({ path: '/posts/new', metadata: withoutResource(generatedMetadata, 'users') })
+    await screen.findByRole('heading', { name: 'New post' })
+    await app.user.type(screen.getByRole('textbox', { name: /^Title/ }), 'Raw ids')
+    const author = screen.getByRole('textbox', { name: /^Author/ })
+    await app.user.type(author, '1a')
+    expect(author).toHaveValue('1a') // what was typed, not "NaN"
+    await app.user.click(screen.getByRole('button', { name: 'Create post' }))
+    expect(author).toHaveAccessibleDescription(/must be a whole number/)
+    expect(app.requests.some((request) => request.method === 'POST')).toBe(false)
+    await app.user.clear(author)
+    await app.user.type(author, '2')
+    await app.user.click(screen.getByRole('button', { name: 'Create post' }))
+    await waitFor(() => expect(app.requests.find((request) => request.method === 'POST')?.body).toMatchObject({ author_id: 2 }))
+  })
+
+  it('a failure that is not about fields says so, instead of "1 field needs attention"', async () => {
+    const app = renderApp({
+      path: '/tags/new',
+      transport: (mock) => async (request) =>
+        request.method === 'POST' ? new Response(JSON.stringify({ title: 'Conflict', status: 409, code: 'conflict', detail: 'Someone else changed this.' }), { status: 409, headers: { 'content-type': 'application/problem+json' } }) : mock.handle(request),
+    })
+    await app.user.type(await screen.findByRole('textbox', { name: /^Name/ }), 'clash')
+    await app.user.click(screen.getByRole('button', { name: 'Create tag' }))
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('The form could not be saved')
+    expect(alert).toHaveTextContent('Someone else changed this.')
+    expect(alert).not.toHaveTextContent('field')
   })
 })
 
