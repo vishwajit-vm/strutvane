@@ -91,8 +91,16 @@ const MAX_LABEL = 74
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
+/**
+ * Characters that must never reach the terminal from an untrusted index: C0/C1 control codes (ESC
+ * starts sequences that move the cursor, clear the screen, set the window title or write the
+ * clipboard via OSC 52; BEL), zero-width characters, and the Unicode direction overrides that
+ * make text read differently from what it is (Trojan Source, CVE-2021-42574).
+ */
+const UNSAFE_TEXT = /[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u202a-\u202e\u2060-\u2069\ufeff]/
+
 const shortText = (value: unknown, max: number): value is string =>
-  typeof value === 'string' && value.trim().length > 0 && value.length <= max && !/[\r\n\t\0]/.test(value)
+  typeof value === 'string' && value.trim().length > 0 && value.length <= max && !UNSAFE_TEXT.test(value)
 
 /**
  * Check the raw JSON and keep every valid entry. Throws {@link CatalogueError} only when the file

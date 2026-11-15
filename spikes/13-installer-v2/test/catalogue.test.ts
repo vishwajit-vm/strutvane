@@ -166,6 +166,43 @@ describe('question 22: picking features', () => {
   })
 })
 
+// Regression (class: terminal escape injection from untrusted catalogue text). Names,
+// descriptions and labels are printed in the question-22 picker; the index comes from the network,
+// and only CR/LF/TAB/NUL were refused, so an entry could clear the screen, fake a prompt, set the
+// window title, write the clipboard (OSC 52) or reverse text with bidi overrides.
+describe('catalogue text that would control the terminal', () => {
+  const entry = (patch: Record<string, unknown>) => ({
+    id: 'evil', name: 'Evil', description: 'Looks harmless', category: 'operations', popular: true, published: true,
+    frameworkRange: '^0.1', package: '@strutvane/evil', ...patch,
+  })
+  const parse = (patch: Record<string, unknown>) =>
+    parseCatalogue({ version: 1, categories: [{ id: 'operations', name: 'Operations' }], entries: [entry(patch)] })
+
+  for (const [label, text] of [
+    ['ESC (clear screen)', 'Evil\u001b[2J'],
+    ['OSC 52 clipboard write', 'Evil\u001b]52;c;cm0gLXJmIH4=\u0007'],
+    ['BEL', 'Evil\u0007'],
+    ['C1 CSI', 'Evil\u009b2J'],
+    ['right-to-left override', 'Evil\u202egnp.exe'],
+    ['zero-width space', 'Ev\u200bil'],
+  ] as const) {
+    it(`skips an entry whose name contains ${label}`, () => {
+      const { catalogue, skipped } = parse({ name: text })
+      expect(catalogue.entries).toEqual([])
+      expect(skipped.join(' ')).toMatch(/bad name/)
+    })
+  }
+
+  it('checks descriptions, category names and follow-up labels the same way', () => {
+    expect(parse({ description: 'fine\u001b[31mred' }).catalogue.entries).toEqual([])
+    expect(parse({ followUps: [{ id: 'mode', label: 'Pick\u001b[1A', default: 'a', choices: [{ value: 'a', label: 'A' }, { value: 'b', label: 'B' }] }] }).catalogue.entries).toEqual([])
+    expect(parse({ followUps: [{ id: 'mode', label: 'Pick', default: 'a', choices: [{ value: 'a', label: 'A\u202e' }, { value: 'b', label: 'B' }] }] }).catalogue.entries).toEqual([])
+    expect(() => parseCatalogue({ version: 1, categories: [{ id: 'ops', name: 'Ops\u001b[2J' }], entries: [] })).toThrow(/malformed category/)
+    // Ordinary non-ASCII text stays allowed.
+    expect(parse({ name: 'Rechnungen für Kunden', description: 'Factures et reçus, 請求書' }).catalogue.entries).toHaveLength(1)
+  })
+})
+
 /** Every Custom question except 22, answered, so only the features flow is asked. */
 const everythingElse = {
   stack: 'full', design: 'crisp', ui: 'admin', auth: 'email', security: [], social: [], apiAccess: 'tokens', roles: 'basic', teams: false,
