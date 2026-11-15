@@ -223,6 +223,18 @@ describe('real end-to-end run (SQLite, no Docker)', () => {
     server.kill()
   })
 
+  // Generated files and messages name these commands; until the framework brings them, the stand-in
+  // must say so and fail, never pretend (exit 0) that something happened.
+  it('commands the framework will bring fail clearly (exit 2) and change nothing', () => {
+    const env = cleanEnvironment(gitConfig)
+    for (const args of [['design:use', 'vivid'], ['token:create'], ['docker:prod'], ['install:billing'], ['add', 'tags'], ['user:create'], ['make:model', 'Post']]) {
+      const result = run(process.execPath, ['strut.js', ...args], directory, env)
+      expect(result.code, args.join(' ')).toBe(2)
+      expect(result.output).toMatch(/comes with the Strutvane framework.*nothing was changed/)
+    }
+    expect(run(process.execPath, ['strut.js', 'no-such-command'], directory, env).code).toBe(1)
+  })
+
   it('the setup log exists and holds no generated secret', () => {
     const logs = join(directory, '.strutvane', 'logs')
     const text = readdirSync(logs).map((name) => readFileSync(join(logs, name), 'utf8')).join('\n')

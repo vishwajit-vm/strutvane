@@ -248,8 +248,9 @@ inside the container), Host allowlist · F-20 owner/app PostgreSQL roles, every 
 - Redis/Valkey service: not added (the brief says "later").
 - **Every package is a local `file:` stub** (design, ui, auth, logs, agent-tools, ...): the
   answers drive package.json, the lockfile and the config files only; the packages themselves are
-  not built. Commands the generated files mention but the stub CLI lacks: `design:use`,
-  `token:create`, `docker:prod`, `install:<name>`, `add`.
+  not built. Commands the generated files mention but only the framework will bring (`design:use`,
+  `token:create`, `docker:prod`, `install:<name>`, `add`, `user:create`, `make:model`) answer
+  "comes with the Strutvane framework … nothing was changed" and exit 2, never a silent no-op.
 - **The production Dockerfile is built and run for real** (`docker.e2e.test.ts`, 2026-11-15):
   uid 1000, no `.env` in any layer or file, no secret value in `/app`, code not writable by the
   app user, HEALTHCHECK healthy on `/up`, runs with `--read-only`, `docker stop` exits 0 in

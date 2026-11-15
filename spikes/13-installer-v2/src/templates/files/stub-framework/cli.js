@@ -278,7 +278,30 @@ const HELP = `Usage: node strut <command>
   services:up / services:down / services:status
                          Docker mode: start / stop / list the containers (data is kept)
   help                   Show this list
+
+Coming with the framework (the spike's stand-in exits with code 2 and changes nothing):
+  design:use <name>, token:create, docker:prod, add, install:<name>, user:create, make:model
 `
+
+/**
+ * Commands the generated files and messages already mention, which the real framework brings.
+ * The spike's stand-in says so clearly and exits non-zero (never a silent no-op that looks done).
+ */
+const COMING = {
+  'design:use': 'switch the UI design package and update config/ui.ts',
+  'token:create': 'create an API token',
+  'docker:prod': 'write the production Dockerfile and .dockerignore',
+  add: 'add a package from the catalogue',
+  'user:create': 'create a user (a production admin: --password-env)',
+  'make:model': 'generate a model, its migration and factory',
+}
+
+/** The friendly "not in this stand-in yet" answer, or undefined for a command that exists. */
+function comingInFramework(command) {
+  const what = command.startsWith('install:') ? `install the ${command.slice('install:'.length)} package and its settings` : COMING[command]
+  if (what === undefined) return undefined
+  return `node strut ${command} (${what}) comes with the Strutvane framework. This project uses the spike's stand-in, which does not have it yet: nothing was changed.`
+}
 
 /** Open the database for one role, run `work`, always close. */
 async function withDatabase(root, env, role, work) {
@@ -321,9 +344,11 @@ export async function run(argv, { root }) {
         const result = spawnSync(process.execPath, ['--test', 'tests/**/*.test.ts'], { cwd: root, stdio: 'inherit' })
         return result.status ?? 1
       }
-      default:
-        process.stderr.write(`Unknown command "${command}". Run: node strut help\n`)
-        return 1
+      default: {
+        const coming = comingInFramework(command)
+        process.stderr.write(coming === undefined ? `Unknown command "${command}". Run: node strut help\n` : `${coming}\n`)
+        return coming === undefined ? 1 : 2
+      }
     }
   } catch (error) {
     if (error instanceof DatabaseError && rest.includes('--json')) {
