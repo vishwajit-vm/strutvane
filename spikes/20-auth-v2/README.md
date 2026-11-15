@@ -2,7 +2,7 @@
 
 **Question:** can one small, dependency-light TypeScript core cover every sign-in option the v2 installer offers (blueprint §2.1, questions 5–12; §6), with secure defaults, behind a storage interface the framework can implement on its ORM?
 
-**Answer: yes.** `src/` is pure services over seven small ports. The same code runs on an in-memory store and on a real SQLite store (`node:sqlite`), and an example Fetch/`node:http` adapter shows the routes. **215 tests pass** (133 test cases; the behaviour suites run once per store), plus type-level tests checked by `tsc`.
+**Answer: yes.** `src/` is pure services over seven small ports. The same code runs on an in-memory store and on a real SQLite store (`node:sqlite`), and an example Fetch/`node:http` adapter shows the routes. **245 tests pass** (the behaviour suites run once per store; 215 at first commit, 30 added by the adversarial audit of 2026-11-15), plus type-level tests checked by `tsc`.
 
 ```bash
 npm install          # .npmrc sets ignore-scripts=true; nothing here needs an install script
@@ -112,7 +112,8 @@ What the framework still owns around this core: the router and Fortify-style rou
 | `http.test.ts` | **disabled features byte-identical to unknown paths**, service-level refusal, cookies (`__Host-`, HttpOnly, SameSite, Secure), problem+json + Retry-After, cross-site / same-site / `Origin: null` refused, JSON only, body cap, bearer never falls back to the cookie, real `node:http` server with **forged `X-Forwarded-For`** |
 | `redaction.test.ts` | a full run through every feature: **no password, token, code, cookie, link or TOTP secret in events or logs**; failing mailer/sink logged by kind only; errors never echo credentials |
 | `parsers.fuzz.test.ts` | fast-check: every parser on arbitrary input never throws; any one-character change to a valid PAT, secret, recovery code or **signed link** is refused (the link at service level) |
-| `store-contract.test.ts` | the atomic store rules on both stores, two SQLite connections to one file, **two app instances sharing limits**, counter expiry |
+| `store-contract.test.ts` | the atomic store rules on both stores, two SQLite connections to one file, **two app instances sharing limits**, counter expiry, unknown session state or method fails closed |
+| `storage-failures.test.ts` | each store step of reset, password change and 2FA confirm made to throw in turn: **never a new password with a thief's session alive, never 2FA on without recovery codes** |
 | `types.test-d.ts` | misuse that must not compile: unknown feature keys, role presets, secret-bearing event fields, mails without links, store patches that change ids/emails/session owners, readonly state |
 
 ## Ready to port
