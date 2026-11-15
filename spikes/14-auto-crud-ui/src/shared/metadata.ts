@@ -179,12 +179,18 @@ export class MetadataError extends Error {
   override readonly name = 'MetadataError'
 }
 
+/** A SQL identifier as spike 10 validates it: also a safe property key and string. */
+const IDENTIFIER = /^[A-Za-z_][A-Za-z0-9_]{0,62}$/
+/** A URL segment and file-name stem: lowercase words joined by `-` (no `/`, `.`, `..`). */
+const ROUTE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
+
 /**
  * Check the outer shape of a parsed `resources.json` and return it typed.
  *
- * Why only the outer shape: the file is machine-written by `migrate` (trusted, versioned). The
+ * Why mostly the outer shape: the file is machine-written by `migrate` (trusted, versioned). The
  * check exists to give a friendly message when someone points `ui:sync` at the wrong file or an
- * older format, not to re-validate every field.
+ * older format. The one deep check is on NAMES, because they become file paths and generated
+ * code: a route of `../../src/x` would write outside `resources/ui/`.
  *
  * @example
  * const metadata = parseAppMetadata(JSON.parse(text)) // throws MetadataError on a wrong file
@@ -196,6 +202,16 @@ export function parseAppMetadata(value: unknown): AppMetadata {
   for (const resource of value['resources']) {
     if (!isRecord(resource) || typeof resource['table'] !== 'string' || !Array.isArray(resource['fields'])) {
       throw new MetadataError('A resource in resources.json has no "table" or "fields". Regenerate the file with `sv migrate`.')
+    }
+    // Names become file paths (`route` → resources/ui/<route>.ui.ts) and code (table and field
+    // names): refuse anything that could leave the folder (`../`) or break the generated source.
+    if (!IDENTIFIER.test(resource['table']) || typeof resource['route'] !== 'string' || !ROUTE.test(resource['route'])) {
+      throw new MetadataError(`Resource ${JSON.stringify(resource['table'])} has an invalid table or route name. Regenerate the file with \`sv migrate\`.`)
+    }
+    for (const field of resource['fields']) {
+      if (!isRecord(field) || typeof field['name'] !== 'string' || !IDENTIFIER.test(field['name'])) {
+        throw new MetadataError(`A field of ${JSON.stringify(resource['table'])} has an invalid name. Regenerate the file with \`sv migrate\`.`)
+      }
     }
   }
   // The checks above cover what the generator relies on; the rest is trusted generator output.

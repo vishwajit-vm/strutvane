@@ -54,13 +54,13 @@ export function typedFieldNames(resource: ResourceMetadata): string[] {
  * renderOwnedFile(posts) // "import { auto, defineResourceUi } from '#strutvane/ui'\n..."
  */
 export function renderOwnedFile(resource: ResourceMetadata): string {
-  const names = (fields: readonly { readonly name: string }[]): string => fields.map((field) => field.name).join(', ') || '(none)'
+  const names = (fields: readonly { readonly name: string }[]): string => commentText(fields.map((field) => field.name).join(', ') || '(none)')
   return [
     `import { auto, defineResourceUi } from '#strutvane/ui'`,
     ``,
     `/**`,
-    ` * How ${resource.label.plural.toLowerCase()} look in the admin UI. This file is yours: \`ui:sync\` wrote it once,`,
-    ` * when the \`${resource.table}\` table first appeared, and never touches it again.`,
+    ` * How ${commentText(resource.label.plural.toLowerCase())} look in the admin UI. This file is yours: \`ui:sync\` wrote it once,`,
+    ` * when the \`${commentText(resource.table)}\` table first appeared, and never touches it again.`,
     ` *`,
     ` * \`auto()\` follows the schema: a column added by a later migration shows up by itself.`,
     ` * Replace it with a list (\`columns: ['title', 'status']\`) to take full control; from then on`,
@@ -71,7 +71,7 @@ export function renderOwnedFile(resource: ResourceMetadata): string {
     ` * - form:    ${names(defaultFormFields(resource))}`,
     ` * - filters: ${names(defaultFilterFields(resource))}`,
     ` */`,
-    `export default defineResourceUi('${resource.table}', {`,
+    `export default defineResourceUi(${singleQuoted(resource.table)}, {`,
     `  columns: auto(),`,
     `  form: auto(),`,
     `  filters: auto(),`,
@@ -199,7 +199,21 @@ function propertyKey(name: string): string {
 }
 
 function unionOf(names: readonly string[]): string {
-  return names.length === 0 ? 'never' : names.map((name) => JSON.stringify(name).replace(/"/g, "'")).join(' | ')
+  return names.length === 0 ? 'never' : names.map(singleQuoted).join(' | ')
+}
+
+/**
+ * A correct single-quoted TS string literal (the house style). Swapping JSON's `"` for `'` was
+ * wrong both ways: `a'b` became the broken `'a'b'`, and `a"b` silently became `a'b`. JSON escapes
+ * backslashes, control characters and line separators; then `\"` needs no escape and `'` does.
+ */
+function singleQuoted(text: string): string {
+  return `'${JSON.stringify(text).slice(1, -1).replace(/\\"/g, '"').replace(/'/g, "\\'")}'`
+}
+
+/** Text safe inside a `/** … *\/` comment: no `*\/` to end it early, no line breaks. */
+function commentText(text: string): string {
+  return text.replace(/\*\//g, '*\\/').replace(/[\r\n\u2028\u2029]+/g, ' ')
 }
 
 /** Code-unit order: the same on every machine and locale, so output is byte-stable. */
