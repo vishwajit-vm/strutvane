@@ -15,7 +15,8 @@
     "check:links": "node scripts/check-links.ts",
     "typecheck": "tsc --noEmit -p .",
     "test": "tsc --noEmit -p . && node --test \"test/*.test.ts\"",
-    "verify": "npm run build && npm run check:links && npm test"
+    "verify": "npm run build && npm run check:links && npm test",
+    "packages:pages": "node scripts/package-pages.ts"
   },
   "dependencies": {
     "@astrojs/starlight": "0.43.0",
