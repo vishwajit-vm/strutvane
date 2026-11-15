@@ -143,7 +143,7 @@ describe('secrets: never asked for, never in a committed file', () => {
     expect(file(files(), 'config/api.ts')).toContain('"requireToken": false')
     expect(file(project, 'README.md')).toMatch(/every request needs an API token/)
     const cwd = tempFolder()
-    const { environment, output } = fakeEnvironment({ cwd, argv: ['acme', '--yes', '--db', 'sqlite', '--auth', 'none'], spawn: fakePrograms().spawn })
+    const { environment, output } = fakeEnvironment({ cwd, argv: ['acme', '--yes', '--db', 'sqlite', '--sign-in', 'none'], spawn: fakePrograms().spawn })
     expect(await main(environment)).toBe(0)
     expect(output()).toMatch(/API\s+every request needs an API token. Create one: node strut token:create/)
   })
@@ -151,7 +151,7 @@ describe('secrets: never asked for, never in a committed file', () => {
   it('email-link sign-in: an admin, no password shown, nullable password column', async () => {
     expect(file(files({ auth: 'magic-link' }), 'database/migrations/0001_01_01_000000_create_users_table.ts')).toContain("t.string('password').nullable()")
     const cwd = tempFolder()
-    const { environment, output } = fakeEnvironment({ cwd, argv: ['acme', '--db', 'sqlite', '--auth', 'magic-link'], interactiveTerminal: true, prompter: scriptedPrompter({ mode: 'recommended', stack: 'full', design: 'crisp', teams: false, docker: 'host', agents: true, review: 'create', dev: false }).prompter, spawn: fakePrograms().spawn })
+    const { environment, output } = fakeEnvironment({ cwd, argv: ['acme', '--db', 'sqlite', '--sign-in', 'magic-link'], interactiveTerminal: true, prompter: scriptedPrompter({ mode: 'recommended', stack: 'full', design: 'crisp', teams: false, docker: 'host', agents: true, review: 'create', dev: false }).prompter, spawn: fakePrograms().spawn })
     expect(await main(environment)).toBe(0)
     expect(output()).toMatch(/Admin\s+admin@acme.test \(signs in with an emailed link; no password\)/)
     expect(output()).not.toContain('Abcd-Efgh-Jkmn-Pqrs')

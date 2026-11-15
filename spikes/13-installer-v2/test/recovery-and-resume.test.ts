@@ -74,7 +74,7 @@ describe('npm install failures', () => {
 describe('Docker failures', () => {
   it('Docker missing (interactive): "Continue without Docker (SQLite)" switches the project and the app still starts', async () => {
     const { prompter, asked } = scriptedPrompter({ ...RECOMMENDED_ANSWERS, database: 'mysql', docker: 'docker', 'recover:database': 'sqlite', review: 'create', dev: false })
-    const result = await create(['--stack', 'full', '--ui', 'admin', '--design', 'vivid', '--auth', 'email', '--security', 'none', '--no-teams', '--testing', 'vitest', '--git'], {
+    const result = await create(['--stack', 'full', '--ui', 'admin', '--design', 'vivid', '--sign-in', 'email', '--security', 'none', '--no-teams', '--testing', 'vitest', '--git'], {
       docker: () => ({ code: -1, notFound: true, output: 'spawn docker ENOENT' }),
     }, { interactiveTerminal: true, prompter })
     expect(result.code).toBe(0)
@@ -97,7 +97,7 @@ describe('Docker failures', () => {
   })
 
   it('Docker stopped (interactive): Retry after starting it', async () => {
-    const interactive = await create(['--stack', 'api', '--auth', 'none', '--db', 'postgres', '--docker', '--testing', 'none', '--no-git'], {
+    const interactive = await create(['--stack', 'api', '--sign-in', 'none', '--db', 'postgres', '--docker', '--testing', 'none', '--no-git'], {
       docker: (spec, nth) => (spec.args[0] === 'info' && nth === 2 ? { code: 1, output: 'Cannot connect to the Docker daemon' } : undefined),
     }, { interactiveTerminal: true, prompter: scriptedPrompter({ ...RECOMMENDED_ANSWERS, 'recover:database': 'retry', review: 'create', dev: false }).prompter })
     expect(interactive.code).toBe(0)
@@ -176,7 +176,7 @@ describe('migrate and git failures', () => {
     const { prompter } = scriptedPrompter({ ...RECOMMENDED_ANSWERS, dbPassword: 'Hunter-77-pw', 'recover:database': 'skip', review: 'create', dev: false })
     const result = await create(
       // Port 1 never answers: a deterministic "server is down".
-      ['--stack', 'api', '--auth', 'none', '--db', 'postgres', '--no-docker', '--db-host', '127.0.0.1', '--db-port', '1', '--db-name', 'shop', '--db-user', 'shop', '--testing', 'none', '--git'],
+      ['--stack', 'api', '--sign-in', 'none', '--db', 'postgres', '--no-docker', '--db-host', '127.0.0.1', '--db-port', '1', '--db-name', 'shop', '--db-user', 'shop', '--testing', 'none', '--git'],
       {},
       { interactiveTerminal: true, prompter, probeServer: async () => 'refused' },
     )
@@ -254,7 +254,7 @@ describe('resume safety', () => {
   it('cancel during a recovery question stops with exit 2 (the project stays)', async () => {
     const { prompter } = scriptedPrompter({ ...RECOMMENDED_ANSWERS, docker: 'host', 'recover:install': CANCEL, review: 'create', dev: false })
     const result = await create(
-      ['--stack', 'api', '--auth', 'none', '--db', 'sqlite', '--testing', 'none', '--no-git'],
+      ['--stack', 'api', '--sign-in', 'none', '--db', 'sqlite', '--testing', 'none', '--no-git'],
       { npm: () => ({ code: 1, output: 'boom' }) },
       { interactiveTerminal: true, prompter },
     )

@@ -633,12 +633,12 @@ export function resolveOptions(answers: Answers, cwd: string, catalogue: Catalog
   const security = signInList(signIn, answers.security, DEFAULTS.security, '--security', problems)
   const social = signInList(signIn, answers.social, DEFAULTS.social, '--social', problems)
   if (!signIn && answers.teams === true) {
-    problems.push('teams need sign-in (a team is a group of users): drop --teams, or use --auth email')
+    problems.push('teams need sign-in (a team is a group of users): drop --teams, or use --sign-in email')
   }
   const teams = teamsOf(answers)
   const sso = resolveSso(teams, answers.sso, problems)
   const apiAccess = resolveApiAccess(signIn, answers.apiAccess, problems)
-  const roles = onlyIf(signIn, answers.roles, DEFAULTS.roles, 'starting roles need sign-in: drop --roles, or use --auth email', problems)
+  const roles = onlyIf(signIn, answers.roles, DEFAULTS.roles, 'starting roles need sign-in: drop --roles, or use --sign-in email', problems)
   const tenantResolver = onlyIf(teams, answers.tenantResolver, DEFAULTS.tenantResolver, 'how a request picks its team needs teams: drop --tenant, or add --teams', problems)
   const database = databaseOf(answers)
   const docker = dockerOf(answers)
@@ -661,7 +661,7 @@ export function resolveOptions(answers: Answers, cwd: string, catalogue: Catalog
   const currency = checked(answers.currency ?? DEFAULTS.currency, isCurrency, (v) => `--currency "${v}" is not a 3-letter currency code (for example USD or EUR)`, problems)
   const { features, featureOptions } = resolveFeatures(answers.features, answers.featureOptions, catalogue, problems)
   const git = gitOf(answers)
-  if (!git && answers.ci === true) problems.push('a CI workflow needs git: drop --ci, or use --git')
+  if (!git && answers.ci === true) problems.push('a CI workflow needs git: drop --ci-workflow, or use --git')
   const ai = aiOf(answers)
   const aiProvider = onlyIf(ai, answers.aiProvider, DEFAULTS.aiProvider, 'an AI provider needs AI features: drop --ai-provider, or add --ai', problems)
   const withUi = hasUi(answers)
@@ -745,7 +745,7 @@ function signInList<T extends string>(
   problems: string[],
 ): readonly T[] {
   if (!signIn) {
-    if (given !== undefined && given.length > 0) problems.push(`${flag} needs sign-in: drop ${flag}, or use --auth email`)
+    if (given !== undefined && given.length > 0) problems.push(`${flag} needs sign-in: drop ${flag}, or use --sign-in email`)
     return Object.freeze([])
   }
   return Object.freeze([...new Set(given ?? fallback)])
@@ -772,7 +772,7 @@ function resolveApiAccess(signIn: boolean, given: ApiAccess | undefined, problem
 /** The first admin's email: only with sign-in; checked strictly because it lands in `.env`. */
 function resolveAdminEmail(signIn: boolean, name: string, given: string | undefined, problems: string[]): string | undefined {
   if (!signIn) {
-    if (given !== undefined) problems.push('there is no admin account without sign-in: drop --admin-email, or use --auth email')
+    if (given !== undefined) problems.push('there is no admin account without sign-in: drop --admin-email, or use --sign-in email')
     return undefined
   }
   const email = given?.trim() ?? defaultAdminEmail(name)

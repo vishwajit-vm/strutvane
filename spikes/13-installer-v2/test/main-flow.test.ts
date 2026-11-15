@@ -52,7 +52,7 @@ describe('CI mode (--yes and flags)', () => {
     expect(output()).not.toContain('Abcd-Efgh-Jkmn-Pqrs')
     expect(output()).toContain('not shown here. Set one with: node strut user:password admin@acme.test')
     // The same project without questions: every question's flag, from the registry.
-    expect(output()).toMatch(/npm create strutvane@latest acme -- --stack full --design crisp --ui admin --auth email --security 2fa,verification .* --no-teams --db mysql --docker .*--features log-viewer --testing vitest --agents --git --ci .*--deploy later --editor --no-dev-container --yes/)
+    expect(output()).toMatch(/npm create strutvane@latest acme -- --stack full --design crisp --ui admin --sign-in email --security 2fa,verification .* --no-teams --db mysql --docker .*--features log-viewer --testing vitest --agents --git --ci-workflow .*--deploy later --editor --no-dev-container --yes/)
     expect(output()).toMatch(/Mail inbox\s+http:\/\/localhost:8025/)
     const state: unknown = JSON.parse(readFileSync(join(cwd, 'acme', '.strutvane', 'setup.json'), 'utf8'))
     expect(JSON.stringify(state)).not.toMatch(/secret-0|Abcd-Efgh/) // no secret ever in setup.json

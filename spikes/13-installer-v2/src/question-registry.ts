@@ -91,7 +91,7 @@ export interface FlagSpec {
   readonly help: string
   /** The default as `--help` shows it. */
   readonly defaultLabel: string
-  /** Extra `npm_config_*` names npm stores this flag under (npm expands `--auth` to `auth-type`). */
+  /** Extra `npm_config_*` names npm stores this flag under, when npm renames it on the way. */
   readonly npmAliases?: readonly string[]
 }
 
@@ -733,7 +733,7 @@ export const QUESTIONS: readonly Question[] = [
     default: () => DEFAULTS.ui,
   }),
   select('auth', {
-    row: 5, group: 'Sign-in', title: 'Sign-in', recommended: true, flag: 'auth', npmAliases: ['npm_config_auth_type'],
+    row: 5, group: 'Sign-in', title: 'Sign-in', recommended: true, flag: 'sign-in',
     help: 'Email + password, email link only, or no sign-in',
     message: 'How do people sign in?',
     // Every mode brings @strutvane/auth: without sign-in it still guards the API with tokens.
@@ -1017,7 +1017,7 @@ export const QUESTIONS: readonly Question[] = [
     default: () => DEFAULTS.git,
   }),
   confirm('ci', {
-    row: 25, group: 'Workflow', title: 'CI workflow', flag: 'ci', when: gitOf,
+    row: 25, group: 'Workflow', title: 'CI workflow', flag: 'ci-workflow', when: gitOf,
     help: 'A GitHub Actions workflow that runs your tests',
     message: 'Add a GitHub Actions CI workflow?',
     default: () => DEFAULTS.ci,

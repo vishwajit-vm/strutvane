@@ -64,7 +64,7 @@ function cleanEnvironment(extra: Record<string, string>): NodeJS.ProcessEnv {
 function install(name: string, flags: string[], env: Record<string, string> = {}, root = tempFolder('s13own-')) {
   const result = spawnSync(
     process.execPath,
-    [CLI, name, '--yes', '--no-docker', '--no-git', '--stack', 'api', '--auth', 'none', '--testing', 'none', '--no-agents', '--features', 'none', '--no-dev', ...flags],
+    [CLI, name, '--yes', '--no-docker', '--no-git', '--stack', 'api', '--sign-in', 'none', '--testing', 'none', '--no-agents', '--features', 'none', '--no-dev', ...flags],
     { cwd: root, env: cleanEnvironment(env), encoding: 'utf8', timeout: 600_000 },
   )
   const directory = join(root, name)

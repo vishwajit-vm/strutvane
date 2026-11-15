@@ -4,7 +4,7 @@
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { ArgsError, parseCommandLine } from '../src/args.ts'
+import { ArgsError, helpText, parseCommandLine } from '../src/args.ts'
 import { OptionsError, resolveOptions, teamsNote } from '../src/options.ts'
 import { findSwallowedFlags, swallowedFlagsMessage } from '../src/swallowed-flags.ts'
 import { validateProjectName } from '../src/validate-name.ts'
@@ -103,7 +103,7 @@ describe('flags: one for every question (CI mode)', () => {
   it('parses every question flag', () => {
     const parsed = parseCommandLine([
       'my-app',
-      '--stack', 'full', '--ui', 'blank', '--auth', 'email', '--security', 'registration,2fa',
+      '--stack', 'full', '--ui', 'blank', '--sign-in', 'email', '--security', 'registration,2fa',
       '--teams', '--db', 'postgres', '--no-docker', '--testing', 'vitest-playwright', '--no-git', '--yes', '--no-dev',
     ])
     expect(parsed.command).toBe('create')
@@ -171,17 +171,17 @@ describe('project names that break npm, the shell or Docker', () => {
 })
 
 describe('flags swallowed by npm (options before "--")', () => {
-  it('finds our flags in npm_config_* variables, including npm\'s --auth → auth-type expansion', () => {
+  it('finds our flags in npm_config_* variables', () => {
     const env = {
       npm_config_user_agent: NPM,
       npm_config_db: 'sqlite',
-      npm_config_auth_type: 'none',
+      npm_config_sign_in: 'none',
       npm_config_git: 'false',
       npm_config_teams: 'true',
       npm_config_install: '', // not ours: ignored
     }
     expect(findSwallowedFlags(env)).toEqual([
-      { flag: 'auth', value: 'none' },
+      { flag: 'sign-in', value: 'none' },
       { flag: 'teams', value: 'true' },
       { flag: 'db', value: 'sqlite' },
       { flag: 'git', value: 'false' },
@@ -256,5 +256,50 @@ describe('flags swallowed by npm (options before "--")', () => {
     expect(findSwallowedFlags({ npm_config_user_agent: NPM, npm_config_git: 'C:\\Program Files\\Git\\cmd\\git.exe' })).toEqual([])
     expect(findSwallowedFlags({ npm_config_db: 'sqlite' })).toEqual([])
     expect(findSwallowedFlags({ npm_config_user_agent: 'pnpm/10', npm_config_db: 'sqlite' })).toEqual([])
+  })
+})
+
+// Decision #120: npm swallows `--auth` (as its own --auth-type) and `--ci` (as --cidr) without a
+// trace when they come before "--" (verified with npm 11.19.0), so the project silently got the
+// defaults. The flags are now --sign-in and --ci-workflow; the old names still work after "--".
+describe('renamed flags: --sign-in and --ci-workflow', () => {
+  it('the new names work, and --help lists only them', () => {
+    expect(parseCommandLine(['a', '--sign-in', 'none', '--no-ci-workflow']).answers).toMatchObject({ auth: 'none', ci: false })
+    expect(parseCommandLine(['a', '--ci-workflow']).answers).toMatchObject({ ci: true })
+    const help = helpText('x')
+    expect(help).toContain('--sign-in email|magic-link|none')
+    expect(help).toContain('--ci-workflow / --no-ci-workflow')
+    expect(help).not.toMatch(/--auth\b|--ci\b(?!-)/)
+  })
+
+  it('the old names still work after "--", each with a one-line rename hint', () => {
+    const parsed = parseCommandLine(['a', '--auth', 'magic-link', '--no-ci'])
+    expect(parsed.answers).toMatchObject({ auth: 'magic-link', ci: false })
+    expect(parsed.notices).toEqual([
+      '--auth is now --sign-in (the old name works only after "--"; npm swallows it otherwise).',
+      '--ci is now --ci-workflow (the old name works only after "--"; npm swallows it otherwise).',
+    ])
+    expect(parseCommandLine(['a', '--ci']).answers.ci).toBe(true)
+    expect(() => parseCommandLine(['a', '--auth', 'bogus'])).toThrow(/--sign-in "bogus" is not a choice/)
+  })
+
+  it('old and new name together is refused', () => {
+    expect(() => parseCommandLine(['a', '--auth', 'none', '--sign-in', 'email'])).toThrow(/--auth is the old name of --sign-in: give only --sign-in/)
+  })
+
+  it('the installer prints the hint, then carries on with the answer', async () => {
+    const cwd = tempFolder()
+    const { environment, output } = fakeEnvironment({ cwd, argv: ['my-app', '--yes', '--db', 'sqlite', '--auth', 'none', '--no-git'], spawn: (await import('./helpers/programs.ts')).fakePrograms().spawn })
+    expect(await main(environment)).toBe(0)
+    expect(output()).toMatch(/^--auth is now --sign-in/)
+    expect(output()).toContain('--sign-in none')
+  })
+
+  it('the "same project" command uses the new names', async () => {
+    const { equivalentCommand } = await import('../src/finish.ts')
+    const command = equivalentCommand(resolveOptions({ name: 'a', database: 'sqlite' }, '/c'))
+    expect(command).toContain('--sign-in email')
+    expect(command).toContain('--ci-workflow')
+    expect(command).not.toMatch(/--auth\b|--ci\b(?!-)/)
   })
 })

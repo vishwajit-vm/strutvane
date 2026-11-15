@@ -95,6 +95,7 @@ export interface InstallerEnvironment {
 export async function main(environment: InstallerEnvironment): Promise<ExitCode> {
   const parsed = parse(environment)
   if (typeof parsed === 'number') return parsed
+  for (const notice of parsed.notices) environment.out(`${notice}\n`)
   if (parsed.command === 'help') {
     environment.out(helpText(VERSION))
     return EXIT.ok

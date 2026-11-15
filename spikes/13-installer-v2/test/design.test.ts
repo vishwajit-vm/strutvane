@@ -189,7 +189,7 @@ describe('--yes path (no questions)', () => {
     expect(loadState(directory).options.design).toBe('crisp')
     expect(output()).toMatch(/Design\s+crisp \(@strutvane\/design-crisp\)/)
     expect(output()).toMatch(/Restyle:\s+resources\/ui\/theme\.css, or switch: node strut design:use vivid/)
-    expect(output()).toContain('--stack full --design crisp --ui admin --auth')
+    expect(output()).toContain('--stack full --design crisp --ui admin --sign-in')
   })
 
   it('--design vivid --yes installs Vivid instead', async () => {

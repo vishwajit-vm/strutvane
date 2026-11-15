@@ -9,7 +9,7 @@ design names has a recovery and an exit code, and `npm run setup` continues from
 unfinished step. Verified on Windows 11 / PowerShell 5.1 / Node 24.21.0 / npm 11.19.0 /
 Docker 29.8.2 on 2026-11-14.
 
-**Evidence:** 370 tests (+1 placeholder skipped when Docker is missing), `npm test` green:
+**Evidence:** 375 tests (+1 placeholder skipped when Docker is missing), `npm test` green:
 - question flows with a scripted prompter, flags/CI mode, npm's swallowed flags;
 - the step runner with a fake spawner: success, every failure, recovery choices, resume;
 - Windows argument safety with a real child process;
@@ -65,7 +65,7 @@ Try it: `node src/cli.ts my-app --db sqlite --yes`, or answer everything:
 `node src/cli.ts my-app --mode custom`. A full non-interactive example:
 
 ```text
-npm create strutvane@latest acme -- --stack full --design vivid --auth magic-link --security passkeys \
+npm create strutvane@latest acme -- --stack full --design vivid --sign-in magic-link --security passkeys \
   --teams --tenant subdomain --db postgres --docker --features billing,search \
   --feature-option billing.provider=paddle --ai --ai-provider anthropic --deploy docker \
   --dev-container --yes
@@ -93,12 +93,12 @@ all loop over that array; there is no per-question switch.
 | Group | Flags (default) |
 |---|---|
 | App | `--stack full\|api` (full) · `--design crisp\|vivid` (crisp) · `--ui admin\|blank` (admin) |
-| Sign-in | `--auth email\|magic-link\|none` (email) · `--security 2fa,verification,passkeys,registration` (2fa,verification; registration OFF, F-02) · `--social google,...` (none) · `--sso` (no; needs teams) · `--api tokens\|oauth\|none` (tokens; forced to tokens without sign-in) · `--roles basic\|extended` |
+| Sign-in | `--sign-in email\|magic-link\|none` (email; old name `--auth`) · `--security 2fa,verification,passkeys,registration` (2fa,verification; registration OFF, F-02) · `--social google,...` (none) · `--sso` (no; needs teams) · `--api tokens\|oauth\|none` (tokens; forced to tokens without sign-in) · `--roles basic\|extended` |
 | Teams | `--teams` (no) · `--tenant switcher\|subdomain` |
 | Data | `--db mysql\|postgres\|sqlite` (mysql; postgres with teams) · `--docker` (yes for server DBs **only when Docker is running**) · `--db-host/--db-port/--db-name/--db-user` (127.0.0.1, 3306/5432, root/postgres) · `--db-socket`, `--db-sslmode` (prefer), `--db-ssl-ca` · `STRUT_DB_URL` · `--admin-email` (admin@&lt;name&gt;.test) · `--admin-password generate\|type` · `--sample-data` (yes for the admin starter) |
 | Infra | `--cache-store database\|redis` · `--storage local\|s3` · `--mailer later\|smtp\|resend\|postmark\|ses` · `--locale en` · `--timezone` (this computer) · `--currency USD` |
 | Features | `--features <catalogue ids>\|none` (log-viewer) · `--feature-option <id>.<question>=<value>` |
-| Quality / Workflow | `--testing vitest\|vitest-playwright\|none` · `--agents` (yes) · `--git` · `--ci` · `--editor` (yes) · `--dev-container` (no) |
+| Quality / Workflow | `--testing vitest\|vitest-playwright\|none` · `--agents` (yes) · `--git` · `--ci-workflow` (old name `--ci`) · `--editor` (yes) · `--dev-container` (no) |
 | Security / AI / UI / Ops | `--security-profile standard\|strict` · `--activity-log` (yes with teams) · `--ai` · `--ai-provider anthropic\|openai\|google\|ollama` · `--mcp-server` · `--ui-languages en,...` · `--appearance system\|light\|dark` · `--pwa` · `--live-updates` · `--monitoring none\|otel` · `--deploy later\|node\|docker` |
 
 **Question 22 (extra features)** reads a catalogue index (`src/data/catalogue.json`, a 33-entry
@@ -177,11 +177,12 @@ Exit codes: 0 ready, 1 nothing created, 2 created but setup unfinished, 130 canc
    as a stray positional (`--db=sqlite` keeps the value); `--teams` → `true`, `--no-teams` →
    `""`; npm's own settings differ: `--git` / `--editor` → `""`, `--no-git` → `false`.
    `--pwa` is split into `-p -w -a` (parseable, workspace) and the installer ran **inside a new
-   folder named `--all`**. The installer now reads all of these correctly and prints the right
-   `npm create … -- …` / `npx …` command for 57 of 60 flag forms. **Undetectable** (no trace at
-   all): `--auth X` (expanded to npm's `--auth-type`, dropped as invalid, so the project silently
-   gets the default sign-in) and `--ci` / `--no-ci` (expanded to `--cidr`). Renaming those two
-   flags (`--sign-in`, `--ci-workflow`) is the only real fix; the message now warns about them.
+   folder named `--all`**. The old `--auth X` (expanded to npm's `--auth-type`, dropped as
+   invalid) and `--ci` / `--no-ci` (expanded to `--cidr`) left **no trace at all**, so the project
+   silently got the defaults: they are now `--sign-in` and `--ci-workflow` (decision #120; the old
+   names still work after `--`, with a one-line rename hint). The installer reads all the traces
+   correctly and prints the exact `npm create … -- …` / `npx …` command for 63 of 66
+   flag forms (every current flag; the two old names are, as expected, still invisible).
    `--dev` turns into `--include=dev` without leaving a variable.
 2. **`node <npm-cli.js>` without a shell is enough everywhere**: `npm_execpath` points at
    `npm-cli.js` under `npm create`; next to `node.exe` otherwise. Real-process test: `a&b`,
@@ -223,8 +224,8 @@ Exit codes: 0 ready, 1 nothing created, 2 created but setup unfinished, 130 canc
   created; Ctrl+C during `npm ci` exits 130 (it exited **0** before the fix) and `npm run setup`
   finishes; the full Custom flow (group picker, type-to-search, a package's follow-up, "Change an
   answer", Create) ends with exit 0 and the picked packages in `strutvane.json`.
-- **Real npm 11.19.0** without `--`, every flag form: 57 of 60 get the exact corrected command;
-  `--auth` / `--ci` leave no trace (finding 1).
+- **Real npm 11.19.0** without `--`, every flag form: 63 of 66 get the exact corrected command
+  (all current flags); only the old names `--auth` / `--ci` leave no trace (finding 1).
 - **Kill and resume** (Windows, no terminal): process tree killed during `npm ci`, then during
   a migration; `npm run setup` resumes each time, runs only the missing migration, creates the
   admin once, and a further `npm run setup` runs nothing. Ctrl+C in a terminal: as above.
@@ -285,8 +286,9 @@ inside the container), Host allowlist · F-20 owner/app PostgreSQL roles, every 
   commits implicitly, so it needs a lock + "dirty" marker).
 - **Windows only, really:** every real run in this audit was on Windows 11 + Docker Desktop, plus
   Linux containers; macOS (and MAMP's port 8889) is not verified.
-- **`--auth` and `--ci` before `--`** are swallowed by npm without a trace (finding 1); not fixable
-  in the installer. `--cache` was avoided on purpose: npm owns `npm_config_cache`.
+- The old names **`--auth` and `--ci` before `--`** are still swallowed by npm without a trace (they
+  were renamed for that reason, finding 1). `--cache` was avoided on purpose: npm owns
+  `npm_config_cache`.
 - A typed admin password is memory-only: a **resumed** setup that still has to create the admin
   takes `STRUT_ADMIN_PASSWORD` again, or asks for it (masked) in a terminal; otherwise it says that
   a one-time password is used and how to set yours (it never claims the typed one was used).

@@ -35,7 +35,19 @@ export interface ParsedArgs {
   readonly positionals: readonly string[]
   /** `--resume <dir>`: continue the setup of an existing project (used by `node strut setup`). */
   readonly resumeDirectory: string | undefined
+  /** One line per renamed flag that was used under its old name (printed before anything else). */
+  readonly notices: readonly string[]
 }
+
+/**
+ * Flags renamed because npm swallows the old names without a trace when they come before "--"
+ * (verified with npm 11.19.0: `--auth` becomes npm's own `--auth-type`, `--ci` its `--cidr`).
+ * The old names still work after "--" (and with npx), with a one-line hint (decision #120).
+ */
+export const RENAMED_FLAGS = [
+  { old: 'auth', now: 'sign-in', question: 'auth' },
+  { old: 'ci', now: 'ci-workflow', question: 'ci' },
+] as const
 
 /** The command line could not be understood. `problems` are full sentences for the user. */
 export class ArgsError extends Error {
@@ -56,6 +68,9 @@ const OTHER_FLAGS = {
   help: { type: 'boolean', short: 'h' },
   version: { type: 'boolean', short: 'v' },
   resume: { type: 'string' },
+  // Old names of renamed flags (see RENAMED_FLAGS).
+  auth: { type: 'string' },
+  ci: { type: 'boolean' },
 } as const satisfies ParseArgsOptionsConfig
 
 /**
@@ -90,6 +105,18 @@ export function parseCommandLine(argv: readonly string[]): ParsedArgs {
     const raw = values[question.flag.name]
     if (raw !== undefined) answers = { ...answers, ...question.read(raw, problems) }
   }
+  const notices: string[] = []
+  for (const renamed of RENAMED_FLAGS) {
+    const raw = values[renamed.old]
+    if (raw === undefined) continue
+    const question = QUESTIONS.find((candidate) => candidate.id === renamed.question)
+    if (values[renamed.now] !== undefined) {
+      problems.push(`--${renamed.old} is the old name of --${renamed.now}: give only --${renamed.now}`)
+    } else if (question !== undefined) {
+      answers = { ...answers, ...question.read(raw, problems) }
+      notices.push(`--${renamed.old} is now --${renamed.now} (the old name works only after "--"; npm swallows it otherwise).`)
+    }
+  }
   const name = pickName(stringValue(values['name']), positionals, problems)
   if (name !== undefined) answers = { ...answers, name }
 
@@ -101,6 +128,7 @@ export function parseCommandLine(argv: readonly string[]): ParsedArgs {
     dev: typeof values['dev'] === 'boolean' ? values['dev'] : undefined,
     positionals,
     resumeDirectory: stringValue(values['resume']),
+    notices,
   }
 }
 

@@ -19,7 +19,7 @@ import type { ShowOnce } from './steps/types.ts'
  *
  * @example
  * equivalentCommand(options)
- * // 'npm create strutvane@latest my-app -- --stack full --design crisp --ui admin --auth email ... --yes'
+ * // 'npm create strutvane@latest my-app -- --stack full --design crisp --ui admin --sign-in email ... --yes'
  */
 export function equivalentCommand(options: ProjectOptions): string {
   const answers = answersOf(options)

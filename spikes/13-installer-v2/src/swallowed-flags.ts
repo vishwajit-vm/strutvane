@@ -4,8 +4,9 @@
  * The trap (verified 2026-11-14, npm 11.19.0): in `npm create strutvane@latest my-app --db sqlite`
  * every option **before** `--` belongs to npm. npm does not forward it; it stores it as an
  * `npm_config_db=sqlite` environment variable, warns "Unknown cli config", and the bare value
- * `sqlite` arrives as an extra positional argument. npm even expands prefixes: `--auth none`
- * becomes `npm_config_auth_type=none`. We cannot get the flag back reliably, but we can see the
+ * `sqlite` arrives as an extra positional argument. npm even expands prefixes: the old `--auth`
+ * became npm's `--auth-type` and `--ci` its `--cidr`, without a trace, which is why those flags
+ * are now `--sign-in` and `--ci-workflow` (decision #120). Otherwise we can see the
  * traces and stop with the corrected command instead of silently ignoring the user's choice.
  *
  * @module
@@ -34,7 +35,7 @@ interface Watched {
 
 /**
  * Where npm stores each question flag: `npm_config_<flag>` (dashes become underscores), plus any
- * alias from the registry (`--auth` is expanded by npm to its own `auth-type` config).
+ * alias from the registry (for a flag npm stores under another name).
  *
  * Why only values the installer would accept: npm sets some of these variables itself (for example
  * `npm_config_git`, a path to git, from `.npmrc`). Counting only valid choices (`--db sqlite`,
@@ -166,6 +167,6 @@ export function swallowedFlagsMessage(
     '',
     `Or without the "--" rule:  npx create-strutvane@latest ${name} ${flags}`,
     '',
-    'npm also turns --auth into its own --auth-type and --ci into --cidr without telling us: write them after "--" too.',
+    'The old names --auth and --ci are taken by npm without a trace: use --sign-in and --ci-workflow (or put them after "--").',
   ].join('\n')
 }
