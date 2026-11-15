@@ -57,6 +57,17 @@ export interface NavigationPage {
   readonly permission: string
 }
 
+/**
+ * True for a same-origin absolute path (`/_strutvane/logs`, `/billing?tab=1`). A package page's
+ * path is rendered straight into `<a href>`, so anything else is dropped: `javascript:` and
+ * `data:` URLs (script in the admin's session), protocol-relative `//host` and `/\host`
+ * (browsers treat a backslash as a slash), absolute URLs to other sites, and control characters.
+ */
+export function isSameOriginPath(path: string): boolean {
+  // A slash, then no second slash or backslash; no whitespace, control characters or backslashes.
+  return /^\/(?![/\\])[^\s\\\p{Cc}]*$/u.test(path)
+}
+
 /** Resources and pages, flattened to what ordering needs. */
 interface Candidate extends NavigationEntry {
   readonly group: string | undefined
@@ -83,7 +94,7 @@ export function buildNavigation(resources: readonly ResolvedResourceUi[], canSee
     ...resources
       .filter((resource) => !resource.navigation.hidden && canSee(resource.name))
       .map((resource) => ({ name: resource.name, label: resource.label.plural, icon: resource.navigation.icon, path: `/${resource.metadata.route}`, group: resource.navigation.group, sort: resource.navigation.sort, isResource: true, ...(resource.navigation.badge === undefined ? {} : { badge: resource.navigation.badge }) })),
-    ...pages.filter((page) => canSee(page.permission)).map((page) => ({ name: page.name, label: page.label, icon: page.icon, path: page.path, group: page.group, sort: page.sort, isResource: false, ...(page.badge === undefined ? {} : { badge: page.badge }) })),
+    ...pages.filter((page) => canSee(page.permission) && isSameOriginPath(page.path)).map((page) => ({ name: page.name, label: page.label, icon: page.icon, path: page.path, group: page.group, sort: page.sort, isResource: false, ...(page.badge === undefined ? {} : { badge: page.badge }) })),
   ]
   const named = [...new Set(candidates.flatMap((candidate) => (candidate.group === undefined ? [] : [candidate.group])))].sort((a, b) => a.localeCompare(b))
   // Ungrouped first, added by hand: `Array.prototype.sort` always moves `undefined` to the end

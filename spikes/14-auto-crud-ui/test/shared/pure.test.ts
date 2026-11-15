@@ -66,6 +66,16 @@ describe('sidebar', () => {
     expect(buildNavigation(resolved, (key) => key !== 'logs.view', [logs]).map((group) => group.heading)).toEqual(['Content'])
   })
 
+  it('attack: a package page path that is not a same-origin absolute path never reaches an href', () => {
+    const resolved = [resolveResourceUi(resource('posts'), { navigation: { group: 'Content' } })]
+    const page = (path: string) => ({ name: 'p', label: 'P', path, icon: 'chart-bar', permission: 'p' }) as const
+    for (const path of ['javascript:alert(1)', 'JAVASCRIPT:alert(1)', ' javascript:alert(1)', 'data:text/html,x', '//evil.test/x', '/\\evil.test', 'https://evil.test', 'logs', '', '/ok\nx']) {
+      const entries = buildNavigation(resolved, () => true, [page(path)]).flatMap((group) => group.entries)
+      expect(entries.map((entry) => entry.path), JSON.stringify(path)).toEqual(['/posts'])
+    }
+    expect(buildNavigation(resolved, () => true, [page('/_strutvane/logs?tab=1')]).flatMap((group) => group.entries.map((entry) => entry.path))).toContain('/_strutvane/logs?tab=1')
+  })
+
   it('guesses icons from table names', () => {
     expect([guessIcon('invoice_lines'), guessIcon('users'), guessIcon('widgets')]).toEqual(['receipt', 'users', 'table'])
   })
