@@ -70,14 +70,24 @@ const toUser = (r: Row): UserRecord => ({
   createdAt: num(r, 'created_at'),
 })
 
+const SESSION_STATES: readonly SessionRecord['state'][] = ['active', 'two-factor']
+const SESSION_METHODS: readonly SessionRecord['method'][] = ['password', 'email-link', 'passkey']
+
+/** Exactly one of `allowed`, or a TypeError: an unknown value is never mapped to a default. */
+function oneOf<T extends string>(row: Row, key: string, allowed: readonly T[]): T {
+  const v = str(row, key)
+  const found = allowed.find((a) => a === v)
+  if (found === undefined) throw new TypeError(`sqlite store: column ${key} has an unknown value`)
+  return found
+}
+
 const toSession = (r: Row): SessionRecord => {
-  const state = str(r, 'state')
-  const method = str(r, 'method')
   return {
     digest: str(r, 'id'),
     userId: str(r, 'user_id'),
-    state: state === 'two-factor' ? 'two-factor' : 'active',
-    method: method === 'email-link' || method === 'passkey' ? method : 'password',
+    // Fail closed: mapping "anything else" to 'active' would sign in a pending 2FA session.
+    state: oneOf(r, 'state', SESSION_STATES),
+    method: oneOf(r, 'method', SESSION_METHODS),
     createdAt: num(r, 'created_at'),
     lastSeenAt: num(r, 'last_activity'),
     expiresAt: num(r, 'expires_at'),

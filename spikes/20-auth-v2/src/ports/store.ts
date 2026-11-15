@@ -13,6 +13,9 @@
  * - **Emails arrive normalized** (`normalizeEmail`); compare them byte for byte (MySQL: a binary
  *   collation, review F-08).
  * - Times are epoch milliseconds.
+ * - **Unknown enum values fail closed.** A row whose `state` or `method` is not one of the known
+ *   values must throw, never map to a default (an unknown state read as `active` signs in a pending
+ *   two-factor session).
  *
  * @module
  */

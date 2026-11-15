@@ -104,6 +104,22 @@ describe('SQLite across connections (several app processes on one database)', ()
     expect(await a.advanceTotpStep('u', 5)).toBe(false)
   })
 
+  it('an unknown session state or method in a row fails closed (never read as an active session)', async () => {
+    // An ORM store or a hand-edited row may hold values the schema CHECK would refuse (a
+    // case-insensitive column, a new state from a later version). Mapping "anything else" to
+    // 'active' would turn a pending two-factor session into a signed-in one.
+    const db = new DatabaseSync(':memory:')
+    const store = sqliteAuthStore(db)
+    db.exec('PRAGMA ignore_check_constraints = ON')
+    for (const [state, method] of [['Two-Factor', 'password'], ['pending', 'password'], ['two-factor ', 'password'], ['active', 'sso']] as const) {
+      db.prepare(
+        `INSERT INTO sessions (id, user_id, state, method, created_at, last_activity, expires_at, idle_ms, remember)
+         VALUES (?, 'u', ?, ?, 1, 1, 9999999999999, 1000, 0)`,
+      ).run(`${state}|${method}`, state, method)
+      await expect(store.findSession(`${state}|${method}`), `${state} ${method}`).rejects.toThrow(TypeError)
+    }
+  })
+
   it('bypass attempt: spreading attempts over two app instances does not double the limit', async () => {
     const file = join(dir, 'limits.sqlite')
     const clock = manualClock(START)
