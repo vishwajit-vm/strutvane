@@ -72,6 +72,40 @@ describe('unsaved changes', () => {
     await waitFor(() => expect(app.history.location.pathname).toBe('/posts'))
   })
 
+  it('does not warn while a save is in flight, and never yanks the user back after they left', async () => {
+    let release: () => void = () => undefined
+    const gate = new Promise<void>((resolve) => (release = resolve))
+    const app = renderApp({
+      path: '/tags/new',
+      transport: (mock) => async (request) => {
+        if (request.method === 'POST') await gate
+        return mock.handle(request)
+      },
+    })
+    await app.user.type(await screen.findByRole('textbox', { name: /^Name/ }), 'slow-save')
+    await app.user.click(screen.getByRole('button', { name: 'Create tag' }))
+    await screen.findByRole('button', { name: 'Saving…' })
+    // "Your changes will be lost" would be false: the save is already on its way.
+    await app.user.click(screen.getByRole('button', { name: 'Back to Tags' }))
+    expect(screen.queryByRole('alertdialog')).toBeNull()
+    await waitFor(() => expect(app.history.location.pathname).toBe('/tags'))
+    release()
+    expect(await screen.findByText('Tag “slow-save” created.')).toBeInTheDocument()
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(app.history.location.pathname).toBe('/tags')
+  })
+
+  it('after a save, Back goes to the list, not to the form again', async () => {
+    const app = renderApp({ path: '/tags' })
+    await waitForTable('Tags')
+    app.history.push('/tags/new')
+    await app.user.type(await screen.findByRole('textbox', { name: /^Name/ }), 'back-test')
+    await app.user.click(screen.getByRole('button', { name: 'Create tag' }))
+    await screen.findByRole('heading', { name: 'back-test' })
+    await app.user.click(screen.getByRole('button', { name: 'Back to Tags' }))
+    await waitFor(() => expect(app.history.location.pathname).toBe('/tags'))
+  })
+
   it('leaves an untouched form at once, and never asks after a successful save', async () => {
     const app = renderApp({ path: '/tags/new' })
     await app.user.click(await screen.findByRole('textbox', { name: /^Name/ }))
@@ -89,6 +123,15 @@ describe('forms', () => {
     expect(app.history.location.pathname).toBe('/tags/new')
     expect(screen.getByRole('textbox', { name: /^Name/ })).toHaveValue('')
     expect(screen.getByRole('textbox', { name: /^Name/ })).toHaveFocus()
+  })
+
+  it('Enter in a field is the PRIMARY action (create), never "Save and add another"', async () => {
+    const app = renderApp({ path: '/tags/new' })
+    await app.user.type(await screen.findByRole('textbox', { name: /^Name/ }), 'enter-key{Enter}')
+    // Implicit submission clicks the form's FIRST submit button; it must be the primary one.
+    expect(await screen.findByText('Tag “enter-key” created.')).toBeInTheDocument()
+    await waitFor(() => expect(app.history.location.pathname).not.toBe('/tags/new'))
+    expect(app.requests.filter((request) => request.method === 'POST')).toHaveLength(1)
   })
 
   it('counts characters against the column limit', async () => {

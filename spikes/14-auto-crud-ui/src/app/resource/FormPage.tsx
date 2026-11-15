@@ -97,22 +97,40 @@ export function ResourceForm({ resource, row }: ResourceFormProps): ReactElement
   const addAnother = useRef(false)
   // Set after a successful save, so leaving the form then is never "unsaved changes".
   const saved = useRef(false)
+  // Set while a save is on its way: leaving then loses nothing, so no "unsaved changes" prompt.
+  const saving = useRef(false)
+  // Set when the form unmounts. TanStack Query still runs `onSuccess` after that; navigating
+  // then would pull the user back from wherever they went while the save was in flight.
+  const left = useRef(false)
+  useEffect(
+    () => () => {
+      left.current = true
+    },
+    [],
+  )
+  const formRef = useRef<HTMLFormElement>(null)
   const dirty = !sameValues(values, initial)
   const parent: BackTarget =
     row === undefined
       ? { to: '/$resource', params: { resource: resource.metadata.route } }
       : { to: '/$resource/$key', params: { resource: resource.metadata.route, key: recordRouteKey(resource, row) } }
   const goBack = useGoBack(parent)
-  const blocker = useBlocker({ shouldBlockFn: () => dirty && !saved.current, withResolver: true, enableBeforeUnload: () => dirty && !saved.current })
+  const unsaved = (): boolean => dirty && !saved.current && !saving.current
+  const blocker = useBlocker({ shouldBlockFn: unsaved, withResolver: true, enableBeforeUnload: unsaved })
 
   const save = useMutation({
     mutationFn: (body: Record<string, unknown>) => {
       const id = row === undefined ? undefined : recordId(resource, row)
       return id === undefined ? api.create(resource.metadata, body) : api.update(resource.metadata, id, body)
     },
+    onSettled: () => {
+      saving.current = false
+    },
     onSuccess: async (record) => {
       await invalidateResource(queryClient, resource.name)
       toast(mode === 'create' ? `${resource.label.singular} “${recordTitle(resource, record)}” created.` : 'Changes saved.')
+      // The user went elsewhere while it saved: the toast is enough, never move them back.
+      if (left.current) return
       if (addAnother.current) {
         // Stay on a fresh form: the quickest way to enter several records in a row.
         addAnother.current = false
@@ -123,7 +141,8 @@ export function ResourceForm({ resource, row }: ResourceFormProps): ReactElement
         return
       }
       saved.current = true
-      void navigate({ to: '/$resource/$key', params: { resource: resource.metadata.route, key: recordRouteKey(resource, record) } })
+      // Replace the form's history entry: Back from the record must not reopen the form.
+      void navigate({ to: '/$resource/$key', params: { resource: resource.metadata.route, key: recordRouteKey(resource, record) }, replace: true })
     },
     onError: (error) => showServerErrors(error, fields, setErrors, setFormIssues, () => setFocusRequest((count) => count + 1)),
   })
@@ -144,6 +163,7 @@ export function ResourceForm({ resource, row }: ResourceFormProps): ReactElement
       setFocusRequest((count) => count + 1)
       return
     }
+    saving.current = true
     save.mutate(withoutUntouchedSlug(resource, buildBody(fields, values, mode, initial), slugTouched))
   }
 
@@ -170,6 +190,7 @@ export function ResourceForm({ resource, row }: ResourceFormProps): ReactElement
       )}
       <Card>
         <form
+          ref={formRef}
           noValidate
           onSubmit={submit}
           onKeyDown={(event) => {
@@ -196,7 +217,17 @@ export function ResourceForm({ resource, row }: ResourceFormProps): ReactElement
               </Link>
             )}
             {mode === 'create' && (
-              <Button type="submit" variant="soft" disabled={save.isPending} onClick={() => (addAnother.current = true)}>
+              // NOT a submit button: implicit submission (Enter in a field) clicks the form's FIRST
+              // submit button, and Enter must be the primary action, not "add another".
+              <Button
+                type="button"
+                variant="soft"
+                disabled={save.isPending}
+                onClick={() => {
+                  addAnother.current = true
+                  formRef.current?.requestSubmit()
+                }}
+              >
                 Save and add another
               </Button>
             )}
