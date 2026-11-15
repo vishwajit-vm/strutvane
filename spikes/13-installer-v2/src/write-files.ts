@@ -11,7 +11,7 @@
  */
 import { existsSync, readdirSync, statSync } from 'node:fs'
 import { mkdir, readdir, rm, writeFile } from 'node:fs/promises'
-import { dirname, join } from 'node:path'
+import { basename, dirname, join } from 'node:path'
 import type { GeneratedFile } from './templates/app-files.ts'
 
 /** The target folder cannot be used. The message says why and what to do. */
@@ -47,10 +47,23 @@ export function targetProblem(directory: string): string | undefined {
 /** Writes one file. Injectable so tests can make the disk fail halfway. */
 export type FileWriter = (path: string, content: string) => Promise<void>
 
-/** The real writer: creates parent folders, writes UTF-8 with `\n` line endings as generated. */
+/**
+ * Files that may hold a secret from the moment they exist: `.env` gets a typed database password
+ * or URL in the files step, before the secrets step runs (and could be interrupted).
+ */
+const isSecretFile = (path: string): boolean => {
+  const name = basename(path)
+  return name.startsWith('.env') && name !== '.env.example'
+}
+
+/**
+ * The real writer: creates parent folders, writes UTF-8 with `\n` line endings as generated.
+ * Secret files are created owner-only (0600) on macOS and Linux right away, not only later by the
+ * secrets step; Windows ignores the mode (the user profile's ACL protects the folder there).
+ */
 const diskWriter: FileWriter = async (path, content) => {
   await mkdir(dirname(path), { recursive: true })
-  await writeFile(path, content, { encoding: 'utf8', flag: 'wx' }) // wx: never overwrite
+  await writeFile(path, content, { encoding: 'utf8', flag: 'wx', mode: isSecretFile(path) ? 0o600 : 0o666 }) // wx: never overwrite
 }
 
 /**

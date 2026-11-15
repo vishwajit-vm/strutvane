@@ -239,3 +239,25 @@ describe('a typed database password .env cannot hold', () => {
     expect(parseEnv(readFileSync(join(cwd, 'acme', '.env'), 'utf8'))['DB_PASSWORD']).toBe('good pass word')
   })
 })
+
+// Regression (class: a secret file readable by others for a moment). .env was created with the
+// default mode (0644 on Linux/macOS) holding a typed database password, and only became 0600 in
+// the secrets step; an interrupted run left it world-readable. (POSIX modes: skipped on Windows,
+// checked for real in a Linux container during the audit.)
+describe.skipIf(process.platform === 'win32')('.env is owner-only from the moment it is written', () => {
+  it('the writer creates .env (and .env.local) as 0600, other files as usual', async () => {
+    const { statSync } = await import('node:fs')
+    const { writeProjectFiles } = await import('../src/write-files.ts')
+    const directory = join(tempFolder(), 'acme')
+    await writeProjectFiles(directory, [
+      { path: '.env', content: 'DB_PASSWORD=Typed-Db-Pass-4711' },
+      { path: '.env.local', content: 'X=1' },
+      { path: '.env.example', content: 'DB_PASSWORD=' },
+      { path: 'README.md', content: '# acme' },
+    ])
+    const mode = (file: string) => (statSync(join(directory, file)).mode & 0o777).toString(8)
+    expect([mode('.env'), mode('.env.local')]).toEqual(['600', '600'])
+    expect(mode('.env.example')).not.toBe('600')
+    expect(mode('README.md')).not.toBe('600')
+  })
+})
