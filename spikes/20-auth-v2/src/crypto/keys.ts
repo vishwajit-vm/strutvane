@@ -24,6 +24,7 @@ export type KeyPurpose =
   | 'email-link-nonce'
   | 'email-verification'
   | 'email-digest'
+  | 'email-verification-hash'
   | 'recovery-code'
   | 'trusted-device'
   | 'two-factor-secret'

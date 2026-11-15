@@ -17,8 +17,13 @@ import { parseVerificationLink } from '../tokens/formats.ts'
 import { type AuthDeps, emit, requireFeature, sendMail } from '../core/deps.ts'
 import { requireActive } from '../core/sessions.ts'
 
+/**
+ * The `{hash}` in the link: a keyed digest of the current address, under its OWN subkey. Not the
+ * `email-digest` subkey: that one keys the rate-limit counters and the `emailDigest` in audit
+ * events, and a value that travels by mail must not equal one that lives in logs and caches.
+ */
 function emailHash(deps: AuthDeps, email: string): string {
-  return deps.keys.digest('email-digest', email).slice(0, 40)
+  return deps.keys.digest('email-verification-hash', email).slice(0, 40)
 }
 
 function sign(deps: AuthDeps, id: string, hash: string, expires: number): string {

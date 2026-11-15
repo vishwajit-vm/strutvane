@@ -121,6 +121,19 @@ describe.each(STORES)('email verification (%s store)', (store) => {
     expect(h.eventsOf('email.verified')).toHaveLength(1)
   })
 
+  it('key separation: the mailed email hash shares no value with the limiter keys or event digests', async () => {
+    const h = harness({ store, config: { features } })
+    await h.auth.passwords.register(new Browser().req, { name: 'Ada', email: 'ada@acme.test', password: PASSWORD })
+    const mail = await h.mail('verify-email')
+    const parts = 'url' in mail ? parseVerificationUrl(mail.url) : undefined
+    await h.auth.passwords.login(new Browser().req, { email: 'ada@acme.test', password: 'wrong password!' }).catch(() => undefined)
+    const eventDigest = h.eventsOf('login.failed')[0]?.emailDigest ?? ''
+    expect(eventDigest).not.toBe('')
+    // The URL travels by mail (and through mail logs, scanners, forwards); the event digest and
+    // the counter keys travel elsewhere. One must not be derivable from (or equal to) the other.
+    expect(parts?.hash.slice(0, eventDigest.length)).not.toBe(eventDigest)
+  })
+
   it('refuses edited, expired and other-user links, and links for an old email address', async () => {
     const h = harness({ store, config: { features } })
     await h.auth.passwords.register(new Browser().req, { name: 'Ada', email: 'ada@acme.test', password: PASSWORD })
