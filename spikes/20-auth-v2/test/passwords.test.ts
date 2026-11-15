@@ -112,10 +112,15 @@ describe.each(STORES)('email + password (%s store)', (store) => {
     it('no enumeration by timing: known and unknown emails take about the same time (real scrypt)', async () => {
       const h = harness({ store, config: { limits: { loginPerIp: { max: 1000, windowSeconds: 60 }, loginPerAccount: { max: 1000, windowSeconds: 60 } }, lockout: { threshold: 1000 } } })
       await h.user('known@acme.test')
+      // CPU time of this process (scrypt runs on libuv's pool, which process.cpuUsage includes), not
+      // wall-clock time: wall time also counts every OTHER process on a busy machine, so the ratio
+      // drifted to 1.7 under load while the work was identical. The work is what an attacker's
+      // timing reflects; the structural test above proves each path does one full-cost hash.
       const time = async (email: string): Promise<number> => {
-        const t0 = performance.now()
+        const before = process.cpuUsage()
         await h.auth.passwords.login(new Browser().req, { email, password: 'wrong password here' }).catch(() => undefined)
-        return performance.now() - t0
+        const used = process.cpuUsage(before)
+        return (used.user + used.system) / 1000
       }
       await time('warmup@acme.test')
       const known: number[] = []
