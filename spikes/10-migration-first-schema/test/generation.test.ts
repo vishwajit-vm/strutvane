@@ -3,7 +3,8 @@
  * proven with the real TypeScript compiler.
  */
 import { spawnSync } from 'node:child_process'
-import { cpSync, readFileSync, writeFileSync } from 'node:fs'
+import { cpSync, mkdtempSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { createRequire } from 'node:module'
 import { join } from 'node:path'
 import { afterAll, describe, expect, test } from 'vitest'
@@ -111,5 +112,41 @@ export function summary(post: Post): string {
     expect(after.status).not.toBe(0)
     expect(after.output).toContain("consumer.ts(3,28): error TS2339: Property 'subtitle' does not exist on type 'Post'.")
     expect(after.output).toContain("consumer.ts(3,49): error TS2339: Property 'content' does not exist on type 'Post'.")
+  })
+})
+
+describe('atomic writes survive Windows sharing errors and never leave temp files', () => {
+  test('a transient EPERM on rename is retried; a lasting one fails and removes the temp file', () => {
+    const app = mkdtempSync(join(tmpdir(), 'sv-atomic-'))
+    try {
+      // On Windows a file that an antivirus scanner or an editor has open for a moment refuses to
+      // be replaced (EPERM/EBUSY): the write failed outright and left `<file>.<pid>.tmp` behind.
+      let failures = 2
+      const flaky = (from: string, to: string): void => {
+        if (failures > 0) {
+          failures -= 1
+          throw Object.assign(new Error('EPERM: operation not permitted, rename'), { code: 'EPERM' })
+        }
+        renameSync(from, to)
+      }
+      expect(writeArtifacts(app, new Map([['.strutvane/a.txt', 'one']]), { rename: flaky })).toEqual(['.strutvane/a.txt'])
+      expect(readFileSync(join(app, '.strutvane/a.txt'), 'utf8')).toBe('one')
+      const locked = (): void => {
+        throw Object.assign(new Error('EBUSY: resource busy or locked, rename'), { code: 'EBUSY' })
+      }
+      expect(() => writeArtifacts(app, new Map([['.strutvane/a.txt', 'two']]), { rename: locked })).toThrow(/EBUSY/)
+      expect(readFileSync(join(app, '.strutvane/a.txt'), 'utf8')).toBe('one')
+      expect(readdirSync(join(app, '.strutvane')).filter((name) => name.endsWith('.tmp'))).toEqual([])
+      // A real permission problem is not retried forever: other errors fail at once.
+      let calls = 0
+      const denied = (): void => {
+        calls += 1
+        throw Object.assign(new Error('ENOENT: no such file or directory, rename'), { code: 'ENOENT' })
+      }
+      expect(() => writeArtifacts(app, new Map([['.strutvane/a.txt', 'three']]), { rename: denied })).toThrow(/ENOENT/)
+      expect(calls).toBe(1)
+    } finally {
+      rmSync(app, { recursive: true, force: true })
+    }
   })
 })

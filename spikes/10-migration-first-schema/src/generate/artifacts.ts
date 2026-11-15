@@ -2,7 +2,8 @@
  * Everything `sv types` writes, built in memory first so it can be compared, tested and written
  * atomically: model types, resource metadata, and SQL for each engine.
  */
-import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
+import { randomBytes } from 'node:crypto'
+import { mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import type { Replay } from '../schema/replay.ts'
 import { createSchemaSql } from '../sql/ddl.ts'
@@ -33,25 +34,61 @@ export function buildArtifacts(replay: Replay, overrides: ResourceOverrides = {}
 }
 
 /**
+ * File operations {@link writeArtifacts} uses; tests replace `rename` to simulate Windows errors.
+ *
+ * @example
+ * writeArtifacts(root, files, { rename: renameSync })
+ */
+export interface ArtifactIo {
+  readonly rename: (from: string, to: string) => void
+}
+
+/** Windows error codes that mean "someone else has the file open for a moment". */
+const TRANSIENT = new Set(['EPERM', 'EBUSY', 'EACCES'])
+const RENAME_ATTEMPTS = 5
+
+/**
  * Write the files under `root`, touching only those whose content changed (so file watchers and
  * editors don't see churn). Each write goes to a temp file first and is renamed into place, so a
- * crash never leaves a half-written `models.d.ts`.
+ * crash never leaves a half-written `models.d.ts`. On Windows, a rename that hits a file another
+ * process has open for a moment (antivirus, indexer, editor: EPERM/EBUSY/EACCES) is retried a few
+ * times; if it still fails, the temp file is removed and the error is thrown.
  *
  * @example
  * writeArtifacts('fixtures/blog', buildArtifacts(replay)) // ['.strutvane/resources.json'] when only that changed
  */
-export function writeArtifacts(root: string, files: ReadonlyMap<string, string>): string[] {
+export function writeArtifacts(root: string, files: ReadonlyMap<string, string>, io: ArtifactIo = { rename: renameSync }): string[] {
   const written: string[] = []
   for (const [relative, content] of files) {
     const target = join(root, relative)
     if (readOrUndefined(target) === content) continue
     mkdirSync(dirname(target), { recursive: true })
-    const temporary = `${target}.${process.pid}.tmp`
-    writeFileSync(temporary, content)
-    renameSync(temporary, target)
+    // Unique per write: two processes (dev watcher and a CLI run) never share a temp file.
+    const temporary = `${target}.${process.pid}.${randomBytes(4).toString('hex')}.tmp`
+    try {
+      writeFileSync(temporary, content)
+      renameWithRetry(io, temporary, target)
+    } catch (error) {
+      rmSync(temporary, { force: true })
+      throw error
+    }
     written.push(relative)
   }
   return written
+}
+
+function renameWithRetry(io: ArtifactIo, from: string, to: string): void {
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      io.rename(from, to)
+      return
+    } catch (error) {
+      const code = error instanceof Error && 'code' in error ? String(error.code) : ''
+      if (!TRANSIENT.has(code) || attempt >= RENAME_ATTEMPTS) throw error
+      // A synchronous pause: generation is synchronous, and this only runs after a failure.
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, attempt * 10)
+    }
+  }
 }
 
 function readOrUndefined(path: string): string | undefined {
