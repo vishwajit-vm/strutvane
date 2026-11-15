@@ -261,8 +261,9 @@ inside the container), Host allowlist · F-20 owner/app PostgreSQL roles, every 
   driven in a real terminal; the flows are proven with the scripted prompter only.
 - **`--auth` and `--ci` before `--`** are swallowed by npm without a trace (finding 1); not fixable
   in the installer. `--cache` was avoided on purpose: npm owns `npm_config_cache`.
-- A typed admin password is memory-only, so a **resumed** setup (`npm run setup`) generates one
-  instead and shows it once.
+- A typed admin password is memory-only: a **resumed** setup that still has to create the admin
+  takes `STRUT_ADMIN_PASSWORD` again, or asks for it (masked) in a terminal; otherwise it says that
+  a one-time password is used and how to set yours (it never claims the typed one was used).
 - CI action versions (`actions/checkout@v4`, `setup-node@v4`) are *(unverified)* for 2026.
 - The stub framework (`stubs/strutvane-framework`) stands in for spike 12's `node strut`
   registry and spike 10's schema builder; only what the installer calls is implemented.

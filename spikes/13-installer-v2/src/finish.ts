@@ -56,7 +56,7 @@ function databaseLine(options: ProjectOptions, env: Map<string, string>): string
  * @example
  * readyLines(options, [{ label: 'Password', value: 'q7Vd-3kPz-Xm2c-8RtL' }])
  */
-export function readyLines(options: ProjectOptions, showOnce: readonly ShowOnce[]): string[] {
+export function readyLines(options: ProjectOptions, showOnce: readonly ShowOnce[], typedUsed = true): string[] {
   const env = parseEnv(readEnvFile(options.directory))
   const lines = [`${'App'.padEnd(13)}${env.get('APP_URL') ?? ''}`, `${'Database'.padEnd(13)}${databaseLine(options, env)}`]
   if (options.design !== undefined) lines.push(`${'Design'.padEnd(13)}${options.design} (${designInfo(options.design).packageName})`)
@@ -69,7 +69,7 @@ export function readyLines(options: ProjectOptions, showOnce: readonly ShowOnce[
     }
     if (showOnce.length === 0) {
       lines.push(
-        options.adminPasswordMode === 'type'
+        options.adminPasswordMode === 'type' && typedUsed
           ? `${'Password'.padEnd(13)}the one you typed (never saved in a file)`
           : `${'Password'.padEnd(13)}not shown here. Set one with: node strut user:password ${email}`,
       )

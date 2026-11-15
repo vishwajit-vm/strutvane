@@ -268,3 +268,46 @@ describe('resume safety', () => {
     expect(result.output()).toMatch(/stopped unexpectedly: kaboom/)
   })
 })
+
+// Regression (class: a secret kept in memory only, lost across resume). A typed first-admin
+// password is never saved, so `npm run setup` after a failed migrate silently generated a random
+// one, ignored STRUT_ADMIN_PASSWORD, and the Ready box still said "the one you typed" (in CI the
+// generated one is never shown: the admin was locked out without being told).
+describe('resume with a typed first-admin password', () => {
+  const TYPED = 'Typed-Admin-Pass-4711'
+  const failMigrate = { strut: (spec: { args: readonly string[] }) => (spec.args.includes('migrate') ? { code: 3, output: 'Cannot reach MySQL' } : undefined) }
+
+  async function failedCreate() {
+    const result = await create(['--yes', '--db', 'sqlite', '--admin-password', 'type', '--no-git'], failMigrate, { env: { STRUT_ADMIN_PASSWORD: TYPED } })
+    expect(result.code).toBe(2)
+    return result
+  }
+
+  it('CI: takes STRUT_ADMIN_PASSWORD again and hands it to the seeder', async () => {
+    const failing = await failedCreate()
+    const resumed = await resume(failing.directory, {}, { env: { STRUT_ADMIN_PASSWORD: TYPED } })
+    expect(resumed.code).toBe(0)
+    const migrate = resumed.world.calls.find((call) => call.args.includes('migrate'))
+    expect(migrate?.env).toEqual({ STRUT_SEED_ADMIN_PASSWORD: TYPED })
+    expect(resumed.output()).toMatch(/Password\s+the one you typed/)
+  })
+
+  it('CI without it: says a one-time password is used instead, never claims the typed one', async () => {
+    const failing = await failedCreate()
+    const resumed = await resume(failing.directory)
+    expect(resumed.code).toBe(0)
+    expect(resumed.output()).toMatch(/no terminal and no STRUT_ADMIN_PASSWORD/)
+    expect(resumed.output()).not.toMatch(/the one you typed/)
+    expect(resumed.output()).toMatch(/Password\s+not shown here\. Set one with: node strut user:password/)
+  })
+
+  it('interactive: asks for it again (masked)', async () => {
+    const failing = await failedCreate()
+    const { prompter, prompts } = scriptedPrompter({ adminPassword: TYPED, dev: false })
+    const resumed = await resume(failing.directory, {}, { interactiveTerminal: true, prompter })
+    expect(resumed.code).toBe(0)
+    expect(prompts.find((p) => p.id === 'adminPassword')?.kind).toBe('password')
+    expect(resumed.world.calls.find((call) => call.args.includes('migrate'))?.env).toEqual({ STRUT_SEED_ADMIN_PASSWORD: TYPED })
+    expect(resumed.output()).not.toContain(TYPED)
+  })
+})

@@ -12,7 +12,7 @@ import { resolve } from 'node:path'
 import { ArgsError, helpText, type ParsedArgs, parseCommandLine } from './args.ts'
 import { EXIT, type ExitCode } from './exit-codes.ts'
 import { readyLines, unfinishedLines } from './finish.ts'
-import { type Answers, DATABASE_LABELS, databaseOf, isLocalHost, needsConnection, OptionsError, parseDatabaseUrl, type ProjectOptions, resolveOptions } from './options.ts'
+import { type Answers, DATABASE_LABELS, MIN_ADMIN_PASSWORD, databaseOf, isLocalHost, needsConnection, OptionsError, parseDatabaseUrl, type ProjectOptions, resolveOptions } from './options.ts'
 import { envValueProblem } from './env-file.ts'
 import { EMPTY_LOCAL_PASSWORD_WARNING, QUESTIONS } from './question-registry.ts'
 import type { PortProbe } from './ports.ts'
@@ -409,8 +409,47 @@ async function resume(directoryArg: string, parsed: ParsedArgs, environment: Ins
   reporter.intro(`Strutvane ${VERSION}: setting up ${options.name}`)
   reporter.info(`Progress from ${statePath(directory)}; finished steps are not run again.`)
   state = recheckSecrets(state, directory, options, reporter)
-  const result = await setUp(state, options, interactive, environment, reporter)
-  return finish(result, options, { interactive, parsed, environment, reporter })
+  const typed = await typedAdminPasswordForResume(state, options, interactive, environment, reporter)
+  if (typed === 'cancelled') {
+    reporter.outro('Cancelled. Nothing changed; run npm run setup again when ready.')
+    return EXIT.cancelled
+  }
+  const result = await setUp(state, options, interactive, environment, reporter, typed)
+  // "The one you typed" is true only if the admin was created with a typed password: earlier, or now.
+  const typedUsed = options.adminPasswordMode === 'type' && (state.steps.migrate.status === 'done' || typed !== undefined)
+  return finish(result, options, { interactive, parsed, environment, reporter, typedUsed })
+}
+
+/**
+ * A typed first-admin password lives in memory only, so a resumed setup that still has to create
+ * the admin needs it again: from STRUT_ADMIN_PASSWORD (CI), or asked masked (a terminal). Without
+ * either, the seeder generates a one-time password, and we say so instead of pretending the typed
+ * one was used.
+ */
+async function typedAdminPasswordForResume(
+  state: SetupState,
+  options: ProjectOptions,
+  interactive: boolean,
+  environment: InstallerEnvironment,
+  reporter: Reporter,
+): Promise<string | undefined | 'cancelled'> {
+  if (options.adminPasswordMode !== 'type' || state.steps.migrate.status === 'done') return undefined
+  const fromEnv = environment.env['STRUT_ADMIN_PASSWORD']
+  if (fromEnv !== undefined && fromEnv.length >= MIN_ADMIN_PASSWORD) return fromEnv
+  const question = QUESTIONS.find((candidate) => candidate.id === 'adminPassword')
+  if (interactive && question !== undefined) {
+    try {
+      const answers = await question.ask(environment.prompter, { adminPasswordMode: 'type' }, { cwd: environment.cwd, targetProblem: () => undefined })
+      return answers.adminPassword
+    } catch (error) {
+      if (error instanceof CancelledError) return 'cancelled'
+      throw error
+    }
+  }
+  reporter.warn(
+    `You chose to type the first admin's password, but this run has no terminal and no STRUT_ADMIN_PASSWORD (at least ${MIN_ADMIN_PASSWORD} characters). If the admin is created now it gets a one-time password; set yours with: node strut user:password ${options.adminEmail ?? '<email>'}`,
+  )
+  return undefined
 }
 
 /**
@@ -436,6 +475,8 @@ interface FinishSettings {
   readonly parsed: ParsedArgs
   readonly environment: InstallerEnvironment
   readonly reporter: Reporter
+  /** The admin was (or will be) created with the password the user typed. */
+  readonly typedUsed?: boolean
 }
 
 /** Print the summary, offer `npm run dev`, and pick the exit code. */
@@ -448,7 +489,7 @@ async function finish(result: RunResult, before: ProjectOptions, settings: Finis
     reporter.outro('Project created; setup incomplete (exit code 2).')
     return EXIT.incomplete
   }
-  reporter.box('Ready', readyLines(options, settings.interactive ? result.showOnce : []))
+  reporter.box('Ready', readyLines(options, settings.interactive ? result.showOnce : [], settings.typedUsed ?? true))
   if (await wantsDevServer(settings)) {
     reporter.outro(`Starting ${options.name} (Ctrl+C to stop)`)
     await settings.environment.spawn({
