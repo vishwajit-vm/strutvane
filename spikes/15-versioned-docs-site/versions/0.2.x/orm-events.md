@@ -12,7 +12,7 @@ Same event names and the same order: `creating`, `created`, `updating`, `updated
 :::
 
 :::caution[Coming in 0.2]
-Model events and observers are **designed** (ORM design §6.7, planned for 0.2) but not built yet; the ORM prototype has none. The names on this page follow that design and may still change. Until then, call your code next to the write (see [What works today](#what-works-today)).
+Model events and observers are **decided for 0.2** (ORM design §6.7 and the 2026-11-15 consistency decisions) but not built yet; the ORM prototype has none. Until then, call your code next to the write (see [What works today](#what-works-today)).
 :::
 
 ## The smallest example
@@ -51,6 +51,37 @@ await post.delete()
 | `restored` | After it came back | Audit entry |
 
 "Before" events (`…ing`) run inside the write, so they can change the model's values. "After" events (`…ed`) see the saved row, with its id and timestamps.
+
+### Cancelling a write
+
+A "before" hook (`saving`, `creating`, `updating`, `deleting`, `restoring`) can **stop** the write by returning `false`. Nothing is written, the "after" events don't run, and the call tells you:
+
+```ts title="app/models/post.ts"
+import { Model, type ModelEvents } from '@strutvane/framework'
+
+export class Post extends Model('posts', { fillable: ['title', 'body', 'status'] }) {
+  static readonly events = {
+    // A published post can't go back to draft.
+    updating: (post) => {
+      if (post.isDirty('status') && post.status === 'draft' && post.published_on !== null) return false
+    },
+  } satisfies ModelEvents<Post>
+}
+```
+
+```ts
+const saved = await post.save()
+console.log(saved)
+```
+
+**What you'll see** when the hook refuses: `false`, and the row is unchanged. `save()` resolves to `false` only when a hook cancelled it.
+
+| Who wrote | What happens when a hook returns `false` |
+|---|---|
+| Your code calling `save()`, `delete()` or `restore()` | It resolves to `false`; nothing is written |
+| The generated API | It answers **422** with the problem code `write_cancelled` |
+
+Returning `false` is for "this write is not allowed, carry on". If something went **wrong**, **throw** instead: the error propagates, and inside a [transaction](../orm-transactions/) everything rolls back.
 
 ### The order they fire in
 
@@ -216,6 +247,11 @@ export async function publishPost(post: Post): Promise<void> {
 
 **Why:** an `updated` hook calls `save()` on the same model, which fires `updated` again.
 **Fix:** change values in `updating` or `saving` instead (they're saved with the write), or use `saveQuietly()` inside the hook.
+
+### `save()` returned `false`
+
+**Why:** a "before" hook (on the model or in an observer) returned `false` and cancelled the write.
+**Fix:** check the result where it matters (`if (!(await post.save())) …`), or, if the hook really means "error", make it throw instead.
 
 ### Bulk changes don't fire events
 
