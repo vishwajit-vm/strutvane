@@ -183,3 +183,10 @@ The docs pass found places where the blueprint and the spikes disagree. When a m
 | 117 | Races in auth | The last-admin check and the passkey counter update are atomic store operations (a conditional update or row lock). The email-link nonce cookie is `__Host-` + `Secure` and needs HTTPS outside `local`. | spike 20, auth |
 | 118 | UI error parsing | The 422 parser reads `issues[].path` first and falls back to `field` (#69). | spike 14, ui |
 | 119 | Inline theme script and CSP | The static inline theme script is allowed by a CSP **hash**, generated at build time. Components that inject styles take a `nonce` prop. | spikes 14, 17 and 19, ui, designs |
+
+## Eighth pass (installer audit, 2026-11-15)
+
+| # | Topic | Decision | Owner |
+|---|---|---|---|
+| 120 | Flags that npm swallows without a trace | Rename `--auth` to `--sign-in` and `--ci`/`--no-ci` to `--ci-workflow`/`--no-ci-workflow`. npm consumes the old names silently even after `npm create …`. The old names stay accepted after `--` and print a one-line rename hint. Docs and the question table use the new names. | spike 13, docs |
+| 121 | Atomic migrations | A migration's statements and its `migrations` record are written in one transaction where the engine allows it (PostgreSQL, SQLite). On MySQL/MariaDB, each statement is recorded as it completes, so a re-run resumes inside the migration (blueprint §2.4). | spike 10, framework |
