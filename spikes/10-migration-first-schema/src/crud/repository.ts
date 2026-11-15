@@ -6,7 +6,7 @@
  * injection story.
  */
 import { slugify } from '../naming.ts'
-import { quoteIdentifier, SqlParams, type SqlValue } from '../sql/dialect.ts'
+import { type Dialect, isMysqlFamily, quoteIdentifier, SqlParams, type SqlValue } from '../sql/dialect.ts'
 import type { FieldMetadata, ResourceMetadata } from '../generate/metadata.ts'
 import type { Database } from '../db/database.ts'
 import type { ListFilter, ListRequest } from './list-query.ts'
@@ -304,15 +304,16 @@ export class ResourceRepository {
         return this.#like(filter.field, `%${escapeLike(String(value))}%`, params)
       case 'startsWith':
         return this.#like(filter.field, `${escapeLike(String(value))}%`, params)
+      case 'ne':
+        return notEqualCondition(this.#db.dialect, column, params.add(Array.isArray(value) ? null : (value as SqlValue)))
       default:
         return `${column} ${COMPARISON[filter.operator]} ${params.add(Array.isArray(value) ? null : (value as SqlValue))}`
     }
   }
 
-  /** Case-insensitive "contains". SQLite's LIKE already ignores ASCII case; PostgreSQL needs ILIKE. */
+  /** Case-insensitive "contains" (see {@link likeCondition}). */
   #like(field: FieldMetadata, pattern: string, params: SqlParams): string {
-    if (this.#db.dialect === 'postgres') return `CAST(${this.#q(field.name)} AS TEXT) ILIKE ${params.add(pattern)} ESCAPE '\\'`
-    return `${this.#q(field.name)} LIKE ${params.add(pattern)} ESCAPE '\\'`
+    return likeCondition(this.#db.dialect, this.#q(field.name), params.add(isMysqlFamily(this.#db.dialect) ? pattern.toLowerCase() : pattern))
   }
 
   /**
@@ -321,7 +322,7 @@ export class ResourceRepository {
    * The primary key is the final tie-breaker, so pages never overlap or skip rows.
    */
   #orderBy(request: ListRequest): string {
-    const terms = request.sort.map((sort) => `${this.#q(sort.field)} ${sort.direction.toUpperCase()} NULLS LAST`)
+    const terms = request.sort.map((sort) => orderTerm(this.#db.dialect, this.#q(sort.field), sort.direction))
     if (!request.sort.some((sort) => sort.field === this.resource.primaryKey)) terms.push(`${this.#q(this.resource.primaryKey)} ASC`)
     return terms.join(', ')
   }
@@ -344,10 +345,51 @@ export class ResourceRepository {
   }
 }
 
-const COMPARISON: Readonly<Record<string, string>> = { eq: '=', ne: '<>', gt: '>', gte: '>=', lt: '<', lte: '<=' }
+const COMPARISON: Readonly<Record<string, string>> = { eq: '=', gt: '>', gte: '>=', lt: '<', lte: '<=' }
 
-/** Make `%`, `_` and `\` in a search term match themselves instead of acting as wildcards. */
+/** Make `%`, `_` and `!` (the escape character) in a search term match themselves. */
 function escapeLike(text: string): string {
-  return text.replace(/[\\%_]/g, (character) => `\\${character}`)
+  return text.replace(/[!%_]/g, (character) => `!${character}`)
+}
+
+/**
+ * A case-insensitive LIKE with `!` as the escape character. A backslash escape breaks on MySQL and
+ * MariaDB (`ESCAPE '\\'` is a syntax error by default and "Incorrect arguments to ESCAPE" with
+ * NO_BACKSLASH_ESCAPES; checked on 8.4.13 and 11.4.13). SQLite's LIKE ignores ASCII case,
+ * PostgreSQL needs ILIKE, MySQL compares lower-cased text (binary-collated columns included); the
+ * caller lower-cases the pattern there.
+ *
+ * @example
+ * likeCondition('mysql', '`title`', '?') // "LOWER(`title`) LIKE ? ESCAPE '!'"
+ */
+export function likeCondition(dialect: Dialect, column: string, placeholder: string): string {
+  if (dialect === 'postgres') return `CAST(${column} AS TEXT) ILIKE ${placeholder} ESCAPE '!'`
+  if (isMysqlFamily(dialect)) return `LOWER(${column}) LIKE ${placeholder} ESCAPE '!'`
+  return `${column} LIKE ${placeholder} ESCAPE '!'`
+}
+
+/**
+ * One ORDER BY term with NULLs last in both directions. MySQL and MariaDB have no `NULLS LAST`, so
+ * they sort on `col IS NULL` (0 before 1) first.
+ *
+ * @example
+ * orderTerm('mysql', '`price`', 'desc') // '`price` IS NULL, `price` DESC'
+ */
+export function orderTerm(dialect: Dialect, column: string, direction: 'asc' | 'desc'): string {
+  const keyword = direction.toUpperCase()
+  return isMysqlFamily(dialect) ? `${column} IS NULL, ${column} ${keyword}` : `${column} ${keyword} NULLS LAST`
+}
+
+/**
+ * NULL-safe "not equal": a NULL row counts as different, like JavaScript's `!==` and like the ORM
+ * (spike 11) and the charts API (spike 16). Plain `<>` silently drops NULL rows.
+ *
+ * @example
+ * notEqualCondition('postgres', '"status"', '$1') // '"status" IS DISTINCT FROM $1'
+ */
+export function notEqualCondition(dialect: Dialect, column: string, placeholder: string): string {
+  if (dialect === 'postgres') return `${column} IS DISTINCT FROM ${placeholder}`
+  if (isMysqlFamily(dialect)) return `NOT (${column} <=> ${placeholder})`
+  return `${column} IS NOT ${placeholder}`
 }
 

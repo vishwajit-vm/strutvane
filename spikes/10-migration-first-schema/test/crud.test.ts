@@ -7,6 +7,7 @@ import type { Hono } from 'hono'
 import { constraintViolation, type Database } from '../src/db/database.ts'
 import { migrate } from '../src/db/migrator.ts'
 import { createCrudApp } from '../src/crud/app.ts'
+import { likeCondition, notEqualCondition, orderTerm } from '../src/crud/repository.ts'
 import { generateMetadata } from '../src/generate/metadata.ts'
 import { BLOG_ROOT, ENGINES, replayApp } from './helpers.ts'
 
@@ -175,6 +176,18 @@ describe.each(ENGINES)('$name', ({ name, open }) => {
       expect(await titles('?search=r_s')).toEqual(['under_score title'])
     })
 
+    test('ne is NULL-safe: a row whose value is NULL is "not equal" (like the ORM and the charts API)', async () => {
+      // `<>` dropped every post without a category from filter[category_id][ne]=1.
+      const all = await titles('?sort=id&perPage=100')
+      expect(await titles('?filter[category_id][ne]=1&sort=id&perPage=100')).toEqual(all.filter((title) => title !== 'under_score title'))
+    })
+
+    test('the escape character and a backslash are literal in contains/startsWith and search', async () => {
+      expect(await titles('?filter[title][contains]=!&sort=id&perPage=100')).toEqual(['Hello, World!'])
+      expect(await titles(`?filter[title][contains]=${encodeURIComponent('\\')}&sort=id&perPage=100`)).toEqual([])
+      expect((await api('GET', `/api/posts?search=${encodeURIComponent('!%')}`)).status).toBe(200)
+    })
+
     test('sorting by several fields; NULLs last on both engines', async () => {
       expect(await titles('?sort=-price,title&perPage=3')).toEqual(['under_score title', '50% off everything', 'Hello, World!'])
       expect(await titles('?sort=subtitle&perPage=3')).toEqual(['50% off everything', 'under_score title', 'Hello, World!'])
@@ -298,5 +311,21 @@ describe('both engines agree', () => {
     const [sqlite, postgres] = [...transcripts.values()]
     expect(sqlite?.length).toBeGreaterThan(80)
     expect(postgres).toEqual(sqlite)
+  })
+})
+
+describe('the SQL the CRUD layer writes is valid on MySQL and MariaDB too', () => {
+  test('LIKE escapes with "!", NULLs sort last without NULLS LAST, and != is NULL-safe', () => {
+    // MySQL 8.4 and MariaDB 11.4 (checked 2026-11-15): ESCAPE '\\' is a syntax error or "Incorrect
+    // arguments to ESCAPE" depending on sql_mode, and NULLS LAST doesn't exist.
+    expect(likeCondition('mysql', '`title`', '?')).toBe("LOWER(`title`) LIKE ? ESCAPE '!'")
+    expect(likeCondition('postgres', '"title"', '$1')).toBe('CAST("title" AS TEXT) ILIKE $1 ESCAPE \'!\'')
+    expect(likeCondition('sqlite', '"title"', '?1')).toBe('"title" LIKE ?1 ESCAPE \'!\'')
+    expect(orderTerm('mysql', '`price`', 'desc')).toBe('`price` IS NULL, `price` DESC')
+    expect(orderTerm('mariadb', '`price`', 'asc')).toBe('`price` IS NULL, `price` ASC')
+    expect(orderTerm('postgres', '"price"', 'asc')).toBe('"price" ASC NULLS LAST')
+    expect(notEqualCondition('mysql', '`status`', '?')).toBe('NOT (`status` <=> ?)')
+    expect(notEqualCondition('postgres', '"status"', '$2')).toBe('"status" IS DISTINCT FROM $2')
+    expect(notEqualCondition('sqlite', '"status"', '?2')).toBe('"status" IS NOT ?2')
   })
 })
