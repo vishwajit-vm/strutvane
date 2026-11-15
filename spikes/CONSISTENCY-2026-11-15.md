@@ -78,3 +78,24 @@ The docs pass found places where the blueprint and the spikes disagree. When a m
 | 42 | Connection details | host/port/database/user/password with local-friendly defaults; empty password allowed locally with a warning; `DB_URL`, `DB_SOCKET`, `DB_SSLMODE`/`DB_SSL_CA`; connection tested with plain-language errors; database created if missing (or the exact SQL is printed). | spike 13, framework config |
 | 43 | MariaDB | A first-class engine (`DB_CONNECTION=mariadb`), auto-detected from the server version. The ORM grammar handles the MariaDB differences (`RETURNING`, JSON, CHECK). It's tested on MariaDB 11 alongside MySQL 8.4. | ORM (spike 11), framework |
 | 44 | PostgreSQL without Docker + RLS | Create the owner and app roles when allowed. Otherwise print the SQL and warn that a superuser connection disables RLS; `security:check` keeps flagging it. | spike 13, framework |
+
+## Second pass (docs writer C findings, 2026-11-15)
+
+| # | Topic | Decision | Owner |
+|---|---|---|---|
+| 45 | Health route | `/up` always exists and answers `200 {"status":"ok"}` to GET and HEAD. It stays reachable during maintenance. | spike 13 template |
+| 46 | `bootstrap/app.ts` | `Application.configure({ basePath }).withRouting({ web, api }).withMiddleware(...).withExceptions(...).create()` (spike 12, Laravel 11 style). Route files export `(router) => {}` callbacks. | spike 13 template |
+| 47 | Facades | Typed static accessors (`Log`, `Cache`, `DB`, `Route`, `Mail`, `Storage`, `Http`). They resolve from the **current application's container**, not from module-level global state, so tests can swap them. The menu label becomes "Facades", and "Helpers" is a separate page. | framework, docs nav |
+| 48 | Sort parameter | It uses column names: `sort=-created_at,title`. | blueprint §5 |
+| 49 | Slug collisions | Sequential `-2`, `-3` suffixes (friendly and predictable), guarded by the unique index plus a retry on conflict. Random suffixes are rejected. | spike 12, docs `orm-slugs` |
+| 50 | Sidebar entry shape | `{ name, label, path, icon, group, order, badge?, permission }`. `order`, not `sort`. | spikes 12 and 14 |
+| 51 | Parity status accuracy | Maintenance mode: built (spike 12 `b941053`). Invokable controllers: 🟡. `Http` client: 🟡; only `safeFetch` exists. Doc 20 is corrected. | doc 20 |
+| 52 | Signed URL names | Laravel's names: `url.signedRoute()` and `url.temporarySignedRoute()`. | doc 20, spike 12 |
+| 53 | Search semantics | The blueprint rule: words AND, columns OR, at most 10 searchable fields, an exact match for an id or UUID. | spikes 10 and 12 |
+| 54 | Default page size | 25 for both the API and the UI (choices 10/25/50/100). | spikes 10 and 12 |
+| 55 | Lookup by slug | Route model binding at `/api/posts/{post:slug}`. There's no separate `/by-slug/` path. | spikes 10 and 14 |
+| 56 | Soft-deleted rows | The API supports `filter[trashed]=with\|only` plus `POST /api/posts/{post}/restore`. | spikes 10 and 12 |
+| 57 | Spike 14 leftovers | Messages say `node strut migrate`, never `sv`. Icons are **Tabler**, per DESIGN.md. The real build serves API and UI on one port. | spike 14 |
+| 58 | Recommended mode | The docs list the questions instead of quoting a number (0.2 asks 6; hidden questions appear when their packages ship). | docs |
+| 59 | Model stub | `export class Post extends Model('posts', { fillable: [...] }) {}` (spike 11 ORM). | spike 12 generator |
+| 60 | `withoutCsrf()` environment | Works only when `APP_ENV=testing`. The environments are `local`, `testing`, `staging` and `production`. | spike 12, docs |
