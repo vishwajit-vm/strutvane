@@ -28,6 +28,11 @@ const fail = (code: string, message: string): Coerced => ({ ok: false, code, mes
 const INTEGER_TEXT = /^-?\d+$/
 const DECIMAL_TEXT = /^-?\d+(?:\.\d+)?$/
 const DATE_TEXT = /^\d{4}-\d{2}-\d{2}$/
+/**
+ * Date-times must be ISO 8601 with `Z` or an offset (or a bare date, meaning UTC midnight). Without
+ * a zone, `Date.parse` reads the value in the server's own time zone. Same rule as the ORM (spike 11).
+ */
+const DATETIME_TEXT = /^(\d{4}-\d{2}-\d{2})(?:T(\d{2}):(\d{2})(?::(\d{2})(?:\.\d{1,9})?)?(?:Z|[+-]\d{2}:\d{2}))?$/
 const UUID_TEXT = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const SLUG_TEXT = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
 
@@ -88,8 +93,8 @@ function coerceValue(field: FieldMetadata, text: string): Coerced {
     case 'date':
       return isRealDate(text) ? ok(text) : fail('invalid_date', `${field.label} must be a date written as YYYY-MM-DD.`)
     case 'datetime': {
-      const time = Date.parse(text)
-      return Number.isNaN(time) ? fail('invalid_datetime', `${field.label} must be a date and time, for example 2026-11-14T09:30:00Z.`) : ok(new Date(time).toISOString())
+      const time = parseDateTime(text)
+      return time === undefined ? fail('invalid_datetime', `${field.label} must be a date and time with a time zone, for example 2026-11-14T09:30:00Z.`) : ok(time.toISOString())
     }
     default:
       return stringValue(field, text)
@@ -130,9 +135,21 @@ function decimalValue(field: FieldMetadata, text: string): Coerced {
 
 function isRealDate(text: string): boolean {
   if (!DATE_TEXT.test(text)) return false
-  // Round-trip so 2026-02-30 is refused instead of quietly becoming March 2nd.
+  // Round-trip so 2026-02-30 is refused instead of quietly becoming March 2nd. Years 1000-9999 are
+  // what every engine stores (MySQL DATETIME starts at 1000).
   const parsed = new Date(`${text}T00:00:00Z`)
-  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === text
+  const year = parsed.getUTCFullYear()
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === text && year >= 1000 && year <= 9999
+}
+
+/** A strict ISO 8601 date-time (see {@link DATETIME_TEXT}), or `undefined`. */
+function parseDateTime(text: string): Date | undefined {
+  const match = DATETIME_TEXT.exec(text)
+  if (match === null || !isRealDate(match[1] ?? '')) return undefined
+  // 24:00 and 23:60 are not times of day (Date would roll them into the next day or hour).
+  if (Number(match[2] ?? 0) > 23 || Number(match[3] ?? 0) > 59 || Number(match[4] ?? 0) > 59) return undefined
+  const time = new Date(text.length === 10 ? `${text}T00:00:00.000Z` : text)
+  return Number.isNaN(time.getTime()) ? undefined : time
 }
 
 /**

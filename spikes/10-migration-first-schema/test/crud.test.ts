@@ -265,6 +265,18 @@ describe.each(ENGINES)('$name', ({ name, open }) => {
       expect(constraintViolation(await raced.catch((error: unknown) => error))).toBe('unique')
     })
 
+    test('date-time values need an explicit zone and a real calendar date (no server-time-zone guessing)', async () => {
+      // Date.parse() read '2026-11-14T10:00:00' in the *server's* time zone, so the same request
+      // matched different rows depending on where the app ran; it also took 'Nov 14 2026' and '1'.
+      for (const value of ['2026-11-14T10:00:00', '2026-11-14 10:00:00', 'Nov 14 2026', '1', '2026-02-30T00:00:00Z', '2026-11-14T24:00:00Z', '0999-12-31T00:00:00Z']) {
+        const result = await api('GET', `/api/posts?filter[created_at][gte]=${encodeURIComponent(value)}`)
+        expect([result.status, issueCodes(result)], value).toEqual([422, ['filter[created_at][gte]:invalid_datetime']])
+      }
+      for (const value of ['2026-11-14T09:00:00Z', '2026-11-14T14:30:00+05:30', '2026-11-14']) {
+        expect((await api('GET', `/api/posts?filter[created_at][gte]=${encodeURIComponent(value)}`)).status, value).toBe(200)
+      }
+    })
+
     test('a JSON field round-trips every JSON value, and one odd row never breaks the list', async () => {
       // PostgreSQL hands jsonb back parsed, so a stored JSON *string* arrived as a plain JS string and
       // was parsed a second time: "hello" crashed every read of the row (and every page holding it)
