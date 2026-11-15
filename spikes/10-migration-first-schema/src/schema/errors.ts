@@ -26,6 +26,7 @@ export type SchemaErrorCode =
   | 'NOT_ALLOWED_IN_CREATE'
   | 'INVALID_MIGRATION'
   | 'DUPLICATE_MIGRATION'
+  | 'ASYNC_MIGRATION'
 
 /**
  * A schema problem, with what went wrong and how to fix it.

@@ -81,8 +81,25 @@ export function migration(definition: Migration): Migration {
  */
 export function recordOperations(run: (schema: SchemaBuilder) => void, stateBefore: SchemaState): SchemaOperation[] {
   const recorder = new SchemaRecorder(stateBefore)
-  run(recorder)
+  try {
+    // Typed as void, but an `async up()` still compiles (a Promise is assignable to void). Its
+    // operations after the first `await` would be recorded too late, so refuse it outright.
+    refuseThenable(run(recorder), 'up() and down()')
+  } finally {
+    recorder.seal()
+  }
   return recorder.operations
+}
+
+/** Migrations are recorded synchronously: a returned promise means operations would be lost. */
+function refuseThenable(result: unknown, what: string): void {
+  if (typeof result === 'object' && result !== null && 'then' in result && typeof result.then === 'function') {
+    throw new SchemaError(
+      'ASYNC_MIGRATION',
+      `${what} returned a promise. Migrations are recorded synchronously, so everything after the first await would be missing from the types, metadata and SQL.`,
+      'Remove async/await from the migration. Data changes that need I/O belong in a seeder or a data migration, not in the schema.',
+    )
+  }
 }
 
 /**
@@ -94,12 +111,25 @@ export function recordOperations(run: (schema: SchemaBuilder) => void, stateBefo
 class SchemaRecorder implements SchemaBuilder {
   readonly operations: SchemaOperation[] = []
   readonly #tables: Map<string, Set<string>>
+  #sealed = false
+
+  /** Stop recording: a call that arrives after up()/down() returned is a bug, never a silent no-op. */
+  seal(): void {
+    this.#sealed = true
+  }
+
+  #assertOpen(): void {
+    if (this.#sealed) {
+      throw new SchemaError('ASYNC_MIGRATION', 'The schema builder was used after the migration returned (a stored reference, a timer or an await).', 'Call schema methods only synchronously inside up() and down().')
+    }
+  }
 
   constructor(state: SchemaState) {
     this.#tables = new Map(state.tables.map((table) => [table.name, new Set(table.columns.map((column) => column.name))]))
   }
 
   create(table: string, define: (t: Blueprint) => void): void {
+    this.#assertOpen()
     assertIdentifier(table, 'table')
     const actions = runBlueprint(table, define)
     this.operations.push({ type: 'createTable', table, actions })
@@ -107,6 +137,7 @@ class SchemaRecorder implements SchemaBuilder {
   }
 
   table(table: string, define: (t: Blueprint) => void): void {
+    this.#assertOpen()
     const actions = runBlueprint(table, define)
     this.operations.push({ type: 'alterTable', table, actions })
     const columns = this.#tables.get(table) ?? new Set<string>()
@@ -121,16 +152,19 @@ class SchemaRecorder implements SchemaBuilder {
   }
 
   drop(table: string): void {
+    this.#assertOpen()
     this.operations.push({ type: 'dropTable', table, ifExists: false })
     this.#tables.delete(table)
   }
 
   dropIfExists(table: string): void {
+    this.#assertOpen()
     this.operations.push({ type: 'dropTable', table, ifExists: true })
     this.#tables.delete(table)
   }
 
   rename(from: string, to: string): void {
+    this.#assertOpen()
     assertIdentifier(to, 'table')
     this.operations.push({ type: 'renameTable', from, to })
     const columns = this.#tables.get(from)
@@ -149,7 +183,7 @@ class SchemaRecorder implements SchemaBuilder {
 
 function runBlueprint(table: string, define: (t: Blueprint) => void): ReturnType<Blueprint['toActions']> {
   const blueprint = new Blueprint(table)
-  define(blueprint)
+  refuseThenable(define(blueprint), `The callback for "${table}"`)
   return blueprint.toActions()
 }
 

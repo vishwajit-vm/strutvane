@@ -189,3 +189,44 @@ describe('drop and rename tables', () => {
     expect(JSON.stringify(before)).toBe(snapshot)
   })
 })
+
+describe('async migrations are refused, not half-recorded', () => {
+  test('an async up() or create() callback fails with a clear error instead of dropping the operations after its first await', async () => {
+    // Before the fix, everything after the first await was silently lost: the types, metadata and
+    // SQL described a different schema from the one migrate would build.
+    const asyncUp = async (schema: SchemaBuilder): Promise<void> => {
+      schema.create('a', (t) => t.id())
+      await Promise.resolve()
+      schema.create('b', (t) => t.id())
+    }
+    let pending: Promise<void> | undefined
+    const thrown = (() => {
+      try {
+        recordOperations((schema) => {
+          pending = asyncUp(schema)
+          return pending as unknown as void
+        }, EMPTY_SCHEMA)
+      } catch (error) {
+        return error
+      }
+      return undefined
+    })()
+    expect(thrown).toBeInstanceOf(SchemaError)
+    expect((thrown as SchemaError).code).toBe('ASYNC_MIGRATION')
+    // The part after the await runs later, on a sealed recorder: it fails instead of recording nothing.
+    await expect(pending).rejects.toBeInstanceOf(SchemaError)
+    const asyncDefine = async (t: { id(): unknown; string(name: string): unknown }): Promise<void> => {
+      t.id()
+      await Promise.resolve()
+      t.string('late')
+    }
+    expect(() => recordOperations((schema) => schema.create('c', (t) => asyncDefine(t) as unknown as void), EMPTY_SCHEMA)).toThrow(/ASYNC_MIGRATION|synchronous/)
+    // Late calls on a recorder that already returned fail loudly too.
+    let kept: SchemaBuilder | undefined
+    recordOperations((schema) => {
+      kept = schema
+    }, EMPTY_SCHEMA)
+    expect(() => kept?.create('late', (t) => t.id())).toThrow(SchemaError)
+  })
+})
+
