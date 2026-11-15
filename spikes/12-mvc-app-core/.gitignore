@@ -3,3 +3,5 @@ test/.tmp/
 *.sqlite
 *.sqlite-journal
 .env
+fixtures/example-app/bootstrap/cache/
+fixtures/example-app/storage/framework/

@@ -28,6 +28,12 @@ import { EnsureIdempotency, IdempotencyStoreToken, MemoryIdempotencyStore } from
 import { ValidateSignature } from '../http/signed.ts'
 import { Encrypter, EncrypterToken } from '../security/encrypter.ts'
 import { checkBootGuards } from '../security/boot-guards.ts'
+import { CacheManagerToken, defaultCacheManager } from '../cache/store.ts'
+import { EventRegistry } from '../events/registry.ts'
+import { maintenanceStage } from '../maintenance/maintenance.ts'
+import { FileSessionStore, SessionStoreToken } from '../session/file-store.ts'
+import type { CacheUse } from './bootstrap-cache.ts'
+import { loadConfigWithCache, loadListeners, routeCacheUse, routeManifest } from './cached-boot.ts'
 import { KeyringToken } from '../security/keyring.ts'
 import { VerifyCsrfToken } from '../http/csrf.ts'
 import { buildMiddleware, MiddlewareConfig, MiddlewareConfigToken, type MiddlewareReference } from '../http/middleware.ts'
@@ -234,6 +240,10 @@ export class Application implements ApplicationScope {
   readonly container = new Container()
   /** Navigation entries from the app and packages, for the React sidebar. */
   readonly navigation = new NavigationRegistry()
+  /** Events and listeners (discovered in app/listeners, or from bootstrap/cache/events.json). */
+  readonly events: EventRegistry
+  /** What boot did with each bootstrap cache: used, ignored (stale, other key, tampered) or none. */
+  cacheStatus: Readonly<Record<'config' | 'routes' | 'events', CacheUse>> = { config: 'none', routes: 'none', events: 'none' }
   readonly #blueprint: Blueprint
   readonly #middleware = new MiddlewareConfig()
   readonly #exceptions = new ExceptionsConfig()
@@ -249,6 +259,7 @@ export class Application implements ApplicationScope {
   constructor(blueprint: Blueprint) {
     this.#blueprint = blueprint
     this.basePath = blueprint.basePath
+    this.events = new EventRegistry(blueprint.basePath)
     for (const command of blueprint.commands) this.#commands.set(command.name, command)
   }
 
@@ -414,8 +425,22 @@ export class Application implements ApplicationScope {
     if (this.#state !== undefined && this.container.has(ConnectionToken)) await this.container.make(ConnectionToken).close()
   }
 
+  /**
+   * Build the config from the config files and the environment, ignoring any config cache.
+   * `config:cache` uses it, so a cache is always built from the real files.
+   *
+   * @example
+   * const fresh = app.loadFreshConfig()
+   */
+  loadFreshConfig(): ConfigRepository {
+    return loadConfig(this.#blueprint.config, loadEnvSource(this.basePath, this.#blueprint.env))
+  }
+
   async #boot(): Promise<void> {
-    const config = loadConfig(this.#blueprint.config, loadEnvSource(this.basePath, this.#blueprint.env))
+    if (!this.container.has(LoggerToken)) this.container.singleton(LoggerToken, () => new StderrLogger())
+    const bootLogger = this.container.make(LoggerToken)
+    const loaded = loadConfigWithCache(this.basePath, this.#blueprint.config, loadEnvSource(this.basePath, this.#blueprint.env), bootLogger)
+    const config = loaded.config
     const guards = checkBootGuards({
       environment: String(config.get('app.env')),
       debug: config.get('app.debug') === true,
@@ -440,13 +465,19 @@ export class Application implements ApplicationScope {
     const showDetails = config.get('app.debug') === true && (environment === 'local' || environment === 'testing')
     const handler = new ExceptionHandler(this.#exceptions, { showDetails, basePath: this.basePath, environment, logger })
     const middleware = new Map(routes.map((route) => [route, resolveRouteMiddleware(route, this.#middleware)] as const))
+    this.#extraStages.push(maintenanceStage({ basePath: this.basePath, keyring: guards.keyring, health: this.#blueprint.routing.health, clock: this.container.make(ClockToken), secureCookies: environment === 'production' }))
     const stages = [trustedHostStage(security), ...this.#extraStages, corsPreflightStage(security)]
     this.#state = { config, routes, url, hono: this.#buildHono(routes, middleware), handler, middleware, security, stages }
+    const routeUse = routeCacheUse(this.basePath, guards.keyring, logger, routeManifest(routes, (route) => middleware.get(route) ?? { references: [], optOuts: [] }).hash)
+    const listeners = await loadListeners(this.basePath, guards.keyring, logger)
+    this.events.useDiscovered(listeners.entries)
+    this.cacheStatus = { config: loaded.use, routes: routeUse, events: listeners.use }
     for (const warning of guards.warnings) logger.warn(warning)
     if (config.get('app.debug') === true && !showDetails) logger.warn('APP_DEBUG=true is ignored outside local and testing environments; production errors stay plain.')
     await runInApplication(this, async () => {
       for (const provider of providers) await provider.boot(this)
-      await this.#checkRoutes(routes)
+      // A valid route cache means this exact table, from this exact code, already passed the checks.
+      if (routeUse !== 'used') await this.#checkRoutes(routes)
     })
   }
 
@@ -458,11 +489,12 @@ export class Application implements ApplicationScope {
     this.container.instance(ConfigToken, config)
     this.container.instance(MiddlewareConfigToken, this.#middleware)
     if (!this.container.has(ClockToken)) this.container.singleton(ClockToken, () => () => new Date())
-    if (!this.container.has(LoggerToken)) this.container.singleton(LoggerToken, () => new StderrLogger())
     if (!this.container.has(RateLimitStoreToken)) this.container.singleton(RateLimitStoreToken, () => new MemoryRateLimitStore())
     if (!this.container.has(IdempotencyStoreToken)) this.container.singleton(IdempotencyStoreToken, () => new MemoryIdempotencyStore())
     this.container.singleton(EncrypterToken, (container) => new Encrypter(container.make(KeyringToken)))
     this.container.singleton(MetadataToken, () => loadMetadata(this.basePath))
+    if (!this.container.has(CacheManagerToken)) this.container.singleton(CacheManagerToken, () => defaultCacheManager(this.basePath))
+    if (!this.container.has(SessionStoreToken)) this.container.singleton(SessionStoreToken, () => new FileSessionStore(this.basePath))
     if (Object.hasOwn(config.all, 'database')) {
       this.container.singleton(ConnectionToken, () => {
         const name = String(config.get('database.default'))

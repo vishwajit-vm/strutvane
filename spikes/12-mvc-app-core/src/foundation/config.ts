@@ -164,8 +164,14 @@ export function loadConfig(files: Readonly<Record<string, ConfigDefinition<unkno
   return new ConfigRepository(Object.freeze(tree))
 }
 
-/** Config is read-only after boot: a mutation would be invisible to code that already read it. */
-function deepFreeze<TValue>(value: TValue): TValue {
+/**
+ * Freeze a config tree recursively. Config is read-only after boot: a mutation would be invisible
+ * to code that already read it.
+ *
+ * @example
+ * const tree = deepFreeze({ app: { name: 'Blog' } })
+ */
+export function deepFreeze<TValue>(value: TValue): TValue {
   if (typeof value === 'object' && value !== null && !Object.isFrozen(value)) {
     Object.freeze(value)
     for (const child of Object.values(value)) deepFreeze(child)
