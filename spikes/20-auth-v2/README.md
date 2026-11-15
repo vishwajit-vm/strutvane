@@ -2,7 +2,7 @@
 
 **Question:** can one small, dependency-light TypeScript core cover every sign-in option the v2 installer offers (blueprint §2.1, questions 5–12; §6), with secure defaults, behind a storage interface the framework can implement on its ORM?
 
-**Answer: yes.** `src/` is pure services over seven small ports. The same code runs on an in-memory store and on a real SQLite store (`node:sqlite`), and an example Fetch/`node:http` adapter shows the routes. **264 tests pass** (the behaviour suites run once per store; 215 at first commit, 49 added by the adversarial audit of 2026-11-15 and the decisions that followed it, CONSISTENCY #114–117), plus type-level tests checked by `tsc`.
+**Answer: yes.** `src/` is pure services over seven small ports. The same code runs on an in-memory store and on a real SQLite store (`node:sqlite`), and an example Fetch/`node:http` adapter shows the routes. **274 tests pass** (the behaviour suites run once per store; 215 at first commit, 59 added by the adversarial audit of 2026-11-15 and the decisions that followed it, CONSISTENCY #114–117 and #122), plus type-level tests checked by `tsc`.
 
 ```bash
 npm install          # .npmrc sets ignore-scripts=true; nothing here needs an install script
@@ -30,7 +30,7 @@ Status: spike (2026-11-15). Standalone: imports nothing from other spikes or `pa
 |---|---|---|---|
 | 1 | Email + password | `services/passwords.ts`, `password/*` | scrypt (`$scrypt$ln=17,r=8,p=1$…`), rehash-on-login, legacy verifier plug-in (bcrypt import), optional breached/common check hook (`commonPasswordCheck`, k-anonymity `rangeBreachCheck`), timing-safe sign-in (dummy hash), one `INVALID_CREDENTIALS` for every failure, sliding-window limits per IP (/64) and per account, lockout with exponential backoff |
 | 2 | Password reset | `services/password-reset.ts` | 256-bit token, keyed digest only, 60 min, single-use (atomic consume), dies on any password change; a reset revokes every session, PAT, remembered device and email link, and lifts the lockout |
-| 3 | Email verification | `services/verification.ts` | Laravel's `/email/verify/{id}/{hash}?expires&signature`, HMAC-signed, bound to the current address; resend: 60 s cooldown + 6/hour; **password sign-in waits for it**, and the first mailbox proof wipes what was set before it (#114) |
+| 3 | Email verification | `services/verification.ts` | Laravel's `/email/verify/{id}/{hash}?expires&signature`, HMAC-signed, bound to the current address; resend: 60 s cooldown + 6/hour; **password sign-in waits for it**; registration binds the account to the browser by a `__Host-` nonce, so verifying there keeps the chosen password, while any other first mailbox proof wipes what was set before it (#114, #122) |
 | 4 | Email link (passwordless) | `services/email-link.ts` | 15 min, single-use, **bound to the requesting browser by a `__Host-` nonce cookie** (HTTPS required outside local, #117); same answer for unknown accounts; consumed by POST (mail scanners prefetch GETs); still goes through 2FA |
 | 5 | Two-factor | `services/two-factor.ts`, `totp/totp.ts` | RFC 6238 on `node:crypto` (RFC vectors pass); secret AES-256-GCM-sealed and bound to the user id; confirm-before-enable; 10 recovery codes (8–10 configurable), keyed digests, single-use, regenerate; replay protection via atomic `advanceTotpStep`; "remember this device" (30 days, per user) |
 | 6 | Passkeys | `services/passkeys.ts` | `@simplewebauthn/server` 14.1.0; registration, passwordless sign-in (discoverable, UV required), second factor (own passkey only), password confirmation for passwordless accounts, several per user, rename/remove |
@@ -105,7 +105,12 @@ An attack-first pass, which did not trust the spike's own tests, found 18 bugs. 
 12. **Check-then-act is a race.** The last-admin guard and the passkey counter are now single conditional writes (#117), raced across two SQLite connections.
 13. **Bound the product of cost parameters, not each one.** scrypt's ln=16, r=32, p=16 passed every per-field range and cost 27 s per verification.
 14. **Normalise every spelling of an identifier you rate-limit on.** The hex and expanded IPv4-mapped IPv6 forms put all IPv4 clients behind such a proxy into one /64 bucket. Invisible Unicode characters allowed look-alike email accounts.
-15. **Account pre-hijacking needs a rule, not a patch (#114).** With verification on, password sign-in waits for the mailbox proof. That first proof wipes the pre-verification password, sessions and tokens, and the owner sets a new password.
+15. **Account pre-hijacking needs a rule, not a patch, and the rule must not punish normal sign-ups (#114, #122).**
+    - With verification on, password sign-in waits for the mailbox proof.
+    - Registration binds the account to the registering browser with a `__Host-` nonce cookie (digest stored, expiring with the link). A taken address gets the same cookie, so it reveals nothing.
+    - A verification link opened in that same browser keeps the chosen password, with no extra step.
+    - Opened in another browser, or proven by an email-link sign-in, it wipes the pre-verification password, sessions and tokens, and the owner sets a new password with the returned token.
+    - The attacker's registration lives in the attacker's browser, so the victim's verification always wipes. A password reset also verifies the address.
 16. **Audit "who" and "whose" separately (#115).** While impersonating, an event that names only the user blames the user.
 17. **Smaller items, all fixed:**
     - a malformed `%` in a route param answered 500;
@@ -131,7 +136,7 @@ An attack-first pass, which did not trust the spike's own tests, found 18 bugs. 
 | `impersonation.test.ts` | admin-only + confirmation, banner flag, audited, leave, **impersonating an admin**, self, nesting, non-admins, locked actions while impersonating, 1 h expiry, feature off |
 | `http.test.ts` | **disabled features byte-identical to unknown paths**, service-level refusal, cookies (`__Host-`, HttpOnly, SameSite, Secure), problem+json + Retry-After, cross-site / same-site / `Origin: null` refused, JSON only, body cap, bearer never falls back to the cookie, real `node:http` server with **forged `X-Forwarded-For`** |
 | `redaction.test.ts` | a full run through every feature: **no password, token, code, cookie, link or TOTP secret in events or logs**; failing mailer/sink logged by kind only; errors never echo credentials |
-| `pre-hijacking.test.ts` | #114: password sign-in refused until verified (no oracle without the password); the verification link and an email-link sign-in wipe the pre-verification password, sessions and tokens and hand the owner a set-password token; verified accounts untouched |
+| `pre-hijacking.test.ts` | #114 and #122: password sign-in refused until verified (no oracle without the password); verifying in the registering browser keeps the password; another browser or an email-link sign-in wipes the pre-verification password, sessions and tokens and hands the owner a set-password token; the attacker's nonce never matches the victim's account; the same cookie for taken addresses; verified accounts untouched |
 | `parsers.fuzz.test.ts` | fast-check: every parser on arbitrary input never throws; any one-character change to a valid PAT, secret, recovery code or **signed link** is refused (the link at service level) |
 | `store-contract.test.ts` | the atomic store rules on both stores, two SQLite connections to one file, **two app instances sharing limits**, counter expiry, unknown session state or method fails closed |
 | `storage-failures.test.ts` | each store step of reset, password change and 2FA confirm made to throw in turn: **never a new password with a thief's session alive, never 2FA on without recovery codes** |

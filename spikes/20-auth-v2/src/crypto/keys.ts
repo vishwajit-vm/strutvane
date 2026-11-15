@@ -32,6 +32,7 @@ export type KeyPurpose =
   | 'team-invitation'
   | 'webauthn-nonce'
   | 'webauthn-user-handle'
+  | 'registration-nonce'
 
 /**
  * The derived key ring.

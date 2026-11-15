@@ -12,11 +12,19 @@
  */
 import { describe, expect, it } from 'vitest'
 import { parseVerificationUrl } from '../src/tokens/formats.ts'
-import { Browser, harness, PASSWORD, rejectsWith, START, STORES } from './helpers/harness.ts'
+import { Browser, type Harness, harness, PASSWORD, rejectsWith, START, STORES } from './helpers/harness.ts'
 
 const config = { features: { registration: true, emailVerification: true, emailLink: true, tokens: true } }
 const ATTACKER_PASSWORD = 'attacker knows this one'
 const OWNER_PASSWORD = 'the real owner picks this'
+
+/** The parts of the last verification link mailed (to `to`, if given). */
+async function verificationParts(h: Harness, to?: string) {
+  const mail = await h.mail('verify-email', to)
+  const parts = 'url' in mail ? parseVerificationUrl(mail.url) : undefined
+  if (!parts) throw new Error('no link')
+  return { id: parts.id, hash: parts.hash, expires: String(parts.expires), signature: parts.signature }
+}
 
 describe.each(STORES)('account pre-hijacking (%s store)', (store) => {
   async function attackerRegisters() {
@@ -74,6 +82,58 @@ describe.each(STORES)('account pre-hijacking (%s store)', (store) => {
     expect(result.setPasswordToken).toBeDefined()
     await h.auth.passwordReset.reset(new Browser().req, { token: result.setPasswordToken, password: OWNER_PASSWORD })
     expect((await h.auth.passwords.login(new Browser().req, { email: 'victim@acme.test', password: OWNER_PASSWORD })).status).toBe('signed-in')
+  })
+
+  it('#122: verifying in the SAME browser that registered keeps the chosen password (no extra step)', async () => {
+    const h = harness({ store, config })
+    const browser = new Browser()
+    await h.auth.passwords.register(browser.req, { name: 'Ada', email: 'ada@acme.test', password: OWNER_PASSWORD })
+    expect(browser.get('sv_register')).toBeDefined()
+    const parts = await verificationParts(h)
+    const result = await h.auth.verification.verify(browser.req, parts)
+    expect(result).toEqual({ status: 'verified' })
+    expect(browser.get('sv_register')).toBeUndefined() // the binding is spent
+    expect((await h.auth.passwords.login(new Browser().req, { email: 'ada@acme.test', password: OWNER_PASSWORD })).status).toBe('signed-in')
+  })
+
+  it('#122: verifying from a DIFFERENT browser clears the pre-verification password and hands over a set-password token', async () => {
+    const h = harness({ store, config })
+    await h.auth.passwords.register(new Browser().req, { name: 'Ada', email: 'ada@acme.test', password: OWNER_PASSWORD })
+    const phone = new Browser('198.51.100.20')
+    const result = await h.auth.verification.verify(phone.req, await verificationParts(h))
+    expect(result.status).toBe('set-password')
+    await rejectsWith(() => h.auth.passwords.login(new Browser().req, { email: 'ada@acme.test', password: OWNER_PASSWORD }), 'INVALID_CREDENTIALS')
+  })
+
+  it('#122: the attacker\'s registration nonce does not keep the attacker\'s password, even for another account', async () => {
+    const h = harness({ store, config })
+    // The attacker registers the victim's address in the attacker's own browser...
+    const attacker = new Browser('192.0.2.66')
+    await h.auth.passwords.register(attacker.req, { name: 'Victim', email: 'victim@acme.test', password: ATTACKER_PASSWORD })
+    // ...and also registers an account of their own, to hold a nonce for a link they can open.
+    await h.auth.passwords.register(attacker.req, { name: 'Mallory', email: 'mallory@evil.test', password: ATTACKER_PASSWORD })
+    // The victim verifies from the mail, in the victim's browser: different browser, so wiped.
+    const victimLink = await verificationParts(h, 'victim@acme.test')
+    expect((await h.auth.verification.verify(new Browser().req, victimLink)).status).toBe('set-password')
+    await rejectsWith(() => h.auth.passwords.login(new Browser().req, { email: 'victim@acme.test', password: ATTACKER_PASSWORD }), 'INVALID_CREDENTIALS')
+  })
+
+  it('#122: a nonce bound to one account never counts as "same browser" for another account', async () => {
+    const h = harness({ store, config })
+    const shared = new Browser()
+    await h.auth.passwords.register(shared.req, { name: 'A', email: 'a@acme.test', password: OWNER_PASSWORD })
+    await h.auth.passwords.register(new Browser().req, { name: 'B', email: 'b@acme.test', password: OWNER_PASSWORD })
+    expect((await h.auth.verification.verify(shared.req, await verificationParts(h, 'b@acme.test'))).status).toBe('set-password')
+  })
+
+  it('#122: registration sets the same cookie whether or not the address was taken (no enumeration)', async () => {
+    const h = harness({ store, config })
+    await h.user('taken@acme.test')
+    const fresh = new Browser()
+    const taken = new Browser()
+    await h.auth.passwords.register(fresh.req, { name: 'N', email: 'new@acme.test', password: OWNER_PASSWORD })
+    await h.auth.passwords.register(taken.req, { name: 'T', email: 'taken@acme.test', password: OWNER_PASSWORD })
+    expect([...fresh.jar.keys()]).toEqual([...taken.jar.keys()])
   })
 
   it('a verified account is untouched by later mailbox proofs', async () => {

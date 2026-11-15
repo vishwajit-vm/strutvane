@@ -89,6 +89,8 @@ export type OneTimePurpose =
   | 'trusted-device'
   | 'webauthn-registration'
   | 'webauthn-authentication'
+  /** Binds a registration to the browser that made it (CONSISTENCY #122). */
+  | 'registration'
 
 /** A single-use (or, for trusted devices, until-expiry) secret, stored as a keyed digest. */
 export interface OneTimeRecord {

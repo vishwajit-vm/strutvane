@@ -14,8 +14,8 @@ import { safeEqual } from '../crypto/constant-time.ts'
 import { AuthError } from '../errors.ts'
 import type { AuthRequest } from '../ports/cookies.ts'
 import type { UserRecord } from '../ports/store.ts'
-import { parseVerificationLink } from '../tokens/formats.ts'
-import { type AuthDeps, emit, requireFeature, sendMail } from '../core/deps.ts'
+import { parseSecret, parseVerificationLink } from '../tokens/formats.ts'
+import { type AuthDeps, cookieName, emit, requireFeature, sendMail } from '../core/deps.ts'
 import { requireActive } from '../core/sessions.ts'
 
 /**
@@ -60,6 +60,46 @@ export async function remindToVerify(deps: AuthDeps, user: UserRecord): Promise<
   await mailVerificationLink(deps, user)
 }
 
+/** The cookie that binds a registration to the browser that made it (CONSISTENCY #122). */
+export function registrationCookie(deps: AuthDeps): string {
+  return cookieName(deps, 'sv_register')
+}
+
+/**
+ * Bind a new registration to this browser: a random nonce in a `__Host-` cookie (on https), its
+ * keyed digest stored with the user id, both expiring with the verification link. Called for a
+ * TAKEN address too, without the stored half, so the cookie never tells whether an account exists.
+ */
+export async function bindRegistration(deps: AuthDeps, req: AuthRequest, user: UserRecord | undefined): Promise<void> {
+  const nonce = randomSecret()
+  const ttl = deps.config.links.verificationMs
+  req.cookies.set(registrationCookie(deps), nonce, { maxAgeSeconds: Math.floor(ttl / 1000) })
+  if (user === undefined) return
+  const now = deps.clock.now()
+  await deps.store.putOneTime({
+    digest: deps.keys.digest('registration-nonce', nonce),
+    purpose: 'registration',
+    userId: user.id,
+    payload: {},
+    createdAt: now,
+    expiresAt: now + ttl,
+  })
+}
+
+/**
+ * Is this request from the browser that registered `user`? Consumes the binding either way, so a
+ * nonce answers once. A nonce bound to ANOTHER account is never a match.
+ */
+async function sameRegisteringBrowser(deps: AuthDeps, req: AuthRequest, user: UserRecord): Promise<boolean> {
+  const nonce = parseSecret(req.cookies.get(registrationCookie(deps)))
+  if (nonce === undefined) return false
+  const record = await deps.store.findOneTime(deps.keys.digest('registration-nonce', nonce), 'registration')
+  if (!record || record.userId !== user.id) return false
+  const consumed = await deps.store.consumeOneTime(record.digest, 'registration')
+  req.cookies.clear(registrationCookie(deps))
+  return consumed !== undefined && consumed.expiresAt > deps.clock.now()
+}
+
 /** What {@link proveMailbox} did. */
 export interface MailboxProof {
   /** The user after the proof. */
@@ -78,16 +118,35 @@ export interface MailboxProof {
  * every token and every outstanding link are cleared (revoke first, then mark verified), and the
  * owner sets a new password with the returned reset token.
  *
+ * The exception (#122) keeps normal sign-ups friction-free: a verification link opened in the SAME
+ * browser that registered (`sameBrowser`, proven by the registration nonce cookie) keeps the
+ * chosen password, because whoever chose it also holds the mailbox. An email-link sign-in always
+ * wipes: it carries no registration binding.
+ *
  * Only with `emailVerification` on: when it is off, `emailVerifiedAt` means nothing and nothing is
  * wiped. A verified account is returned unchanged.
  */
-export async function proveMailbox(deps: AuthDeps, req: AuthRequest, user: UserRecord): Promise<MailboxProof> {
+export async function proveMailbox(
+  deps: AuthDeps,
+  req: AuthRequest,
+  user: UserRecord,
+  options: { readonly sameBrowser?: boolean } = {},
+): Promise<MailboxProof> {
   if (!deps.config.features.emailVerification || user.emailVerifiedAt !== null) return { user, setPasswordToken: undefined }
+  if (options.sameBrowser === true) {
+    // The link was opened in the browser that registered (#122): whoever chose the password also
+    // holds the mailbox, so the password stays and there is no extra step.
+    const now = deps.clock.now()
+    await deps.store.updateUser(user.id, { emailVerifiedAt: now })
+    await emit(deps, req, { type: 'email.verified', userId: user.id })
+    return { user: { ...user, emailVerifiedAt: now }, setPasswordToken: undefined }
+  }
   const sessions = await deps.store.deleteUserSessions(user.id)
   await deps.store.deleteUserTokens(user.id)
   await deps.store.deleteUserOneTime(user.id, 'password-reset')
   await deps.store.deleteUserOneTime(user.id, 'email-link')
   await deps.store.deleteUserOneTime(user.id, 'trusted-device')
+  await deps.store.deleteUserOneTime(user.id, 'registration')
   const now = deps.clock.now()
   const hadPassword = user.passwordHash !== null
   await deps.store.updateUser(user.id, { passwordHash: null, emailVerifiedAt: now })
@@ -164,7 +223,7 @@ export function verificationService(deps: AuthDeps): VerificationService {
       const user = await deps.store.findUserById(link.id)
       if (!user || !safeEqual(link.hash, emailHash(deps, user.email))) throw new AuthError('INVALID_TOKEN')
       if (user.emailVerifiedAt !== null) return { status: 'verified' }
-      const proof = await proveMailbox(deps, req, user)
+      const proof = await proveMailbox(deps, req, user, { sameBrowser: await sameRegisteringBrowser(deps, req, user) })
       return proof.setPasswordToken === undefined ? { status: 'verified' } : { status: 'set-password', token: proof.setPasswordToken }
     },
 

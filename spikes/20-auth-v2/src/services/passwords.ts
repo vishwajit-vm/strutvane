@@ -29,7 +29,7 @@ import {
   startSession,
 } from '../core/sessions.ts'
 import { completeFirstFactor, deviceCookie, type SignInResult } from '../core/sign-in.ts'
-import { remindToVerify, verificationUrl } from './verification.ts'
+import { bindRegistration, remindToVerify, verificationUrl } from './verification.ts'
 import { createPersonalTeam } from './teams.ts'
 
 /** Input for {@link PasswordService.login}. */
@@ -162,6 +162,8 @@ export function passwordService(deps: AuthDeps): PasswordService {
             })
           : undefined
       if (deps.config.features.emailVerification) {
+        // Bind the registration to this browser (#122); a taken address gets the same cookie.
+        await bindRegistration(deps, req, created)
         if (created) {
           if (deps.config.features.teams) await createPersonalTeam(deps, req, created)
           await emit(deps, req, { type: 'registered', userId: created.id })
