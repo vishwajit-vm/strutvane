@@ -627,7 +627,11 @@ export class ModelBase {
       for (const slug of slugs) {
         const source = slug.slugFrom === undefined ? '' : String(attribute(this, slug.slugFrom) ?? '')
         const base = slugify(source, slug.length ?? 255)
-        record[slug.name] = nextFreeSlug(base, await this.#takenSlugs(info, slug, base))
+        const taken = await this.#takenSlugs(info, slug, base)
+        // A retry means the unique index saw a row the lookup could not (another transaction's
+        // uncommitted insert, or one committed after a REPEATABLE READ snapshot, which MySQL keeps
+        // for the whole transaction). Treat the base as taken, or every retry picks it again.
+        record[slug.name] = nextFreeSlug(base, attempt > 1 ? [...taken, base] : taken)
       }
       try {
         return await connection.transaction(() => this.#insertRow(info, record), this.#runOptions(info))

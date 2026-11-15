@@ -2,8 +2,10 @@
  * Models: create/update/delete, mass assignment, casts, timestamps, soft deletes, slugs, keys
  * and serialization, on MySQL, PostgreSQL and SQLite.
  */
-import { describe, expect, test } from 'vitest'
-import { CastError, MassAssignmentError, Model, ModelNotFoundError, OrmUsageError, runWithTenant } from '#orm'
+import { describe, expect, test, vi } from 'vitest'
+import { CastError, MassAssignmentError, Model, ModelNotFoundError, OrmUsageError, runWithTenant, sql } from '#orm'
+import { uuidv7 } from '#orm/orm/keys'
+import { unsafeRaw } from '#orm/orm/tenant-scope'
 import { Post } from '#app/models/post'
 import { Project } from '#app/models/project'
 import { User } from '#app/models/user'
@@ -22,7 +24,7 @@ function asCreateInput(body: object): { name: string; email: string } {
 
 describe.each(engines)('models on $name', (engine) => {
   describe.skipIf(engine.skipped !== undefined)(engineTitle(engine), () => {
-    useEngine(engine)
+    const connection = useEngine(engine)
 
     test('create fills database defaults, keys and timestamps, and reads them back', async () => {
       const ada = await makeUser('Ada')
@@ -153,6 +155,46 @@ describe.each(engines)('models on $name', (engine) => {
       expect([a.slug, b.slug]).toEqual(['launch', 'launch'])
       expect(c.slug).toMatch(/^launch-[a-z2-9]{4}$/)
     })
+
+    test('a slug the lookup cannot see (a concurrent insert, a snapshot) still ends up free on retry', async () => {
+      await runWithTenant(TENANT, () => Project.create({ name: 'Launch' }))
+      // Make the "taken slugs" lookup blind, as it is for a row committed by another transaction
+      // after this one's snapshot (MySQL REPEATABLE READ) or not committed yet. The unique index
+      // still sees the row. Before the fix every retry picked the same "launch" and all 5 failed.
+      const db = connection()
+      const run = db.run.bind(db)
+      const blind = vi.spyOn(db, 'run').mockImplementation(async (fragment, options) =>
+        db.grammar.render(fragment).sql.includes(' AS slug FROM ') ? { rows: [], rowsAffected: 0 } : run(fragment, options),
+      )
+      try {
+        const second = await runWithTenant(TENANT, () => Project.create({ name: 'Launch' }))
+        expect(second.slug).toMatch(/^launch-[a-z2-9]{4}$/)
+      } finally {
+        blind.mockRestore()
+      }
+    })
+
+    if (engine.name === 'mysql') {
+      test('MySQL: a slug committed by another connection after our snapshot is not retried forever', async () => {
+        const other = await engine.connect()
+        try {
+          const created = await runWithTenant(TENANT, () =>
+            connection().transaction(async () => {
+              // The first read fixes this transaction's REPEATABLE READ snapshot.
+              expect(await Project.query().count()).toBe(0)
+              // Another request commits "launch" for the same tenant on its own connection.
+              const columns = sql`${sql.id('id')}, ${sql.id('tenant_id')}, ${sql.id('name')}, ${sql.id('slug')}, ${sql.id('budget')}`
+              await other.run(unsafeRaw('test: a concurrent request', sql`INSERT INTO ${sql.id('projects')} (${columns}) VALUES (${uuidv7()}, ${TENANT}, ${'Launch'}, ${'launch'}, ${'0.00'})`))
+              // Our lookup still reads the old snapshot, but the unique index sees the new row.
+              return Project.create({ name: 'Launch' })
+            }),
+          )
+          expect(created.slug).toMatch(/^launch-[a-z2-9]{4}$/)
+        } finally {
+          await other.close()
+        }
+      })
+    }
 
     test('UUID keys are generated as UUIDv7 and are time-ordered', async () => {
       const projects = await runWithTenant(TENANT, async () => [await Project.create({ name: 'One' }), await Project.create({ name: 'Two' })])
