@@ -18,13 +18,30 @@ import { OverlayProvider } from './shell/overlays.tsx'
 
 // Screens load on demand, so signing in never downloads the chart library and each screen's code
 // arrives only when it is opened. Auth screens stay eager: they are the first paint.
-const Dashboard = lazy(() => import('./screens/dashboard/Dashboard.tsx').then((module) => ({ default: module.Dashboard })))
-const InvoiceList = lazy(() => import('./screens/invoices/InvoiceList.tsx').then((module) => ({ default: module.InvoiceList })))
-const InvoiceForm = lazy(() => import('./screens/invoices/InvoiceForm.tsx').then((module) => ({ default: module.InvoiceForm })))
-const InvoiceDetail = lazy(() => import('./screens/invoices/InvoiceDetail.tsx').then((module) => ({ default: module.InvoiceDetail })))
-const BoardView = lazy(() => import('./screens/board/BoardView.tsx').then((module) => ({ default: module.BoardView })))
-const CalendarView = lazy(() => import('./screens/calendar/CalendarView.tsx').then((module) => ({ default: module.CalendarView })))
-const SettingsPage = lazy(() => import('./screens/settings/SettingsPage.tsx').then((module) => ({ default: module.SettingsPage })))
+const loadDashboard = () => import('./screens/dashboard/Dashboard.tsx').then((module) => ({ default: module.Dashboard }))
+const loadInvoiceList = () => import('./screens/invoices/InvoiceList.tsx').then((module) => ({ default: module.InvoiceList }))
+const loadInvoiceForm = () => import('./screens/invoices/InvoiceForm.tsx').then((module) => ({ default: module.InvoiceForm }))
+const loadInvoiceDetail = () => import('./screens/invoices/InvoiceDetail.tsx').then((module) => ({ default: module.InvoiceDetail }))
+const loadBoardView = () => import('./screens/board/BoardView.tsx').then((module) => ({ default: module.BoardView }))
+const loadCalendarView = () => import('./screens/calendar/CalendarView.tsx').then((module) => ({ default: module.CalendarView }))
+const loadSettingsPage = () => import('./screens/settings/SettingsPage.tsx').then((module) => ({ default: module.SettingsPage }))
+const Dashboard = lazy(loadDashboard)
+const InvoiceList = lazy(loadInvoiceList)
+const InvoiceForm = lazy(loadInvoiceForm)
+const InvoiceDetail = lazy(loadInvoiceDetail)
+const BoardView = lazy(loadBoardView)
+const CalendarView = lazy(loadCalendarView)
+const SettingsPage = lazy(loadSettingsPage)
+
+/**
+ * Load every lazy screen now. Tests call it once before rendering: the FIRST import of a screen
+ * (the dashboard pulls in Recharts) is compiled on demand by Vite, and on a busy machine that took
+ * longer than a `findBy…` wait, so a test failed for reasons that had nothing to do with the UI.
+ * An app could also call it on idle, to make the first click on each screen instant.
+ */
+export function preloadScreens(): Promise<unknown> {
+  return Promise.all([loadDashboard(), loadInvoiceList(), loadInvoiceForm(), loadInvoiceDetail(), loadBoardView(), loadCalendarView(), loadSettingsPage()])
+}
 
 /** Shown for the few milliseconds a screen's code is loading: a quiet bar, not a spinner. */
 function ScreenFallback() {

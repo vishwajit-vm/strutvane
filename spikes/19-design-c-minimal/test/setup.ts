@@ -3,11 +3,18 @@
  * Radix (popper positioning, pointer capture) and cmdk (scrolling the active item) call.
  */
 import '@testing-library/jest-dom/vitest'
-import { afterEach } from 'vitest'
+import { afterEach, beforeAll } from 'vitest'
 
 if (typeof document !== 'undefined') {
-  // Screens are lazy-loaded; the first import of the chart library in a test file can take
-  // longer than Testing Library's default 1 s, so `findBy…` waits up to 5 s.
+  // Screens are lazy-loaded, and the first import of one (the dashboard pulls in Recharts) is
+  // compiled on demand. That cost used to land INSIDE a test's `findBy…` wait and, on a busy
+  // machine, outlast it: the dashboard tests failed while the UI was fine. Every screen is now
+  // loaded once, before any test, in a hook whose only job is that (its own generous timeout), so
+  // the waits measure rendering only.
+  beforeAll(async () => {
+    const { preloadScreens } = await import('../src/App.tsx')
+    await preloadScreens()
+  }, 120_000)
   const { configure } = await import('@testing-library/react')
   configure({ asyncUtilTimeout: 5000 })
 }
