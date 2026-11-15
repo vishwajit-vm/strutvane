@@ -4,7 +4,7 @@
  * F-11 (resource routes need a policy), F-22 (IPv6 /64 buckets), F-26 (no policy internals in
  * production 403s), plus the start-up checks that turn route mistakes into boot errors.
  */
-import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { cpSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -18,12 +18,12 @@ import { Post } from '../fixtures/example-app/app/models/post.ts'
 import { config } from '../fixtures/example-app/config/index.ts'
 import { demoTokens } from '../fixtures/example-app/database/seeders/database.seeder.ts'
 import { sortByPriority } from '../src/http/middleware.ts'
-import { exampleApp, testEnv } from './helpers.ts'
+import { exampleApp, removeQuietly, testEnv } from './helpers.ts'
 
 const EXAMPLE = join(import.meta.dirname, '..', 'fixtures', 'example-app')
 const temporary: string[] = []
 afterEach(() => {
-  for (const folder of temporary.splice(0)) rmSync(folder, { recursive: true, force: true })
+  for (const folder of temporary.splice(0)) removeQuietly(folder)
 })
 
 /** A throwaway base path holding a copy of the example metadata, optionally edited. */

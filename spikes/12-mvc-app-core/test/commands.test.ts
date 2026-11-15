@@ -1,7 +1,7 @@
 /**
  * Group 5: the cache and maintenance commands, keys and env encryption, session:flush and
- * security:check. Every test works on its own copy of the example app (under test/.tmp, so
- * `#strutvane/*` imports resolve when a copy runs as a real `node strut` process).
+ * security:check. Every test works on its own copy of the example app, in this file's own scratch
+ * folder (inside the spike, so `#strutvane/*` imports resolve when a copy runs as `node strut`).
  */
 import { spawnSync } from 'node:child_process'
 import { randomBytes } from 'node:crypto'
@@ -22,18 +22,18 @@ import api from '../fixtures/example-app/routes/api.ts'
 import web from '../fixtures/example-app/routes/web.ts'
 import { AuditRunnerToken } from '../src/console/commands/security-check.ts'
 import { retryTransient, writeFileAtomic } from '../src/support/atomic-write.ts'
-import { NOW, testEnv } from './helpers.ts'
+import { NOW, removeQuietly, scratchDir, SLOW_TEST_TIMEOUT, testEnv } from './helpers.ts'
 
 const ROOT = join(import.meta.dirname, '..')
 const EXAMPLE = join(ROOT, 'fixtures', 'example-app')
-const SCRATCH = join(ROOT, 'test', '.tmp')
-afterAll(() => rmSync(SCRATCH, { recursive: true, force: true }))
+// This file's own folder (see scratchDir): copies are run as real `node strut` processes.
+const SCRATCH = scratchDir('commands')
+afterAll(() => removeQuietly(SCRATCH))
 
 let copies = 0
 /** A fresh copy of the example app, without its tests or any generated state. */
 function appCopy(name: string): string {
-  const target = join(SCRATCH, `${name}-${process.pid}-${Date.now()}-${copies++}`)
-  mkdirSync(SCRATCH, { recursive: true })
+  const target = join(SCRATCH, `${name}-${copies++}`)
   cpSync(EXAMPLE, target, { recursive: true, filter: (source) => !/[\\/](tests|framework|cache)([\\/]|$)/.test(source.slice(EXAMPLE.length)) })
   return target
 }
@@ -369,7 +369,7 @@ describe('down and up', () => {
     ;(await client(app).getJson('/api/posts')).assertStatus(503)
     expect(spawnSync(process.execPath, ['strut', 'up'], { cwd: base, env, encoding: 'utf8' }).status).toBe(0)
     ;(await client(app).getJson('/api/posts')).assertStatus(200)
-  })
+  }, SLOW_TEST_TIMEOUT)
 
   it('--with-secret prints the bypass URL once; the secret path sets a bypass cookie', async () => {
     const base = appCopy('secret')

@@ -3,19 +3,26 @@
  * the real `strut.js` entry run as a separate Node process.
  */
 import { execFileSync, spawnSync } from 'node:child_process'
-import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { cpSync, existsSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { join, relative, sep } from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
 import { runConsole, type Output } from '#strutvane/console'
 import { Application, ClockToken, LoggerToken, MemoryLogger } from '#strutvane/foundation'
 import { client, refreshDatabase } from '#strutvane/testing'
-import { exampleApp, testEnv } from './helpers.ts'
+import { exampleApp, removeQuietly, scratchDir, SLOW_TEST_TIMEOUT, testEnv } from './helpers.ts'
+
+/** A path from a copied app back to a file of the spike, with forward slashes (tsconfig wants them). */
+function toRoot(base: string, file: string): string {
+  return relative(base, join(ROOT, file)).split(sep).join('/')
+}
 
 const ROOT = join(import.meta.dirname, '..')
 const EXAMPLE = join(ROOT, 'fixtures', 'example-app')
-// Inside the spike (not the OS temp folder), so `#strutvane/*` imports in copied apps resolve.
-const SCRATCH = join(ROOT, 'test', '.tmp')
-afterAll(() => rmSync(SCRATCH, { recursive: true, force: true }))
+// This file's own folder inside the spike, so `#strutvane/*` imports in copied apps resolve and
+// no other test file's cleanup can delete these copies mid-run.
+const SCRATCH = scratchDir('console')
+afterAll(() => removeQuietly(SCRATCH))
+let copies = 0
 
 /** Captures command output. */
 function buffer(): Output & { out: string[]; err: string[] } {
@@ -26,8 +33,7 @@ function buffer(): Output & { out: string[]; err: string[] } {
 
 /** A fresh copy of the example app that generators may write into. */
 function appCopy(name: string): string {
-  const target = join(SCRATCH, `${name}-${process.pid}-${Date.now()}`)
-  mkdirSync(SCRATCH, { recursive: true })
+  const target = join(SCRATCH, `${name}-${copies++}`)
   cpSync(EXAMPLE, target, { recursive: true, filter: (source) => !source.includes(`${join('example-app', 'tests')}`) })
   return target
 }
@@ -171,7 +177,7 @@ describe('F-11: a generated, owned resource controller authorizes every action',
       "import { defineRoutes, Route } from '#strutvane/routing'\nimport { PostController } from '../app/http/controllers/post.controller.ts'\n\nexport default defineRoutes([Route.apiResource('posts', PostController, { bindBy: 'slug' }).middleware('auth:optional')])\n",
     )
     // The generated controller and policy must compile with the app (strict tsconfig, no `any`).
-    writeFileSync(join(base, 'tsconfig.json'), JSON.stringify({ extends: '../../../tsconfig.json', include: ['../../../src', '**/*.ts', '.strutvane/types/*.d.ts'], exclude: ['tests', 'resources'] }))
+    writeFileSync(join(base, 'tsconfig.json'), JSON.stringify({ extends: toRoot(base, 'tsconfig.json'), include: [toRoot(base, 'src'), '**/*.ts', '.strutvane/types/*.d.ts'], exclude: ['tests', 'resources'] }))
     const tsc = spawnSync(process.execPath, [join(ROOT, 'node_modules', 'typescript', 'bin', 'tsc'), '--noEmit', '-p', base], { encoding: 'utf8' })
     expect(tsc.stdout + tsc.stderr).toBe('')
     expect(tsc.status).toBe(0)
@@ -189,10 +195,10 @@ describe('F-11: a generated, owned resource controller authorizes every action',
     ;(await client(app).actingAs(demoTokens.alice).deleteJson('/api/posts/hello-world')).assertProblem(403, 'forbidden')
     ;(await client(app).actingAs(demoTokens.admin).getJson('/api/posts')).assertStatus(200).assertJsonPath('meta.total', 5)
     ;(await client(app).actingAs(demoTokens.admin).deleteJson('/api/posts/hello-world')).assertStatus(204)
-  })
+  }, SLOW_TEST_TIMEOUT)
 })
 
-describe('the real `node strut` entry (strut.js), as a separate process', () => {
+describe('the real `node strut` entry (strut.js), as a separate process', { timeout: SLOW_TEST_TIMEOUT }, () => {
   const env = { ...process.env, ...testEnv }
   const strut = (args: string[], extraEnv: Record<string, string | undefined> = env) => spawnSync(process.execPath, ['strut', ...args], { cwd: EXAMPLE, env: extraEnv, encoding: 'utf8' })
 

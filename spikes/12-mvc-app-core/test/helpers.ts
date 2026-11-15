@@ -4,6 +4,7 @@
  */
 import { createApp } from '../fixtures/example-app/bootstrap/app.ts'
 import { DatabaseSeeder } from '../fixtures/example-app/database/seeders/database.seeder.ts'
+import { mkdirSync, mkdtempSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { Application, type RoutingOptions } from '#strutvane/foundation'
 import type { MiddlewareConfig } from '#strutvane/http'
@@ -68,4 +69,37 @@ export async function customApp(routing: RoutingOptions, configure: (middleware:
   await refreshDatabase(app)
   await app.run(() => new DatabaseSeeder().run())
   return { app, logger }
+}
+
+/** How long a test that spawns Node or runs `tsc` may take. Override with STRUT_SLOW_TEST_TIMEOUT (ms) on a slow machine. */
+export const SLOW_TEST_TIMEOUT = Number(process.env['STRUT_SLOW_TEST_TIMEOUT'] ?? 300_000)
+
+/**
+ * A private scratch folder for one test file. It lives inside the spike (not the OS temp folder)
+ * because copies of the example app are run as real `node strut` processes and import
+ * `#strutvane/*`, which only resolves under this package. Each file gets its own `mkdtemp`
+ * folder, so one file's cleanup can never delete another file's copies mid-run.
+ *
+ * @example
+ * const scratch = scratchDir('console')
+ */
+export function scratchDir(prefix: string): string {
+  const root = join(import.meta.dirname, '.tmp')
+  mkdirSync(root, { recursive: true })
+  return mkdtempSync(join(root, `${prefix}-`))
+}
+
+/**
+ * Remove a folder, retrying Windows' transient EPERM/EBUSY, and never fail a test on cleanup:
+ * a leftover folder in test/.tmp (git-ignored) is harmless, a red suite for it is not.
+ *
+ * @example
+ * afterAll(() => removeQuietly(scratch))
+ */
+export function removeQuietly(path: string): void {
+  try {
+    rmSync(path, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 })
+  } catch {
+    // Deliberately ignored; see above.
+  }
 }

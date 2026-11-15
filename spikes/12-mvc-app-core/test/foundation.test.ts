@@ -1,18 +1,18 @@
 /**
  * The foundation: container, env, config, providers and the boot lifecycle.
  */
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { Application, ConfigError, Container, defineConfig, loadConfig, loadEnvSource, ServiceProvider, StrutvaneError, token } from '#strutvane/foundation'
 import { defineRoutes, Route } from '#strutvane/routing'
 import { config } from '../fixtures/example-app/config/index.ts'
-import { testEnv } from './helpers.ts'
+import { removeQuietly, testEnv } from './helpers.ts'
 
 const temporary: string[] = []
 afterEach(() => {
-  for (const folder of temporary.splice(0)) rmSync(folder, { recursive: true, force: true })
+  for (const folder of temporary.splice(0)) removeQuietly(folder)
 })
 
 describe('Container', () => {
