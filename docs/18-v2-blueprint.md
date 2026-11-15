@@ -67,7 +67,7 @@ Every question has a flag, so `--yes` (or CI, or no terminal) takes the defaults
 | 11 | Teams | ★ Teams / multi-tenancy (each customer company is a team) | **no**, yes | framework |
 | 12 | Teams | How a request picks its team | **team switcher in the app**, subdomain (`acme.yourapp.com`) | framework |
 | 13 | Data | ★ Database | **MySQL** (MariaDB detected automatically), PostgreSQL (pre-selected with teams), SQLite | framework |
-| 14 | Data | ★ With Docker or without? | **with Docker** for MySQL/PostgreSQL | — |
+| 14 | Data | ★ With Docker or without? | **with Docker** when Docker is installed and running, otherwise **without** (use your own server); never required | — |
 | 15 | Data | ★ Connection details (without Docker, server DB: XAMPP, WAMP, MAMP, Laragon, a local install, remote or cloud) | host **127.0.0.1**, port **3306/5432**, database, user **root/postgres**, masked password (empty allowed locally, with a warning) → `.env` only; or one `DB_URL`; connection tested, database created if missing | — |
 | 16 | Data | First admin account | email **admin@\<name\>.test**; password generated and shown once (or typed, masked) | — |
 | 17 | Data | Sample data | **yes for the admin starter**, no | — |
