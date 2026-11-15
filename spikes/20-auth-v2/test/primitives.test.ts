@@ -75,6 +75,17 @@ describe('encodings', () => {
     expect(parseEmail(0)).toBeUndefined()
     expect(parseEmail({})).toBeUndefined()
   })
+  it('attack: invisible and control characters cannot make a look-alike account', () => {
+    // Each renders like admin@acme.test in an admin screen or a mail client, but is another account.
+    const hidden = ['​', '‍', '⁠', '­', '‮', '⁦', '\u0000', '\u0007', '\u001b', '\ud800', '']
+    for (const ch of hidden) {
+      expect(parseEmail(`admin${ch}@acme.test`), JSON.stringify(ch)).toBeUndefined()
+      expect(parseEmail(`admin@ac${ch}me.test`), JSON.stringify(ch)).toBeUndefined()
+    }
+    // Real international addresses still work.
+    expect(parseEmail('jösé@exämple.test')).toBe('jösé@exämple.test')
+    expect(parseEmail('用户@例子.测试')).toBe('用户@例子.测试')
+  })
 })
 
 describe('scrypt hasher', () => {

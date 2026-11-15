@@ -23,9 +23,16 @@ export function normalizeEmail(email: string): string {
   return email.trim().normalize('NFC').toLowerCase()
 }
 
+/**
+ * Control, format (zero-width, soft hyphen, bidi overrides), surrogate, private-use and unassigned
+ * characters. None belongs in an address, and each lets `admin<U+200B>@acme.test` register as a
+ * DIFFERENT account that renders exactly like `admin@acme.test` in admin screens and mail clients.
+ */
+const INVISIBLE = /\p{C}/u
+
 /** Normalise and validate; `undefined` when `value` is not a plausible email. */
 export function parseEmail(value: unknown): string | undefined {
   if (typeof value !== 'string' || value.length > 254) return undefined
   const email = normalizeEmail(value)
-  return EMAIL.test(email) ? email : undefined
+  return EMAIL.test(email) && !INVISIBLE.test(email) ? email : undefined
 }
