@@ -158,3 +158,17 @@ The docs pass found places where the blueprint and the spikes disagree. When a m
 | 102 | Observers | Laravel style. `make:observer PostObserver --model=Post` writes `app/observers/post.observer.ts`, a class with one method per event. Register it with `observe(Post, new PostObserver())` in a provider. `restore()` fires `restoring` → `saving` → `updating` → `updated` → `saved` → `restored`. | ORM |
 | 103 | Cancelling a write from a "before" hook | Returning `false` from `creating`, `updating`, `saving`, `deleting` or `restoring` cancels the write. `save()` then resolves to `false`, and the generated API answers 422 with code `write_cancelled`. Throwing aborts the write and rolls back the transaction. | ORM, framework |
 | 104 | `database.seeder.ts` contents | `export default defineSeeder({ async run({ call }) { await call([UsersSeeder, PostsSeeder]) } })`. The `call([...])` list sits between `// strut:seeders:start` and `// strut:seeders:end` markers and is kept in dependency order by the CLI. Everything outside the markers belongs to you. | spikes 12 and 13, docs |
+
+## Sixth pass (docs writer A findings, 2026-11-15)
+
+| # | Topic | Decision | Owner |
+|---|---|---|---|
+| 105 | CSRF and the session cookie name (**security**) | The CSRF check keys on the **configured** session cookie name, from the same single source the session layer uses. In production over HTTPS the cookie is `__Host-strutvane_session`; in local HTTP it's `strutvane_session`. Tests prove the check runs under both names, and under any custom name. Supersedes the name-only wording of #24. | spikes 12 and 20, framework |
+| 106 | Route groups | `Route.middleware('csrf').group(() => { Route.get(…) })` registers routes inside the callback, Laravel-style. Returning an array is also accepted. | docs `routing`, spike 12 |
+| 107 | Password sign-in switch | Add the feature `password` (default on). "Email link only" = `password: false, emailLink: true`. "No sign-in" = auth isn't installed. | #25, spike 20, installer |
+| 108 | Test runner question | The choices are `vitest` (default) or `none`. Browser tests are hidden until `@strutvane/browser-testing` ships. | spike 13 |
+| 109 | Flags of hidden installer questions | A flag for a package that isn't published yet is refused with "`@strutvane/x` isn't available yet (planned for 0.N)", unless `--preview-catalogue` is set. | spike 13 |
+| 110 | Where Docker mode is recorded | The project choice (`docker: true/false`) lives in the committed `strutvane.json`. A per-machine override can go in the git-ignored `.strutvane/local/env.json`. | spike 13 |
+| 111 | `.dockerignore` | Excludes `.strutvane/local/` (not all of `.strutvane/`, whose generated files the build needs), along with `.env*`, `.git`, `node_modules`, `storage/` and tests. | spike 13 |
+| 112 | `queue:clear` | Included with the other queue commands (#81), coming in 0.3. | blueprint, docs |
+| 113 | Maximum password length | 256 characters (spike 20; scrypt cost doesn't grow with length). Amends #61's 128. | docs, auth |
