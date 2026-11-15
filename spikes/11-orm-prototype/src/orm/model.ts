@@ -623,15 +623,18 @@ export class ModelBase {
    */
   async #insertWithSlugs(info: TableInfo, record: Record<string, unknown>, slugs: readonly ColumnDef[]): Promise<Row> {
     const connection = this.runtime().connection()
+    // Slugs a failed attempt tried. A retry means the unique index saw a row the lookup could not
+    // (another transaction's uncommitted insert, or one committed after a REPEATABLE READ snapshot,
+    // which MySQL keeps for the whole transaction), so those count as taken from then on.
+    const tried = new Map<string, string[]>()
     for (let attempt = 1; ; attempt += 1) {
       for (const slug of slugs) {
         const source = slug.slugFrom === undefined ? '' : String(attribute(this, slug.slugFrom) ?? '')
         const base = slugify(source, slug.length ?? 255)
-        const taken = await this.#takenSlugs(info, slug, base)
-        // A retry means the unique index saw a row the lookup could not (another transaction's
-        // uncommitted insert, or one committed after a REPEATABLE READ snapshot, which MySQL keeps
-        // for the whole transaction). Treat the base as taken, or every retry picks it again.
-        record[slug.name] = nextFreeSlug(base, attempt > 1 ? [...taken, base] : taken)
+        const taken = [...(await this.#takenSlugs(info, slug, base)), ...(tried.get(slug.name) ?? [])]
+        const candidate = nextFreeSlug(base, taken)
+        record[slug.name] = candidate
+        tried.set(slug.name, [...(tried.get(slug.name) ?? []), candidate])
       }
       try {
         return await connection.transaction(() => this.#insertRow(info, record), this.#runOptions(info))

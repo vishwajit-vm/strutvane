@@ -65,7 +65,7 @@ page.data[0]?.toJSON()          // hidden columns removed, both at runtime and i
 
 | Suite | What it proves (on each of MySQL, PostgreSQL, SQLite) |
 |---|---|
-| `model.test.ts` | create and update (dirty columns only), DB defaults read back (with a re-select on MySQL, which has no RETURNING), casts round-trip, enum and length rules enforced the same everywhere, mass assignment (unknown, guarded, system and `__proto__` keys), soft deletes, slugs (accents, `%`/`_` literal, random collision suffix, unique per tenant), time-ordered UUIDv7, hidden fields |
+| `model.test.ts` | create and update (dirty columns only), DB defaults read back (with a re-select on MySQL, which has no RETURNING), casts round-trip, enum and length rules enforced the same everywhere, mass assignment (unknown, guarded, system and `__proto__` keys), soft deletes, slugs (accents, `%`/`_` literal, sequential `-2`/`-3` with a retry that moves on after a conflict, unique per tenant), time-ordered UUIDv7, hidden fields |
 | `query-builder.test.ts` | every condition method, grouping, NULL-safe `!=`, local and global scopes (OR can't escape), search/filter/sort with hostile names and values, `sql` tag only, offset and cursor pagination (every row exactly once with ties; tampered and mismatched cursors refused) |
 | `relations.test.ts` | **6 posts + authors = 2 queries** (the N+1 version is 7), users → posts → tags = 3 queries, constrained eager loading, `withCount` in the same query, `whereHas` as EXISTS, relation scopes respected, relation queries and `create`, idempotent attach/sync, `with('delete')` refused, lazy loading refused for list members |
 | `tenancy.test.ts` | attack-style: tenant A against B's rows through list, find, slug, count, paginate, cursor, search, filter, child tables, eager loading, counts, whereHas, OR tricks, smuggled `tenant_id`, saving B's model, composite foreign keys and cascades, pivot attach, a planted unscoped join, raw SQL, the audited bypass, the `team_id` configuration, unscopable tables, 200 interleaved requests. On PostgreSQL also RLS as the second layer |
@@ -115,7 +115,7 @@ MariaDB is a first-class engine (`DB_CONNECTION=mariadb`; XAMPP ships it). The b
 8. **The engines disagree in small ways the ORM must flatten.** SQLite ignores `VARCHAR(200)` (the cast enforces it), SQLite and MySQL return booleans as 0/1, and SQLite returns decimals as floats (formatted to the column's scale). PGlite returns `DATE` as a JS Date at UTC midnight and BIGINT as a number. mysql2 returns `DATE` as local midnight unless `dateStrings` is set.
 9. **Resolving `with('name')` calls a model method (Laravel does too).** A naive implementation turns `?include=delete` into a delete. Resolution is therefore limited to plain synchronous methods defined on the app's own model class, run on a **blank** instance, and the result must be a relation. For request-driven includes, the product should validate names against `resources.json` (built statically) first.
 10. **Prototype pollution through mass assignment is blocked by design:** `Object.entries` sees a JSON body's own `__proto__` key and refuses it as an unknown column. The test also showed that merging bodies with `Object.assign` *sets the prototype* instead. Controllers must never merge request bodies that way.
-11. **Slug counters are an oracle (F-14).** `-2` tells you a hidden row exists. A collision gets a random 4-character suffix, looked up only within the tenant.
+11. **Slug collisions (F-14, decision #49).** A collision gets the lowest free `-2`, `-3` (decided 2026-11-15: friendly and predictable). The lookup is limited to the tenant, so the number reflects only the tenant's own rows; a retry after a unique-index conflict marks the tried slug as taken and moves on.
 
 ## Security rules implemented (from the 2026-11-14 review)
 
@@ -125,7 +125,7 @@ MariaDB is a first-class engine (`DB_CONNECTION=mariadb`; XAMPP ships it). The b
 | F-05 | One choke point: every tenant table in FROM/JOIN/subquery/EXISTS/UPDATE/DELETE/INSERT must carry `<alias>.<col> = <active tenant>` as a top-level AND, or `TenantScopeMissingError`. Raw SQL naming tenant tables is refused in a tenant context unless wrapped in `unsafeRaw(reason, …)`. `unsafeWithoutTenancy(reason)` replaces `withoutTenancy()`, and both report to `onUnsafeTenancy`. Pivot `attach`/`sync` verify ids with a scoped query in the same transaction. Composite `(tenant_id, x)` foreign keys and tenant-prefixed unique keys are in the fixture DDL | planted unscoped join, raw SQL, bypass audit, pivot attach, composite FK and cascade, labels unique per tenant |
 | F-08 | Typed binds; binary collations for identifier-like columns; email normalised on lookup; strict `sql_mode`, UTC and utf8mb4 pinned per connection; server-side prepared statements (`execute`) | `dialects.test.ts` |
 | F-10 | `create()`/`fill()` accept only an explicit `fillable` (a missing `fillable` is a compile error plus a runtime refusal). Sensitive-looking names (`is_*`, `*_at`, `*_by`, `role`, `plan`, `user_id`, `owner_id`) also need `allowSensitive`. The tenant column is never fillable | `model.test.ts`, `types.test.ts` |
-| F-14 | Random slug suffix, tenant-scoped lookups | `model.test.ts` |
+| F-14 | Tenant-scoped slug lookups; sequential suffixes per decision #49 | `model.test.ts` |
 
 ## Not built (designed in the doc, not proven here)
 

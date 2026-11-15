@@ -3,10 +3,10 @@
  * create, and keep it unique".
  *
  * Uniqueness is scoped like the column's unique index (per tenant on tenant tables). A taken slug
- * gets a short random suffix, and the unique index stays the real guarantee: if two requests race
- * for the same slug, the loser's insert fails and is retried with a fresh suffix.
+ * gets the lowest free `-2`, `-3`, … (decision #49, 2026-11-15), and the unique index stays the real
+ * guarantee: if two requests race for the same slug, the loser's insert fails and is retried with
+ * the next number.
  */
-import { randomBytes } from 'node:crypto'
 
 /**
  * URL-safe ASCII from any text: accents removed, lowercase, words joined by hyphens.
@@ -30,26 +30,17 @@ export function slugify(source: string, maxLength: number): string {
 
 /**
  * The slug to use given the ones already taken that start with `base`: `base` itself when free,
- * otherwise `base` plus a short random suffix (`hello-k3f9`).
- *
- * Why random and not Laravel-style `-2`, `-3`: a counter tells the user how many rows with the
- * same title exist, including rows they are not allowed to see (security review F-14).
+ * otherwise the lowest free `base-2`, `base-3`, … (Laravel style; decision #49). The lookup that
+ * fills `taken` is limited to the tenant, so the number only reflects rows in the tenant.
  *
  * @example
- * nextFreeSlug('hello', ['hello']) // 'hello-k3f9'
+ * nextFreeSlug('hello', ['hello', 'hello-2']) // 'hello-3'
  */
 export function nextFreeSlug(base: string, taken: readonly string[]): string {
   const used = new Set(taken)
   if (!used.has(base)) return base
-  for (;;) {
-    const candidate = `${base}-${randomSuffix()}`
+  for (let number = 2; ; number += 1) {
+    const candidate = `${base}-${number}`
     if (!used.has(candidate)) return candidate
   }
-}
-
-/** Letters and digits that can't be confused when read aloud or in a URL (no 0/o, 1/l). */
-const SUFFIX_ALPHABET = 'abcdefghijkmnpqrstuvwxyz23456789'
-
-function randomSuffix(): string {
-  return [...randomBytes(4)].map((byte) => SUFFIX_ALPHABET[byte % SUFFIX_ALPHABET.length] ?? 'x').join('')
 }

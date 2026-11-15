@@ -175,10 +175,13 @@ describe.each(engines)('models on $name', (engine) => {
       const second = await makePost(ada, 'Crème brûlée 100% better')
       const third = await makePost(ada, 'Crème Brûlée — 100% better')
       expect(first.slug).toBe('creme-brulee-100-better')
-      // Collisions get a random suffix, not -2/-3: a counter would reveal how many hidden rows share the title (F-14).
-      expect(second.slug).toMatch(/^creme-brulee-100-better-[a-z2-9]{4}$/)
-      expect(third.slug).toMatch(/^creme-brulee-100-better-[a-z2-9]{4}$/)
-      expect(new Set([first.slug, second.slug, third.slug]).size).toBe(3)
+      // Decision #49 (2026-11-15): sequential -2, -3, like Laravel's packages, guarded by the
+      // unique index plus a retry. Lookups stay within the tenant, so they count only rows the
+      // tenant may already see.
+      expect([second.slug, third.slug]).toEqual(['creme-brulee-100-better-2', 'creme-brulee-100-better-3'])
+      // A gap is reused: the lowest free number wins.
+      await second.forceDelete()
+      expect((await makePost(ada, 'Crème brûlée 100% better')).slug).toBe('creme-brulee-100-better-2')
       // "%" and "_" in titles must not act as LIKE wildcards when looking for taken slugs.
       const underscore = await makePost(ada, 'a_b')
       const lookalike = await makePost(ada, 'axb')
@@ -192,7 +195,7 @@ describe.each(engines)('models on $name', (engine) => {
       const c = await runWithTenant(TENANT, () => Project.create({ name: 'Launch' }))
       // Tenant B gets "launch" too: another tenant's slug is invisible and never changes yours.
       expect([a.slug, b.slug]).toEqual(['launch', 'launch'])
-      expect(c.slug).toMatch(/^launch-[a-z2-9]{4}$/)
+      expect(c.slug).toBe('launch-2')
     })
 
     test('a slug the lookup cannot see (a concurrent insert, a snapshot) still ends up free on retry', async () => {
@@ -207,7 +210,7 @@ describe.each(engines)('models on $name', (engine) => {
       )
       try {
         const second = await runWithTenant(TENANT, () => Project.create({ name: 'Launch' }))
-        expect(second.slug).toMatch(/^launch-[a-z2-9]{4}$/)
+        expect(second.slug).toBe('launch-2')
       } finally {
         blind.mockRestore()
       }
@@ -228,12 +231,31 @@ describe.each(engines)('models on $name', (engine) => {
               return Project.create({ name: 'Launch' })
             }),
           )
-          expect(created.slug).toMatch(/^launch-[a-z2-9]{4}$/)
+          expect(created.slug).toBe('launch-2')
         } finally {
           await other.close()
         }
       })
     }
+
+    test('a retry after a conflict moves on to the next number, never the one that just failed', async () => {
+      // Two rows the lookup can't see: "launch" and "launch-2". Each conflict marks the slug it
+      // tried as taken, so the retries go launch → launch-2 → launch-3.
+      await runWithTenant(TENANT, async () => {
+        await Project.create({ name: 'Launch' })
+        await Project.create({ name: 'Launch' })
+      })
+      const db = connection()
+      const run = db.run.bind(db)
+      const blind = vi.spyOn(db, 'run').mockImplementation(async (fragment, options) =>
+        db.grammar.render(fragment).sql.includes(' AS slug FROM ') ? { rows: [], rowsAffected: 0 } : run(fragment, options),
+      )
+      try {
+        expect((await runWithTenant(TENANT, () => Project.create({ name: 'Launch' }))).slug).toBe('launch-3')
+      } finally {
+        blind.mockRestore()
+      }
+    })
 
     test('UUID keys are generated as UUIDv7 and are time-ordered', async () => {
       const projects = await runWithTenant(TENANT, async () => [await Project.create({ name: 'One' }), await Project.create({ name: 'Two' })])
