@@ -184,6 +184,16 @@ describe('sidebar extras', () => {
     expect(window.localStorage.getItem('strutvane.sidebar-collapsed')).toBe('true')
     await app.user.click(toggle)
     expect(window.localStorage.getItem('strutvane.sidebar-collapsed')).toBe('false')
+    // Leave state behind on purpose: the next test proves no test inherits it.
+    await app.user.click(toggle)
+    document.documentElement.classList.add('dark')
+  })
+
+  it('every test starts with clean browser state (no storage or theme class from the one before)', () => {
+    // View preferences, the collapsed menu and the theme live in localStorage and on <html>.
+    // Without a reset, a test's outcome depended on which tests ran before it in the file.
+    expect(window.localStorage.length).toBe(0)
+    expect(document.documentElement.classList.contains('dark')).toBe(false)
   })
 
   it('collapses a group with its heading button', async () => {
