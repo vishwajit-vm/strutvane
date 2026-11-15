@@ -16,7 +16,7 @@ export type LoginMethod = 'password' | 'email-link' | 'passkey'
 export type SecondFactor = 'totp' | 'recovery-code' | 'passkey' | 'trusted-device'
 
 /** Why a sign-in step failed (never which part of the credentials was wrong). */
-export type FailureReason = 'invalid-credentials' | 'invalid-code' | 'locked' | 'rate-limited'
+export type FailureReason = 'invalid-credentials' | 'invalid-code' | 'locked' | 'rate-limited' | 'email-not-verified'
 
 /** Fields every event has. `ip` is the rate-limit subject (IPv6 is reduced to its /64). */
 interface Base {

@@ -24,8 +24,16 @@ import { rateLimitSubject } from '../limits/ip.ts'
 import { parseEmail } from '../password/email.ts'
 import type { AuthRequest } from '../ports/cookies.ts'
 import { parseSecret } from '../tokens/formats.ts'
-import { type AuthDeps, accountKey, cookieName, emit, requireFeature, sendMail } from '../core/deps.ts'
+import { type AuthDeps, accountKey, cookieName, requireFeature, sendMail } from '../core/deps.ts'
 import { completeFirstFactor, type SignInResult } from '../core/sign-in.ts'
+import { proveMailbox } from './verification.ts'
+
+/**
+ * An email-link sign-in's outcome. `setPasswordToken` is present when this was the first mailbox
+ * proof of a never-verified account and its pre-verification password was wiped (#114): the UI
+ * sends the owner on to set a new password with it.
+ */
+export type EmailLinkResult = SignInResult & { readonly setPasswordToken?: string }
 
 /** Email-link operations (feature `emailLink`). */
 export interface EmailLinkService {
@@ -46,7 +54,7 @@ export interface EmailLinkService {
    * const r = await auth.emailLink.consume(req, { token: params.token })
    * ```
    */
-  consume(req: AuthRequest, input: { readonly token: unknown; readonly remember?: unknown }): Promise<SignInResult>
+  consume(req: AuthRequest, input: { readonly token: unknown; readonly remember?: unknown }): Promise<EmailLinkResult>
 }
 
 /** The browser-binding cookie name. */
@@ -105,14 +113,17 @@ export function emailLinkService(deps: AuthDeps): EmailLinkService {
       const user = await deps.store.findUserById(consumed.userId)
       if (!user) throw new AuthError('INVALID_TOKEN')
       await deps.store.deleteUserOneTime(user.id, 'email-link')
-      let current = user
-      if (user.emailVerifiedAt === null) {
+      // The link proves the mailbox: a never-verified account is wiped and verified first (#114).
+      const proof = await proveMailbox(deps, req, user)
+      let current = proof.user
+      if (current.emailVerifiedAt === null) {
+        // Verification off: still record that the address works.
         const now = deps.clock.now()
         await deps.store.updateUser(user.id, { emailVerifiedAt: now })
-        current = { ...user, emailVerifiedAt: now }
-        if (deps.config.features.emailVerification) await emit(deps, req, { type: 'email.verified', userId: user.id })
+        current = { ...current, emailVerifiedAt: now }
       }
-      return completeFirstFactor(deps, req, current, 'email-link', input.remember === true)
+      const result = await completeFirstFactor(deps, req, current, 'email-link', input.remember === true)
+      return proof.setPasswordToken === undefined ? result : { ...result, setPasswordToken: proof.setPasswordToken }
     },
   }
 }

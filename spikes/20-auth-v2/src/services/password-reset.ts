@@ -113,10 +113,14 @@ export function passwordResetService(deps: AuthDeps): PasswordResetService {
       req.cookies.clear(deviceCookie(deps))
       const sessions = await deps.store.deleteUserSessions(user.id)
       await deps.store.deleteUserTokens(user.id)
-      await deps.store.updateUser(user.id, { passwordHash: hash })
+      // A reset proves the mailbox AND sets an owner-chosen password, after revoking everything:
+      // exactly the #114 remedy, so it also verifies a never-verified address.
+      const verifies = deps.config.features.emailVerification && user.emailVerifiedAt === null
+      await deps.store.updateUser(user.id, verifies ? { passwordHash: hash, emailVerifiedAt: deps.clock.now() } : { passwordHash: hash })
       // A reset proves control of the mailbox: lift a password lockout on this account.
       await deps.lockout.succeed(`login:${accountKey(deps, user.email)}`)
       if (sessions > 0) await emit(deps, req, { type: 'session.revoked', userId: user.id, count: sessions })
+      if (verifies) await emit(deps, req, { type: 'email.verified', userId: user.id })
       await emit(deps, req, { type: 'password.changed', userId: user.id, via: 'reset' })
       sendMail(deps, { kind: 'password-changed', to: user.email, userId: user.id })
     },

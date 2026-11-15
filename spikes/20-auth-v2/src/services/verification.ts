@@ -9,6 +9,7 @@
  * @module
  */
 import { createHmac } from 'node:crypto'
+import { randomSecret } from '../crypto/random.ts'
 import { safeEqual } from '../crypto/constant-time.ts'
 import { AuthError } from '../errors.ts'
 import type { AuthRequest } from '../ports/cookies.ts'
@@ -37,6 +38,82 @@ export function verificationUrl(deps: AuthDeps, user: UserRecord): string {
   return `${deps.config.appUrl}/email/verify/${user.id}/${hash}?expires=${expires}&signature=${sign(deps, user.id, hash, expires)}`
 }
 
+/**
+ * Mail a verification link unless the per-account cooldown or hourly cap says no. Resolves the
+ * seconds to wait when refused. Shared by "resend" and by a refused password sign-in.
+ */
+async function mailVerificationLink(deps: AuthDeps, user: UserRecord): Promise<number | undefined> {
+  const coolKey = `verify-resend:cool:${user.id}`
+  const now = deps.clock.now()
+  const coolUntil = await deps.counters.get(coolKey)
+  if (coolUntil !== undefined && coolUntil > now) return Math.ceil((coolUntil - now) / 1000)
+  const retry = await deps.limiter.hit([[`verify-resend:hour:${user.id}`, deps.config.limits.verificationResendPerAccount]])
+  if (retry !== undefined) return retry
+  const coolMs = deps.config.limits.verificationResendCooldown.windowSeconds * 1000
+  await deps.counters.set(coolKey, now + coolMs, coolMs)
+  sendMail(deps, { kind: 'verify-email', to: user.email, userId: user.id, url: verificationUrl(deps, user) })
+  return undefined
+}
+
+/** Re-send the verification mail for a refused password sign-in (quietly throttled). */
+export async function remindToVerify(deps: AuthDeps, user: UserRecord): Promise<void> {
+  await mailVerificationLink(deps, user)
+}
+
+/** What {@link proveMailbox} did. */
+export interface MailboxProof {
+  /** The user after the proof. */
+  readonly user: UserRecord
+  /** A password-reset token for the owner's new password, when a pre-verification one was wiped. */
+  readonly setPasswordToken: string | undefined
+}
+
+/**
+ * The FIRST proof that someone controls the mailbox (the verification link or an email-link
+ * sign-in) of an account that was registered but never verified (CONSISTENCY #114).
+ *
+ * Why wipe: anyone can register a victim's address with a password the ATTACKER knows ("account
+ * pre-hijacking"). The victim later proves the mailbox and adopts the account, so whatever existed
+ * before that proof was set by an unknown party. The pre-verification password, every session,
+ * every token and every outstanding link are cleared (revoke first, then mark verified), and the
+ * owner sets a new password with the returned reset token.
+ *
+ * Only with `emailVerification` on: when it is off, `emailVerifiedAt` means nothing and nothing is
+ * wiped. A verified account is returned unchanged.
+ */
+export async function proveMailbox(deps: AuthDeps, req: AuthRequest, user: UserRecord): Promise<MailboxProof> {
+  if (!deps.config.features.emailVerification || user.emailVerifiedAt !== null) return { user, setPasswordToken: undefined }
+  const sessions = await deps.store.deleteUserSessions(user.id)
+  await deps.store.deleteUserTokens(user.id)
+  await deps.store.deleteUserOneTime(user.id, 'password-reset')
+  await deps.store.deleteUserOneTime(user.id, 'email-link')
+  await deps.store.deleteUserOneTime(user.id, 'trusted-device')
+  const now = deps.clock.now()
+  const hadPassword = user.passwordHash !== null
+  await deps.store.updateUser(user.id, { passwordHash: null, emailVerifiedAt: now })
+  if (sessions > 0) await emit(deps, req, { type: 'session.revoked', userId: user.id, count: sessions })
+  await emit(deps, req, { type: 'email.verified', userId: user.id })
+  let setPasswordToken: string | undefined
+  if (hadPassword && deps.config.features.passwordLogin) {
+    setPasswordToken = randomSecret()
+    await deps.store.putOneTime({
+      digest: deps.keys.digest('password-reset', setPasswordToken),
+      purpose: 'password-reset',
+      userId: user.id,
+      payload: {},
+      createdAt: now,
+      expiresAt: now + deps.config.links.passwordResetMs,
+    })
+  }
+  return { user: { ...user, passwordHash: null, emailVerifiedAt: now }, setPasswordToken }
+}
+
+/** What {@link VerificationService.verify} answers. */
+export type VerifyResult =
+  | { readonly status: 'verified' }
+  /** A pre-verification password was wiped (#114): send the owner on to set one with `token`. */
+  | { readonly status: 'set-password'; readonly token: string }
+
 /** Email verification operations (feature `emailVerification`). */
 export interface VerificationService {
   /**
@@ -60,7 +137,7 @@ export interface VerificationService {
   verify(
     req: AuthRequest,
     parts: { readonly id: unknown; readonly hash: unknown; readonly expires: unknown; readonly signature: unknown },
-  ): Promise<void>
+  ): Promise<VerifyResult>
   /** Throw `EMAIL_NOT_VERIFIED` when verification is on and `user` has not verified (the `verified` guard). */
   assertVerified(user: UserRecord): void
 }
@@ -73,16 +150,8 @@ export function verificationService(deps: AuthDeps): VerificationService {
       const { user } = await requireActive(deps, req)
       if (user.emailVerifiedAt !== null) return { status: 'already-verified' }
       // A cooldown between sends (only a successful send starts it), then an hourly cap.
-      const coolKey = `verify-resend:cool:${user.id}`
-      const now = deps.clock.now()
-      const coolUntil = await deps.counters.get(coolKey)
-      if (coolUntil !== undefined && coolUntil > now)
-        throw new AuthError('RATE_LIMITED', { retryAfterSeconds: Math.ceil((coolUntil - now) / 1000) })
-      const retry = await deps.limiter.hit([[`verify-resend:hour:${user.id}`, deps.config.limits.verificationResendPerAccount]])
+      const retry = await mailVerificationLink(deps, user)
       if (retry !== undefined) throw new AuthError('RATE_LIMITED', { retryAfterSeconds: retry })
-      const coolMs = deps.config.limits.verificationResendCooldown.windowSeconds * 1000
-      await deps.counters.set(coolKey, now + coolMs, coolMs)
-      sendMail(deps, { kind: 'verify-email', to: user.email, userId: user.id, url: verificationUrl(deps, user) })
       return { status: 'sent' }
     },
 
@@ -94,9 +163,9 @@ export function verificationService(deps: AuthDeps): VerificationService {
       if (link.expires * 1000 <= deps.clock.now()) throw new AuthError('INVALID_TOKEN')
       const user = await deps.store.findUserById(link.id)
       if (!user || !safeEqual(link.hash, emailHash(deps, user.email))) throw new AuthError('INVALID_TOKEN')
-      if (user.emailVerifiedAt !== null) return
-      await deps.store.updateUser(user.id, { emailVerifiedAt: deps.clock.now() })
-      await emit(deps, req, { type: 'email.verified', userId: user.id })
+      if (user.emailVerifiedAt !== null) return { status: 'verified' }
+      const proof = await proveMailbox(deps, req, user)
+      return proof.setPasswordToken === undefined ? { status: 'verified' } : { status: 'set-password', token: proof.setPasswordToken }
     },
 
     assertVerified(user) {

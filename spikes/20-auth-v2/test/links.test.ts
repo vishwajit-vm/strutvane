@@ -152,8 +152,11 @@ describe.each(STORES)('email verification (%s store)', (store) => {
 
   it('resend is throttled: one per minute, six per hour; verified users get "already-verified"', async () => {
     const h = harness({ store, config: { features } })
-    await h.user('ada@acme.test', { verified: false })
+    const ada = await h.user('ada@acme.test', { verified: true })
+    // A signed-in, unverified user: password sign-in now needs a verified address (#114), so the
+    // session comes first and the address is "unverified" after (verification switched on later).
     const b = await h.signedIn('ada@acme.test')
+    await h.store.updateUser(ada.id, { emailVerifiedAt: null })
     expect(await h.auth.verification.resend(b.req)).toEqual({ status: 'sent' })
     await rejectsWith(() => h.auth.verification.resend(b.req), 'RATE_LIMITED')
     for (let i = 0; i < 5; i++) {

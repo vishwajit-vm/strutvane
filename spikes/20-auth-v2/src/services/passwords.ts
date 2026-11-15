@@ -29,7 +29,7 @@ import {
   startSession,
 } from '../core/sessions.ts'
 import { completeFirstFactor, deviceCookie, type SignInResult } from '../core/sign-in.ts'
-import { verificationUrl } from './verification.ts'
+import { remindToVerify, verificationUrl } from './verification.ts'
 import { createPersonalTeam } from './teams.ts'
 
 /** Input for {@link PasswordService.login}. */
@@ -189,7 +189,7 @@ export function passwordService(deps: AuthDeps): PasswordService {
       if (typeof input.password !== 'string' || !passwordLengthOk(input.password, deps.config.passwords.max))
         throw new AuthError('VALIDATION_FAILED', { issues: [{ field: 'password', code: 'invalid' }] })
       const account = accountKey(deps, email)
-      const fail = async (reason: 'invalid-credentials' | 'locked' | 'rate-limited', userId: string | null) =>
+      const fail = async (reason: 'invalid-credentials' | 'locked' | 'rate-limited' | 'email-not-verified', userId: string | null) =>
         emit(deps, req, { type: 'login.failed', stage: 'first-factor', reason, userId, emailDigest: account })
 
       const retry = await deps.limiter.hit([
@@ -214,6 +214,14 @@ export function passwordService(deps: AuthDeps): PasswordService {
         if (lockedFor !== undefined)
           await emit(deps, req, { type: 'lockout', scope: 'login', emailDigest: account, userId: user?.id ?? null, seconds: lockedFor })
         throw new AuthError('INVALID_CREDENTIALS')
+      }
+      // With verification on, password sign-in waits for the mailbox proof (#114): until then the
+      // password may be an attacker's (account pre-hijacking). Only a CORRECT password gets here, so
+      // this answer is no enumeration oracle; the mail is re-sent (throttled), as there is no session.
+      if (deps.config.features.emailVerification && user.emailVerifiedAt === null) {
+        await fail('email-not-verified', user.id)
+        await remindToVerify(deps, user)
+        throw new AuthError('EMAIL_NOT_VERIFIED')
       }
       if (deps.hasher.needsRehash(user.passwordHash)) {
         await deps.store.updateUser(user.id, { passwordHash: await deps.hasher.hash(input.password) })
