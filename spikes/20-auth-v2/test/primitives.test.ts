@@ -1,4 +1,5 @@
 import { createHash, pbkdf2Sync, randomBytes, timingSafeEqual } from 'node:crypto'
+import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
 import { defineAuthConfig } from '../src/config.ts'
 import { open, seal } from '../src/crypto/aead.ts'
@@ -200,6 +201,28 @@ describe('rate limiting', () => {
     expect(rateLimitSubject(undefined)).toBe('unknown')
     expect(rateLimitSubject('not an ip')).toBe('unknown')
   })
+  it('bypass attempt: every spelling of an IPv4-mapped address is the same client', () => {
+    const octet = fc.integer({ min: 0, max: 255 })
+    fc.assert(
+      fc.property(octet, octet, octet, octet, (a, b, c, d) => {
+        const v4 = `${a}.${b}.${c}.${d}`
+        const hi = ((a << 8) | b).toString(16)
+        const lo = ((c << 8) | d).toString(16)
+        const spellings = [
+          `::ffff:${v4}`,
+          `::FFFF:${v4}`,
+          `0:0:0:0:0:ffff:${v4}`,
+          `::ffff:${hi}:${lo}`,
+          `0000:0000:0000:0000:0000:FFFF:${hi}:${lo}`,
+          `[::ffff:${v4}]`,
+        ]
+        for (const spelling of spellings) expect(rateLimitSubject(spelling), spelling).toBe(v4)
+      }),
+    )
+    // Mapped addresses must not collapse into one shared IPv6 /64 (one client would lock out all).
+    expect(rateLimitSubject('::ffff:1:2')).not.toBe(rateLimitSubject('::ffff:3:4'))
+  })
+
   it('sliding window: no 2x burst at a window boundary', async () => {
     const clock = manualClock(Date.UTC(2026, 0, 1))
     const limiter = createLimiter(memoryCounterStore(clock), clock)

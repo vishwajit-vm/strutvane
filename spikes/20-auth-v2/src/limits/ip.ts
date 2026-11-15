@@ -10,16 +10,30 @@
  */
 import { isIP } from 'node:net'
 
-/** Normalise `::ffff:1.2.3.4` to `1.2.3.4`; `undefined` for anything that is not an IP. */
+/**
+ * Normalise an address; `undefined` for anything that is not an IP.
+ *
+ * Every spelling of an IPv4-mapped IPv6 address (`::ffff:1.2.3.4`, `0:0:0:0:0:ffff:1.2.3.4`,
+ * `::ffff:102:304`, upper case, brackets) becomes the plain IPv4 address. Why all of them: a proxy
+ * or platform that writes the hex or expanded form would otherwise put EVERY IPv4 client into one
+ * shared IPv6 /64 bucket (one client locks out all), and one client seen in two spellings would get
+ * two budgets.
+ */
 export function normalizeIp(value: string | undefined): string | undefined {
   if (value === undefined) return undefined
   let v = value.trim()
   if (v.startsWith('[') && v.endsWith(']')) v = v.slice(1, -1)
   const zone = v.indexOf('%')
   if (zone >= 0) v = v.slice(0, zone)
-  const mapped = /^::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/i.exec(v)
-  if (mapped?.[1]) v = mapped[1]
-  return isIP(v) === 0 ? undefined : v.toLowerCase()
+  const family = isIP(v)
+  if (family === 0) return undefined
+  if (family === 4) return v
+  const groups = ipv6Groups(v.toLowerCase())
+  if (groups.length === 8 && groups.slice(0, 5).every((g) => g === 0) && groups[5] === 0xffff) {
+    const [hi = 0, lo = 0] = groups.slice(6)
+    return `${hi >> 8}.${hi & 255}.${lo >> 8}.${lo & 255}`
+  }
+  return v.toLowerCase()
 }
 
 function ipv6Groups(ip: string): number[] {
