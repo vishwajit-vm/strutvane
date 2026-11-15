@@ -8,6 +8,7 @@
  * @module
  */
 import * as clack from '@clack/prompts'
+import { EXIT } from './exit-codes.ts'
 
 /** The handle for one running step. Call exactly one of `done`, `skipped` or `failed`. */
 export interface StepProgress {
@@ -84,24 +85,71 @@ export function plainReporter(write: (text: string) => void, now: () => number =
   }
 }
 
+/** The message shown when a step is interrupted. */
+export const INTERRUPTED_MESSAGE = 'Stopped (Ctrl+C). Finished steps are saved: run npm run setup in the project folder to continue.'
+
 /**
- * A reporter with clack spinners and boxes, for a real interactive terminal.
+ * A reporter with clack's look (boxes, log lines) and its own small spinner, for a real terminal.
+ *
+ * Why not clack's spinner: it puts stdin into raw mode while it spins, so Ctrl+C no longer reaches
+ * the running program (npm, docker) as SIGINT, and clack then calls `process.exit(0)`. Driven in a
+ * real pseudo-terminal, Ctrl+C during "Installing dependencies" ended the installer with exit code
+ * 0 (as if it had succeeded), and npm, never told to stop, could carry on in the background. This
+ * spinner leaves the terminal alone: Ctrl+C reaches the whole foreground process group, the child
+ * stops, and the installer exits 130 with how to continue (every finished step is already saved).
+ * SIGTERM to the installer alone does the same.
+ *
+ * @param exit - ends the process (tests pass a recorder)
+ * @param output - where the spinner draws (tests pass a sink)
  *
  * @example
  * const reporter = clackReporter()
  */
-export function clackReporter(now: () => number = Date.now): Reporter {
+export function clackReporter(
+  now: () => number = Date.now,
+  exit: (code: number) => void = (code) => process.exit(code),
+  output: { write(text: string): unknown; isTTY?: boolean } = process.stdout,
+): Reporter {
   return {
     intro: (title) => clack.intro(title),
     step(title) {
       const started = now()
-      const spinner = clack.spinner()
-      spinner.start(title)
+      const frames = ['◒', '◐', '◓', '◑']
+      let frame = 0
+      const draw = () => {
+        output.write(`\r\u001b[2K${frames[frame % frames.length] ?? '◒'}  ${title}`)
+        frame += 1
+      }
+      draw()
+      const timer = setInterval(draw, 120)
+      timer.unref()
+      const clear = () => {
+        clearInterval(timer)
+        process.removeListener('SIGINT', interrupted)
+        process.removeListener('SIGTERM', interrupted)
+        output.write('\r\u001b[2K')
+      }
+      function interrupted(): void {
+        clear()
+        clack.log.warn(INTERRUPTED_MESSAGE)
+        exit(EXIT.cancelled)
+      }
+      process.once('SIGINT', interrupted)
+      process.once('SIGTERM', interrupted)
       const took = () => formatDuration(now() - started)
       return {
-        done: (message) => spinner.stop(`${message}  ${took()}`),
-        skipped: (reason) => spinner.stop(`○ ${reason}`),
-        failed: (message) => spinner.error(message),
+        done: (message) => {
+          clear()
+          clack.log.step(`${message}  ${took()}`)
+        },
+        skipped: (reason) => {
+          clear()
+          clack.log.warn(`○ ${reason}`)
+        },
+        failed: (message) => {
+          clear()
+          clack.log.error(message)
+        },
       }
     },
     info: (message) => clack.log.info(message),
