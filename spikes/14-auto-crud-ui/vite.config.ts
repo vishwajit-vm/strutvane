@@ -9,6 +9,7 @@ import { defineConfig, type Plugin } from 'vite'
 import { metadata } from './example/.strutvane/ui.gen.ts'
 import { createMockApi } from './src/mock-api/mock-api.ts'
 import { seedBlog } from './src/mock-api/seed.ts'
+import { cspPlugin } from './scripts/csp.ts'
 
 /** Mount the in-memory API on the dev server (a little latency makes loading states visible). */
 function mockApiPlugin(): Plugin {
@@ -43,7 +44,8 @@ async function forward(request: IncomingMessage, response: ServerResponse, handl
 }
 
 export default defineConfig({
-  plugins: [react(), tailwindcss(), mockApiPlugin()],
+  // cspPlugin: the build writes a hash-based CSP for the inline theme script (CONSISTENCY #119).
+  plugins: [react(), tailwindcss(), mockApiPlugin(), cspPlugin()],
   // Test runs create throwaway apps in .tmp; the dev server has no reason to watch (and lock) them.
   server: { watch: { ignored: ['**/.tmp/**'] } },
 })

@@ -112,6 +112,12 @@
   --shadow-primary: 0 2px 8px oklch(0.7 0.15 var(--brand-hue) / 0.3);
 }
 
+/* Switch off Tailwind's default palette (CONSISTENCY #119): only the tokens below exist, so a stray
+   `bg-red-500` generates nothing instead of a colour outside the design system. */
+@theme {
+  --color-*: initial;
+}
+
 @theme inline {
   --font-sans: 'Public Sans', ui-sans-serif, system-ui, sans-serif;
   --color-background: var(--background);
