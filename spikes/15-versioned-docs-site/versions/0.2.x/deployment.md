@@ -47,7 +47,16 @@ Check it's alive:
 curl -i http://your-server:3000/up
 ```
 
-**What you'll see:** `HTTP/1.1 200 OK`. Your load balancer or host calls `/up` the same way.
+**What you'll see:**
+
+```text
+HTTP/1.1 200 OK
+content-type: application/json
+
+{"status":"ok"}
+```
+
+Your load balancer or host calls `/up` the same way.
 
 This is exactly the recipe the installer writes to `deploy/README.md` when you pick "Any Node host".
 
@@ -93,7 +102,7 @@ Want to commit production settings safely? `node strut env:encrypt` encrypts `.e
 node strut migrate --force --isolated
 ```
 
-- `--force` confirms you mean production (and is required with `--seed` there; nothing is seeded in production otherwise).
+- In production, `migrate` asks for confirmation, like Laravel; `--force` answers yes for you, which a deploy script needs because nobody is there to type it. (`--seed` in production also needs `--force`; nothing is seeded there otherwise.)
 - `--isolated` takes a lock, so when several servers deploy at the same moment, **only one** migrates and the others wait.
 - **PostgreSQL and SQLite** run each migration in a transaction: a failure leaves nothing behind.
 - **MySQL** commits schema changes as it goes. If a migration fails halfway, `migrate` tells you exactly what was applied and how to recover.
@@ -160,9 +169,11 @@ Both are covered in [Security Features](../security/).
 
 ## Health checks: `/up`
 
-`/up` answers `200` as soon as the app is running, and says nothing else (no versions, no settings), so it's safe to leave public. Point your host's health check, your load balancer and the `Dockerfile`'s `HEALTHCHECK` at it.
+`/up` answers `200 {"status":"ok"}` to `GET` and `HEAD` as soon as the app is running, and says nothing else (no versions, no settings), so it's safe to leave public. It stays reachable during [maintenance mode](../maintenance-mode/), so your platform doesn't restart a container that's down on purpose. Point your host's health check, your load balancer and the `Dockerfile`'s `HEALTHCHECK` at it. (The installer prototype's generated route still answers the text `up`; the JSON answer is decided for 0.2.)
 
-A **readiness** check that also tests the database and other critical services (`/ready`, with checks registered by packages such as `@strutvane/health`) is planned for a later phase. Until then, `/up` only tells you the process is alive.
+:::caution[Coming in 0.3]
+A **readiness** route, `/ready`, that also runs the critical checks (the database and anything packages register, such as `@strutvane/health`), comes in 0.3 with the health-check registry. Until then, `/up` only tells you the process is alive.
+:::
 
 ## Deploying as a Docker image
 

@@ -184,7 +184,7 @@ it('records a publish with the status change', async () => {
 
 An **audit sink** is where events go: anything with a `write(event)` method. In 0.2 the framework provides the sink for you:
 
-- an **append-only table** in your database (named `audit_events` in the security model), created by an ordinary migration and marked **internal**, so it never gets an automatic API or admin screen;
+- an **append-only `audit_events` table** in your database, owned by the framework, created by an ordinary migration and marked **internal**, so it never gets an automatic API or admin screen;
 - written **in the same transaction** as the change it describes: if the change rolls back, so does its audit event, and if the audit write fails, the change fails too.
 
 :::caution[Coming in 0.2]
@@ -221,7 +221,7 @@ These events are written without any code of yours. They carry ids, methods and 
 | Sessions | `session.revoked` (with a count) |
 | API tokens | `token.created`, `token.revoked` |
 | Teams | `team.created`, `team.switched`, `team.invitation.created`, `team.invitation.accepted`, `team.member.changed` |
-| Impersonation | `impersonation.started`, `impersonation.stopped` (admin id and user id) |
+| Impersonation | `impersonation.started`, `impersonation.stopped` (impersonator id and user id; impersonating needs the `impersonate` ability) |
 
 The security model adds role and permission changes, data exports, tenant lifecycle, configuration changes made in the admin UI, and **policy bypasses** to the mandatory list.
 

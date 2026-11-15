@@ -178,7 +178,7 @@ import { PostPublished } from '../../app/notifications/post-published.notificati
 
 it('notifies the author when a post is published', async () => {
   Notification.fake()
-  await client(app).actingAs(aliceToken).postJson('/api/posts/hello-world/publish', {})
+  await client(app).withToken(aliceToken).postJson('/api/posts/hello-world/publish', {})
   Notification.assertSentTo(alice, PostPublished, (sent, channels) => channels.includes('database'))
   Notification.assertNotSentTo(bob, PostPublished)
 })

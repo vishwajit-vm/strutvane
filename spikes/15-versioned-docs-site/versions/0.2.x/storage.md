@@ -226,14 +226,15 @@ const link = await Storage.disk().temporaryUrl('posts/42/0193a1f0-….pdf', { ex
 // → '/storage/local/posts/42/0193a1f0-….pdf?expires=1763202121&signature=Qm0z…'
 ```
 
-The app serves these links itself at `/storage/<disk>/…`, checking the signature on every request. The signature covers the disk, the key, the method and the expiry, so a link can't be extended, moved to another file, or used for anything but `GET`/`HEAD`. Links last from 1 second to 7 days.
+The app serves these links itself at `/storage/<disk>/…`, checking the signature on every request. In 0.2 the signature comes from the framework's **one signer** (the same one that signs routes and auth links): an HMAC over the path, the sorted query, the expiry and a purpose, so a link can't be extended or moved to another file. Links last from 1 second to 7 days, and are served for `GET` and `HEAD` only. (0.1's storage signer, which also covered the method, is being replaced by the one signer.)
 
 What a visitor sees:
 
 | Link | Answer |
 |---|---|
 | valid | `200` with the file, `Cache-Control: private, no-store` |
-| expired, or any character changed | `403` |
+| any character changed | `403` with code `invalid_signature` |
+| expired | `403` with code `signature_expired` |
 | the file was deleted since | `404` |
 | a `POST` to the link | `405` |
 
