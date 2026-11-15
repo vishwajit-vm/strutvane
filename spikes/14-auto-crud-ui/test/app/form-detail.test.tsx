@@ -95,6 +95,35 @@ describe('create form', () => {
   })
 })
 
+describe('422 issue shapes (CONSISTENCY #69, #118)', () => {
+  it('reads issues[].path first (RFC-0003), falls back to field, and never drops one silently', async () => {
+    const issues = [
+      { path: ['title'], code: 'too_long', message: 'Title is too long.' }, // RFC-0003: path only
+      { path: ['slug'], field: 'ignored', code: 'taken', message: 'That slug is taken.' }, // path wins
+      { field: 'price', code: 'invalid', message: 'Price must be a number.' }, // spike 10: field only
+      { path: ['lines', 2, 'amount'], code: 'required', message: 'Line 3 needs an amount.' }, // not on this form
+    ]
+    const app = renderApp({
+      path: '/posts/new',
+      transport: (mock) => async (request) =>
+        request.method === 'POST'
+          ? new Response(JSON.stringify({ type: 'about:blank', title: 'Invalid', status: 422, code: 'validation_failed', issues }), { status: 422, headers: { 'content-type': 'application/problem+json' } })
+          : mock.handle(request),
+    })
+    await screen.findByRole('heading', { name: 'New post' })
+    await app.user.type(screen.getByRole('textbox', { name: /^Title/ }), 'Too long')
+    await app.user.type(screen.getByRole('combobox', { name: /^Author/ }), 'ben')
+    await app.user.keyboard('{ArrowDown}')
+    await screen.findByRole('option', { name: 'Ben Okafor' })
+    await app.user.keyboard('{Enter}')
+    await app.user.click(screen.getByRole('button', { name: 'Create post' }))
+    await waitFor(() => expect(screen.getByRole('textbox', { name: /^Title/ })).toHaveAccessibleDescription(/Title is too long./))
+    expect(screen.getByRole('textbox', { name: 'Slug' })).toHaveAccessibleDescription(/That slug is taken./)
+    expect(screen.getByRole('textbox', { name: 'Price' })).toHaveAccessibleDescription(/Price must be a number./)
+    expect(screen.getByRole('alert')).toHaveTextContent('Line 3 needs an amount.')
+  })
+})
+
 describe('edit form', () => {
   it('sends only the fields that changed', async () => {
     const app = renderApp({ path: '/posts/shipping-notes/edit' })

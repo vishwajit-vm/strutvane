@@ -178,7 +178,7 @@ async function problemFrom(response: Response): Promise<ApiError> {
   const title = typeof record['title'] === 'string' ? record['title'] : 'Request failed'
   // Server errors never show internal details; everything else shows the server's friendly text.
   const detail = response.status >= 500 || typeof record['detail'] !== 'string' ? fallbackDetail(response.status) : record['detail']
-  const issues = Array.isArray(record['issues']) ? record['issues'].filter(isIssue) : []
+  const issues = Array.isArray(record['issues']) ? record['issues'].flatMap((issue) => toIssue(issue) ?? []) : []
   return new ApiError(response.status, code, title, detail, issues)
 }
 
@@ -209,8 +209,19 @@ function unexpectedShape(): ApiError {
   return new ApiError(200, 'invalid_response', 'Unexpected response', 'The server answered in a format this screen does not understand.')
 }
 
-function isIssue(value: unknown): value is FieldIssue {
-  return isRecord(value) && typeof value['field'] === 'string' && typeof value['code'] === 'string' && typeof value['message'] === 'string'
+/**
+ * One wire issue to a {@link FieldIssue}, or `undefined` when it is malformed.
+ *
+ * RFC-0003's shape is `path: (string | number)[]`, with `field` ('items.0.title') as a convenience
+ * (CONSISTENCY #69). `path` is read first and joined with dots; `field` is the fallback (spike 10
+ * sends only `field`). Reading `field` alone silently dropped every path-only issue, so the form
+ * showed no field errors at all (CONSISTENCY 118). An empty path is a form-level issue (field '').
+ */
+function toIssue(value: unknown): FieldIssue | undefined {
+  if (!isRecord(value) || typeof value['code'] !== 'string' || typeof value['message'] !== 'string') return undefined
+  const path = value['path']
+  const field = Array.isArray(path) && path.every((part) => typeof part === 'string' || typeof part === 'number') ? path.join('.') : value['field']
+  return typeof field === 'string' ? { field, code: value['code'], message: value['message'] } : undefined
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
