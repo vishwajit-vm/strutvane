@@ -5,7 +5,7 @@ description: "Let people reset a forgotten password safely, change it from their
 
 People forget passwords. **Password reset** lets them prove they own their email address and pick a new one, without anyone (you included) ever seeing the old one. This page also covers the rest of a password's life: the **rules** a new password must pass, **changing** it from the settings page, and **confirming** it again before sensitive actions.
 
-Reset is the `passwordReset` feature in `config/auth.ts`, which is always on when people sign in with a password, and confirming is the `passwordConfirmation` feature. You don't build these routes: they come with `@strutvane/auth`, and your sign-in screens call them.
+Password sign-in is the `password` feature in `config/auth.ts` (on by default; "email link only" apps set `password: false, emailLink: true`). Reset is the `passwordReset` feature, always on when `password` is, and confirming is the `passwordConfirmation` feature. You don't build these routes: they come with `@strutvane/auth`, and your sign-in screens call them.
 
 :::tip[Coming from Laravel?]
 These are Fortify's routes with Laravel's names: `POST /forgot-password`, `POST /reset-password`, `PUT /user/password` and `POST /user/confirm-password`. The reset link lasts 60 minutes, like Laravel's default `expire`.
@@ -17,7 +17,7 @@ What's stricter:
 :::
 
 :::caution[Coming in 0.2]
-Everything on this page is **proven in the auth prototype** (spike 20: 215 tests, including token-reuse races, expiry, lockout lifting and "every other link dies"). It isn't released yet. The routes and answers below are the prototype's. The feature names `passwordReset` and `passwordConfirmation`, the cookie name `strutvane_session`, the lowercase error codes (`weak_password`), the issue shape with `path`, `field` and `message`, the 128-character maximum and the breach check being on by default are the decided names and defaults (the prototype still uses `passwordLogin`, `sv_session`, uppercase codes, a 256-character maximum and an opt-in check). The framework wiring, the reset and settings **screens**, the `user:password` and `auth:clear-resets` commands and the `Password` rule builder are designed, not built.
+Everything on this page is **proven in the auth prototype** (spike 20: 215 tests, including token-reuse races, expiry, lockout lifting and "every other link dies"). It isn't released yet. The routes and answers below are the prototype's. The feature names `passwordReset` and `passwordConfirmation`, the cookie name `strutvane_session`, the lowercase error codes (`weak_password`), the issue shape with `path`, `field` and `message` and the breach check being on by default are the decided names and defaults (the prototype still uses `passwordLogin`, `sv_session`, uppercase codes and an opt-in check). The maximum stays at 256 characters: scrypt's cost doesn't grow with the length. The framework wiring, the reset and settings **screens**, the `user:password` and `auth:clear-resets` commands and the `Password` rule builder are designed, not built.
 :::
 
 ## The smallest example
@@ -85,7 +85,7 @@ Every new password (registration, reset, change) passes the same rules:
 | Rule | Default | Setting in `config/auth.ts` |
 |---|---|---|
 | At least this many characters | **12** | `passwords.min` (8 or more) |
-| At most this many characters | 128 | `passwords.max` |
+| At most this many characters | 256 | `passwords.max` |
 | Not found in a data breach | **on** | see [Breached passwords](#breached-and-common-passwords) |
 
 Length is counted in characters after Unicode normalisation, so an emoji or an accented letter counts as one. By default there are **no composition rules** ("one capital, one digit, one symbol"): they make passwords harder to remember without making them harder to guess, so NIST (SP 800-63B) advises against them. A long sentence is a great password. Apps that are *required* to use composition rules (a customer contract, an auditor) can opt in, see [Your own rules](#your-own-rules).
@@ -97,7 +97,7 @@ import { defineAuthConfig } from '@strutvane/auth'
 
 export default defineAuthConfig({
   appUrl: process.env.APP_URL ?? 'http://localhost:3000',
-  passwords: { min: 14, max: 128 },
+  passwords: { min: 14, max: 200 },
 })
 ```
 

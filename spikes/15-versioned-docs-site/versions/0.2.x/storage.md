@@ -16,7 +16,7 @@ What's different:
 
 :::caution[What exists, and when]
 - **Coming in 0.2:** the local and memory disks, `config/filesystems.ts`, streaming uploads with limits, `UploadedFile`, expiring signed links and the tenant-confined disk. These are **built in 0.1** (`@strutvane/framework`, with path-traversal, atomic-write and upload attack tests) and being moved into 0.2. The `Storage` accessor is new in 0.2 (in 0.1 you get the disks from the container with `StorageManagerToken`). `storage:link` and `storage:prune-temp` are designed, not built.
-- **Planned after 0.3:** S3, Azure Blob and Google Cloud disks, image fields, media library and a virus-scan hook come with `@strutvane/files` (phase 3, toward 1.0).
+- **Coming before 1.0:** S3, Azure Blob and Google Cloud disks, image fields and a virus-scan hook come with `@strutvane/files` (phase 3, which ends with 1.0). A media library is a separate package, coming after 1.0.
 :::
 
 ## The smallest example

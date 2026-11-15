@@ -20,6 +20,7 @@ What's different: the client is **immutable** (each `actingAs()`, `withToken()` 
 ## The smallest example
 
 ```ts title="tests/feature/posts.test.ts"
+import { randomBytes } from 'node:crypto'
 import { beforeEach, it } from 'vitest'
 import type { Application } from '@strutvane/framework'
 import { client, refreshDatabase } from '@strutvane/framework/testing'
@@ -28,7 +29,7 @@ import { createApp } from '../../bootstrap/app.ts'
 let app: Application
 
 beforeEach(async () => {
-  app = createApp({ APP_ENV: 'testing', APP_KEY: 'base64:q3Jc1m8yZr0Vb4xT9hN2wE6kP5sL7aD3fG0uI8oR1tY=', DB_CONNECTION: 'sqlite', DB_DATABASE: ':memory:' })
+  app = createApp({ APP_ENV: 'testing', APP_KEY: 'base64:' + randomBytes(32).toString('base64'), DB_CONNECTION: 'sqlite', DB_DATABASE: ':memory:' })
   await refreshDatabase(app)
 })
 

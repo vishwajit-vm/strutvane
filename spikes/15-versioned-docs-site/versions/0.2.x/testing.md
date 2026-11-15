@@ -21,7 +21,7 @@ What's different: every resource gets **generated** feature tests and **cross-te
 - **Proven in a prototype:** the request client and response assertions (`client(app)`, `assertStatus`, `assertJsonPath`, `assertProblem`, `withoutCsrf()`, and a bearer-token helper the prototype calls `actingAs(token)`; its decided name is `withToken(token)`), `refreshDatabase(app)` from a schema dump, and a generated app's feature test (spike 12). The installer writes the test setup (spike 13). Generated tests use **Vitest** only.
 - **Coming in 0.2:** the full testing kit: a transaction per test, a test database per worker on your app's engine, `actingAs(user)` with real sign-in, `asTenant(team)`, `Mail.fake()`, `Http.fake()`, time travel, console tests, and generated feature and attack tests per resource.
 - **Coming in 0.3:** fakes for queues, events, notifications and processes.
-- **Planned after 0.3:** browser tests with page objects, `@strutvane/browser-testing` (phase 7).
+- **Coming after 1.0:** browser tests with page objects, `@strutvane/browser-testing` (phase 7). Until then the installer offers `vitest` or `none` only.
 
 Names that aren't proven yet are marked on each page.
 :::
@@ -52,6 +52,7 @@ Every line with a ✓ is a test file; the numbers are its tests and how long the
 A **feature test** checks one thing a user can do, through the same HTTP routes the UI uses. Here's a complete one for the posts API:
 
 ```ts title="tests/feature/posts.test.ts"
+import { randomBytes } from 'node:crypto'
 import { beforeEach, describe, it } from 'vitest'
 import type { Application } from '@strutvane/framework'
 import { client, refreshDatabase, seed } from '@strutvane/framework/testing'
@@ -61,7 +62,7 @@ import { demoTokens } from '../../database/seeders/database.seeder.ts'
 let app: Application
 
 beforeEach(async () => {
-  app = createApp({ APP_ENV: 'testing', APP_KEY: 'base64:q3Jc1m8yZr0Vb4xT9hN2wE6kP5sL7aD3fG0uI8oR1tY=', DB_CONNECTION: 'sqlite', DB_DATABASE: ':memory:' })
+  app = createApp({ APP_ENV: 'testing', APP_KEY: 'base64:' + randomBytes(32).toString('base64'), DB_CONNECTION: 'sqlite', DB_DATABASE: ':memory:' })
   await refreshDatabase(app)
   await seed(app)
 })

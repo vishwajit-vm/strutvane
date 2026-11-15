@@ -17,7 +17,7 @@ What's different: audit events are written **in the same database transaction** 
 :::
 
 :::caution[Coming in 0.2]
-`recordAudit()`, `diffChanges()`, `memoryAuditSink()` and the `AuditEvent` shape are **built in 0.1** (`@strutvane/auth`, with tests) and being moved into the framework for 0.2, so the import path below may change. The auth events (sign-in, two-factor, tokens, impersonation…) are **proven in the auth prototype** (spike 20), including a test that runs every feature and checks that no secret ever reaches an event. The framework's audit table writer, the `assertAudited()` test helper and the `audit:verify` hash chain are designed, not built. `@strutvane/activity-log` is planned for phase 4 (see [Planned after 0.3](#the-activity-log-package-later)).
+`recordAudit()`, `diffChanges()`, `memoryAuditSink()` and the `AuditEvent` shape are **built in 0.1** (`@strutvane/auth`, with tests) and being moved into the framework for 0.2, so the import path below may change. The auth events (sign-in, two-factor, tokens, impersonation…) are **proven in the auth prototype** (spike 20), including a test that runs every feature and checks that no secret ever reaches an event. The framework's audit table writer, the `assertAudited()` test helper and the `audit:verify` hash chain are designed, not built. `@strutvane/activity-log` is coming after 1.0 (phase 4; see [the activity-log package](#the-activity-log-package-later)).
 :::
 
 ## The smallest example
@@ -251,8 +251,8 @@ Remember that the audit log itself is sensitive (it shows who did what), so guar
 
 ## Tamper evidence: the hash chain
 
-:::caution[Planned after 0.3]
-The security model plans an optional **hash chain** per tenant: each event stores a SHA-256 of the previous one (over canonical JSON, RFC 8785), so deleting or editing an event breaks the chain. `node strut audit:verify` would check it. This isn't scheduled in a phase yet.
+:::caution[Coming after 1.0]
+The security model plans an optional **hash chain** per tenant: each event stores a SHA-256 of the previous one (over canonical JSON, RFC 8785), so deleting or editing an event breaks the chain. `node strut audit:verify` would check it. It isn't scheduled in a phase yet, so expect it after 1.0.
 :::
 
 ## Retention and privacy
@@ -263,7 +263,11 @@ The security model plans an optional **hash chain** per tenant: each event store
 
 ## The activity-log package (later)
 
-`@strutvane/activity-log` (catalogue #18, phase 4) adds what end users see: a **History** tab on every record, an activity feed, and an audit explorer over the framework's table. The installer's question 27, "Record who changed what", installs it; until it's published, the installer doesn't show that question.
+:::caution[Coming after 1.0]
+`@strutvane/activity-log` is in phase 4 of the roadmap (back-office essentials, 1.x).
+:::
+
+`@strutvane/activity-log` (catalogue #18) adds what end users see: a **History** tab on every record, an activity feed, and an audit explorer over the framework's table. The installer's question 27, "Record who changed what", installs it; until it's published, the installer doesn't show that question.
 
 ## Not the same thing: `tenancyAudit`
 

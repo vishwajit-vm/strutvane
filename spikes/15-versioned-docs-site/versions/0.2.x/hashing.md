@@ -207,7 +207,7 @@ The hash format names its algorithm, so argon2 can come later as an **opt-in has
 
 - **Hostile hashes are refused.** A stored hash with absurd parameters (`ln=30`) would make one check use gigabytes of memory. Parameters outside `ln` 10–20, `r` 1–32 and `p` 1–16 make `verify()` return `false` instead of running.
 - **Constant-time comparison.** The result is compared with `timingSafeEqual`, so the time doesn't reveal how many bytes matched.
-- **No length surprises.** Passwords are limited to 128 characters by default (`passwords.max`), so nobody can send a megabyte to hash.
+- **No length surprises.** Passwords are limited to 256 characters by default (`passwords.max`), so nobody can send a megabyte to hash.
 
 ## With Docker or without Docker
 

@@ -24,6 +24,7 @@ Names marked "planned" may change.
 ## The smallest example
 
 ```ts title="tests/feature/post-store.test.ts"
+import { randomBytes } from 'node:crypto'
 import { beforeEach, expect, it } from 'vitest'
 import type { Application } from '@strutvane/framework'
 import { client, refreshDatabase, seed } from '@strutvane/framework/testing'
@@ -34,7 +35,7 @@ import { demoTokens } from '../../database/seeders/database.seeder.ts'
 let app: Application
 
 beforeEach(async () => {
-  app = createApp({ APP_ENV: 'testing', APP_KEY: 'base64:q3Jc1m8yZr0Vb4xT9hN2wE6kP5sL7aD3fG0uI8oR1tY=', DB_CONNECTION: 'sqlite', DB_DATABASE: ':memory:' })
+  app = createApp({ APP_ENV: 'testing', APP_KEY: 'base64:' + randomBytes(32).toString('base64'), DB_CONNECTION: 'sqlite', DB_DATABASE: ':memory:' })
   await refreshDatabase(app)
   await seed(app)
 })

@@ -80,7 +80,7 @@ The keys that must change for production:
 |---|---|---|
 | `APP_ENV` | `production` | turns off developer pages and hints |
 | `APP_DEBUG` | `false` | the app **refuses to start** with `APP_DEBUG=true` in production unless you pass `--force-debug` |
-| `APP_KEY` | a new key, made with `node strut key:generate` | signs and encrypts everything. The same on every server |
+| `APP_KEY` | a new key, made with `node strut key:generate` (never the development one) | signs and encrypts everything. The same on every server |
 | `APP_PREVIOUS_KEYS` | old keys after a rotation | keeps old cookies, tokens and encrypted values working |
 | `APP_URL` | `https://app.example.com` | links in mails, cookie security, CSRF origin checks |
 | `DB_*` | your production database | — |
@@ -165,7 +165,7 @@ Both are covered in [Security Features](../security/).
 - Use the **same `APP_KEY`** (and `APP_PREVIOUS_KEYS`) everywhere, or sessions and signed links made by one server fail on another.
 - Rate limits and lockouts live in the **cache store** (the database by default, Redis if you chose it), so they hold across servers. A per-process store would multiply every limit by the number of servers.
 - Files written to the local disk exist only on that server. Use shared storage or a cloud disk (`@strutvane/files`, planned) when several servers serve uploads.
-- Or run several Node processes on one machine: `node strut serve --workers=N` (cluster mode) is planned for 1.0.
+- Or run several Node processes on one machine: `node strut serve --workers=N` (cluster mode) is coming before 1.0.
 
 ## Health checks: `/up`
 
@@ -180,7 +180,7 @@ A **readiness** route, `/ready`, that also runs the critical checks (the databas
 Pick **Docker image** when the installer asks "Where will you deploy?", or run `node strut docker:prod` later. You get three committed files:
 
 - `Dockerfile`, which builds in three stages: build, production dependencies only, then a clean runtime image;
-- `.dockerignore`, which keeps `.env*`, `.git`, `node_modules`, `storage/` and tests out of the image;
+- `.dockerignore`, which keeps `.env*`, `.git`, `node_modules`, `storage/`, tests and `.strutvane/local/` out of the image (the rest of `.strutvane/` is generated code the build needs);
 - `deploy/README.md`, the recipe.
 
 The generated `Dockerfile` (from the installer prototype, without its prototype-only `stubs/` lines and with some comments shortened):
@@ -220,10 +220,22 @@ CMD ["node", "build/server.js"]
 
 Build and run it:
 
-```bash
-docker build -t my-app .
-docker run -p 3000:3000 --env APP_KEY=base64:… --env DB_HOST=db.internal --env APP_URL=https://app.example.com my-app
-```
+1. Generate a production key **once**, and store it in your host's secret settings (never in the image or in Git):
+
+   ```bash
+   node strut key:generate --show
+   ```
+
+   (`--show` prints the key instead of writing it to `.env`; the flag name follows Laravel and isn't final.)
+
+2. Build the image and run it, passing settings from your environment:
+
+   ```bash
+   docker build -t my-app .
+   docker run -p 3000:3000 --env APP_KEY --env DB_HOST --env APP_URL my-app
+   ```
+
+   `--env APP_KEY` with no value copies `APP_KEY` from your shell's environment (set it from your secrets manager first), so the key never appears in your shell history or in this command.
 
 **What you'll see:** Docker builds the three stages, then `docker ps` shows the container as `healthy` once `/up` answers.
 
@@ -280,7 +292,7 @@ Go through this before launch, and again before big releases. It follows Strutva
 
 - [ ] `APP_ENV=production`, `APP_DEBUG=false`.
 - [ ] A fresh `APP_KEY` (not the development one), the same on every server, stored in a password manager.
-- [ ] `APP_URL` is `https://…`.
+- [ ] `APP_URL` is `https://…` (over HTTPS the session cookie becomes `__Host-strutvane_session`, which a sibling subdomain can't set).
 - [ ] No secrets in Git, in `.env.example` or in the image; `.env*` is in `.dockerignore`.
 - [ ] `node strut security:check` passes (it flags debug on, a missing key, a non-HTTPS `APP_URL`, insecure cookies, CORS `*` with credentials, a weak CSP, `npm audit` highs and exposed `/_strutvane/*` tools).
 

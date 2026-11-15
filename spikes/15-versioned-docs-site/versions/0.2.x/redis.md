@@ -82,7 +82,7 @@ Rate limits and lockouts already work across servers with the database store (th
 | Cache (and rate limits, lockouts, cache locks) | `CACHE_STORE` | `database`, `redis` |
 | Queues | `QUEUE_CONNECTION` | `database`, `redis` |
 | Sessions | (in `config/cache.ts`, `sessions`) | `database`, `redis` |
-| Broadcasting (phase 6) | with `@strutvane/realtime` | `redis` to share messages between WebSocket servers |
+| Broadcasting (coming after 1.0) | with `@strutvane/realtime` | `redis` to share messages between WebSocket servers |
 
 A typical split: cache and queues on Redis, sessions in the database (so a Redis restart never signs anyone out).
 

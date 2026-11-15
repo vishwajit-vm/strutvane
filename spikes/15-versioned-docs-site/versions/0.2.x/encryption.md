@@ -17,7 +17,7 @@ What's different:
 :::
 
 :::caution[Coming in 0.2]
-`encrypt()`, `decrypt()`, the `Encrypter` class and key rotation are **proven in a prototype** (spike 12, with tests for tampering, truncated tags, wrong purposes and rotation). They aren't released yet. `node strut key:generate`, `key:rotate`, `env:encrypt`, `env:decrypt` and the `encrypted()` model cast are designed, not built. Names may still change before 0.2.
+`encrypt()`, `decrypt()`, the `Encrypter` class, key rotation and the `key:rotate`, `env:encrypt` and `env:decrypt` commands are **built in the prototype** (spike 12, with tests for tampering, truncated tags, wrong purposes and rotation) and ship in 0.2. They aren't released yet. `node strut key:generate` and the `encrypted()` model cast are designed, not built. Names may still change before 0.2.
 :::
 
 ## The smallest example
@@ -219,8 +219,8 @@ A key should be replaced if it may have leaked, when someone with access leaves,
 3. Your `.env` now looks like this:
 
    ```ini title=".env"
-   APP_KEY=base64:TRCz9LNT3Nx/PqOnpZO2QXjks4QlHFbCjhs9eEejwGU=
-   APP_PREVIOUS_KEYS=base64:Im8n2W3rBsr9yvzxK8c2OnXeA9UwpQteChS8LyyaIoA=
+   APP_KEY=base64:TRCz9LNT…   (the new key, made for you)
+   APP_PREVIOUS_KEYS=base64:Hk3w0Pq…   (your old key)
    ```
 
 4. Deploy the new `.env` to **every** server at once.
@@ -289,7 +289,7 @@ Encryption works the same in both. Only where `APP_KEY` lives differs:
 
 ## Encrypted environment files
 
-`node strut env:encrypt` encrypts `.env.production` so you can commit it, and `env:decrypt` turns it back on the server, like Laravel's commands. They're designed, not built; the exact options aren't decided. See [Configuration](../configuration/).
+`node strut env:encrypt` encrypts `.env.production` so you can commit it, and `env:decrypt` turns it back on the server, like Laravel's commands. Both are built in the prototype and ship in 0.2. See [Configuration](../configuration/) for their options.
 
 ## When decryption fails
 

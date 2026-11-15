@@ -13,7 +13,7 @@ Messages travel over a **WebSocket**: a connection the browser keeps open to the
 What's different: channel access is decided by your **policies** (the same rules as the API), every channel name is **team-scoped by construction**, and the generated admin tables use it with no code from you.
 :::
 
-:::caution[Planned (phase 6)]
+:::caution[Coming after 1.0 (phase 6)]
 Broadcasting is **planned, not built**: `@strutvane/realtime` is in phase 6 of the roadmap ("money, realtime and collaboration", after 1.0). Installer question 33, "Live updates (tables refresh when others change data)", installs it; until the package is published, the installer doesn't show that question. Nothing here is in a prototype.
 
 What's decided (package catalogue): a WebSocket server, private and presence channels authorised by policies, model broadcasting, a client subpath, `config/broadcasting.ts`, `routes/channels.ts`, a dev process that `npm run dev` starts, team-scoped channel names, payloads filtered by your read rules, and a `Broadcaster` service other packages (charts, notifications, GraphQL) use when it's installed.

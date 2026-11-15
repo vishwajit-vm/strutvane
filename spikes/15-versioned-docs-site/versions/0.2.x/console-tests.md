@@ -28,6 +28,7 @@ What's different: commands are typed objects made with `defineCommand()` (no `$s
 Run `route:list --json` and check its output:
 
 ```ts title="tests/feature/route-list.test.ts"
+import { randomBytes } from 'node:crypto'
 import { expect, it } from 'vitest'
 import { runConsole, type Output } from '@strutvane/framework/console'
 import { createApp } from '../../bootstrap/app.ts'
@@ -40,7 +41,7 @@ function buffer(): Output & { out: string[]; err: string[] } {
 }
 
 it('lists the admin routes as JSON', async () => {
-  const app = createApp({ APP_ENV: 'testing', APP_KEY: 'base64:q3Jc1m8yZr0Vb4xT9hN2wE6kP5sL7aD3fG0uI8oR1tY=', DB_CONNECTION: 'sqlite', DB_DATABASE: ':memory:' })
+  const app = createApp({ APP_ENV: 'testing', APP_KEY: 'base64:' + randomBytes(32).toString('base64'), DB_CONNECTION: 'sqlite', DB_DATABASE: ':memory:' })
   const output = buffer()
 
   const exitCode = await runConsole(app, ['route:list', '--json', '--name=admin'], { output })
