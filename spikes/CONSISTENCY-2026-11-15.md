@@ -99,3 +99,35 @@ The docs pass found places where the blueprint and the spikes disagree. When a m
 | 58 | Recommended mode | The docs list the questions instead of quoting a number (0.2 asks 6; hidden questions appear when their packages ship). | docs |
 | 59 | Model stub | `export class Post extends Model('posts', { fillable: [...] }) {}` (spike 11 ORM). | spike 12 generator |
 | 60 | `withoutCsrf()` environment | Works only when `APP_ENV=testing`. The environments are `local`, `testing`, `staging` and `production`. | spike 12, docs |
+
+## Third pass (docs writer D findings, 2026-11-15)
+
+| # | Topic | Decision | Owner |
+|---|---|---|---|
+| 61 | Password rules | Follow NIST by default: at least 12 characters, at most 128, a breached-password check, **no composition rules**. `Password.min(12).uncompromised()` is the default; `mixedCase()`, `numbers()` and `symbols()` exist for apps that are required to use them. | blueprint §5.2, auth |
+| 62 | argon2 | scrypt is the default. argon2 is a later opt-in hasher package; it's not in 0.2. | doc 20 |
+| 63 | Where hashing lives | `Hash` in the framework; auth uses it. | framework |
+| 64 | Signed links | **One signer** in the framework, used by signed routes, auth verification and reset links, and storage temporary URLs. It's an HMAC over the path, the sorted query, the expiry and a `purpose`. | framework, spikes 12 and 20, v1 storage |
+| 65 | Signed URL API | `url.signedRoute(name, params, { expiresIn?, oneTime? })` and `url.temporarySignedRoute(name, expiresAt, params)` (Laravel's names). Catalogue F18 follows them. | doc 20, catalogue |
+| 66 | Key derivation | One keyring: `keyring.derive(purpose)` = HKDF-SHA256(APP_KEY, salt `strutvane`, info `strutvane:<purpose>:v1`), with `APP_PREVIOUS_KEYS` support. Every feature derives through it. | framework |
+| 67 | Invalid or expired signed links | 403 with code `invalid_signature` or `signature_expired`, for every link (auth links included). | spikes 12 and 20 |
+| 68 | Error code casing | lowercase `snake_case` everywhere (`invalid_credentials`, `validation_failed`). | spike 20, all packages |
+| 69 | Validation issue shape | RFC-0003 plus a convenience field: `{ path: (string\|number)[], field: 'items.0.title', code, message }`. | spikes 12 and 20, v1 |
+| 70 | Impersonation | Needs the `impersonate` ability (only the admin role has it by default). Nobody can impersonate a user who also holds `impersonate` or a higher role. | spike 20, catalogue |
+| 71 | TOTP | Built on `node:crypto` with no dependency. The catalogue entry is corrected. | catalogue |
+| 72 | Encrypted casts | Status 🟡 (designed). Spike 11 doesn't have it yet. | doc 20 |
+| 73 | Policy discovery | Auto-discovered by name: model `Post` → `app/policies/post.policy.ts`. An explicit policy overrides it. | spike 12 |
+| 74 | Audit | The framework writes security events to the `audit_events` table. `@strutvane/activity-log` adds per-record history. | framework, docs |
+| 75 | Test helper names | `Mail.fake()`, `Queue.fake()`, `Event.fake()`, `Notification.fake()`, `Http.fake()`, `travelTo()`, `freezeTime()`, `assertStatus()`. `actingAs(user)` takes a user model; use `withToken(token)` for API tokens. Doc 13 is updated later. | framework, docs |
+| 76 | Generated tests | Vitest, never `node:test`. | spike 13 |
+| 77 | Browser testing in the installer | Hidden in 0.2 (#3). Only Vitest is offered. | spike 13 |
+| 78 | `migrate` in production | Asks for confirmation unless `--force` (Laravel behaviour). The deploy recipe uses `migrate --force`. | docs, framework |
+| 79 | Example keys | Examples and tests use a generated 32-byte `APP_KEY`, never `dev` or `testing-key`. | spike 12 |
+| 80 | Facade list | `Log`, `Cache`, `DB`, `Route`, `Mail`, `Storage`, `Http`, `Queue`, `Event`, `Bus`, `Notification`, `Hash`, `Crypt`, `Url`. `research/…beyond-laravel` "no facades" is superseded by #47. | doc 20 |
+| 81 | Queue worker commands | `queue:work`, `queue:listen`, `queue:monitor`, `queue:restart`, `queue:retry`, `queue:flush` (0.3). | blueprint §2.2 |
+| 82 | Phases | ORM model events P1. Application events, `afterCommit`, pruning and the scheduler P2. | doc 20 |
+| 83 | Domain events before the queue | In 0.2 they're dispatched in-process after the transaction commits. The durable outbox ("never lost") arrives with the queue in 0.3. The docs say so plainly. | docs |
+| 84 | `/ready` | Comes in 0.3 with the health-check registry (F13). `/up` (liveness) is in 0.2. | blueprint §5 |
+| 85 | Phase wording | "Coming in 0.3", never "After 0.2". | docs |
+| 86 | `Process.run` on Windows | `npm`/`npx` run as `node <npm-cli.js>`, as the installer already does. Other `.cmd` files are refused with a friendly error unless `{ windowsShell: true }` (safe quoting). | framework |
+| 87 | `Concurrency.run` | Worker drivers take module tasks (`task('reports/build', args)`), not closures. Closures work only with the `sync` driver. Tenant and request context are passed explicitly and re-established in the worker. | framework, docs |
