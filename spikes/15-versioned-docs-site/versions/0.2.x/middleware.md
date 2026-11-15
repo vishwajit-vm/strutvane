@@ -193,7 +193,7 @@ Only a literal `true` allows: a rule that returns a string or an object denies (
 Route.get('/downloads/{file}', [DownloadController, 'show']).name('downloads.show').middleware('signed'),
 ```
 
-Only links made with `signedRoute()` or `temporarySignedRoute()` get through. See [Routing: Signed routes](../routing/).
+Only links made with `url.signedRoute()` or `url.temporarySignedRoute()` get through. See [Routing: Signed routes](../routing/).
 
 ### `idempotent`: safe retries
 

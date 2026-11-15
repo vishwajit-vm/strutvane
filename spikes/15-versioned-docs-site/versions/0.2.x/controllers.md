@@ -311,12 +311,13 @@ See [Routing](../routing/) for the URLs each one produces.
 Call the app with a request and check the answer; no server is needed:
 
 ```ts title="tests/feature/reports.test.ts"
+import { randomBytes } from 'node:crypto'
 import { expect, test } from 'vitest'
 import { client } from '@strutvane/framework/testing'
 import { createApp } from '../../bootstrap/app.ts'
 
 test('reports list is empty at first', async () => {
-  const app = createApp({ APP_ENV: 'testing', APP_KEY: 'test-key', DB_CONNECTION: 'sqlite' })
+  const app = createApp({ APP_ENV: 'testing', APP_KEY: `base64:${randomBytes(32).toString('base64')}`, DB_CONNECTION: 'sqlite' })
   const response = await client(app).getJson('/api/reports')
   response.assertStatus(200)
   expect(response.json).toEqual({ data: [] })

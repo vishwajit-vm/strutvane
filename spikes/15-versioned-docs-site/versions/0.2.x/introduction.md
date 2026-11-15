@@ -54,15 +54,15 @@ npm create strutvane@latest my-app
 
 ### Recommended or Custom
 
-The **installer** (the small program `npm create` downloads and runs) first asks how much you want to decide:
+The **installer** (the small program `npm create` downloads and runs) first asks how much you want to decide (something like this):
 
 ```text
 ? How do you want to set up my-app?
-❯ Recommended   7 quick questions, sensible defaults for the rest
+❯ Recommended   a few quick questions, sensible defaults for the rest
   Custom        Choose everything (about 35 questions, grouped)
 ```
 
-Press **Enter** for **Recommended**. You're asked seven questions. Press Enter on each to take the default:
+Press **Enter** for **Recommended**. You're asked these questions; press Enter on each to take the default:
 
 | Question | Default | What it means |
 |---|---|---|
@@ -176,7 +176,6 @@ node strut make:migration create_posts_table --seeder
   Created app/models/post.ts
   Created database/seeders/post.seeder.ts
   Created database/factories/post.factory.ts
-  Registered PostSeeder in database/seeders/database.seeder.ts
 
   Next: add your columns to the migration, then run `node strut migrate`.
 ```
@@ -239,7 +238,7 @@ node strut migrate
 ```text
   ✔ 2026_11_14_093000_create_posts_table   14ms
   ✔ Types and metadata regenerated (3 tables)
-  ✔ Seeded PostSeeder
+  ✔ Seeded post.seeder.ts
   ✔ API: /api/posts  ·  UI: Posts (sidebar)
 ```
 
