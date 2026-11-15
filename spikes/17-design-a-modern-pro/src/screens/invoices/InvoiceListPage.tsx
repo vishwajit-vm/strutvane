@@ -13,34 +13,40 @@ import { ConfirmDialog, Sheet } from '../../components/ui/dialog.tsx'
 import { toast } from '../../components/ui/toast.tsx'
 import { invoices as allInvoices, countByStatus, type Invoice } from '../../data/invoices.ts'
 import { plural } from '../../lib/format.ts'
-import { Link } from '../../lib/router.tsx'
+import { Link, navigate, useLocation } from '../../lib/router.tsx'
 import { InvoiceTable, InvoiceTableSkeleton } from './InvoiceTable.tsx'
 import { FilterChips, InvoiceToolbar, type Density } from './InvoiceToolbar.tsx'
 import { filterInvoices, NO_FILTERS, paginate, SAVED_VIEWS, sortInvoices, type ColumnId, type InvoiceFilters, type Sort } from './list-model.ts'
+import { readListUrl, writeListUrl, type ListUrlState } from './list-url.ts'
 import { BulkBar, Pager, QuickView, StatusTabs } from './ListParts.tsx'
 
 /** Which state to show: real data, the empty state, or the loading skeleton. */
 export type ListState = 'ready' | 'empty' | 'loading'
 
-export function InvoiceListPage({ state = 'ready', initialStatus = 'all' }: { readonly state?: ListState; readonly initialStatus?: InvoiceFilters['status'] }): ReactElement {
+export function InvoiceListPage({ state = 'ready' }: { readonly state?: ListState }): ReactElement {
   const source = state === 'empty' ? [] : allInvoices
-  const [filters, setFilters] = useState<InvoiceFilters>({ ...NO_FILTERS, status: initialStatus })
-  const [savedView, setSavedView] = useState('all')
-  const [sort, setSort] = useState<Sort>({ key: 'dueAt', direction: 'desc' })
-  const [page, setPage] = useState(1)
-  const [pageSize, setPageSize] = useState(10)
+  // Status, search, filters, sort and paging live in the URL (deep links, reload, Back restores
+  // the list); hidden columns and density stay per-viewer preferences.
+  const { pathname, search } = useLocation()
+  const url = readListUrl(search)
+  const { filters, sort, page, pageSize } = url
+  const update = (change: Partial<ListUrlState>): void => {
+    const keep = search.get('state')
+    const query = writeListUrl({ ...url, ...change })
+    const extra = keep === null ? '' : `${query === '' ? '?' : '&'}state=${encodeURIComponent(keep)}`
+    navigate(`${pathname}${query}${extra}`, { replace: true, keepScroll: true })
+  }
+  const setFilters = (next: InvoiceFilters): void => update({ filters: next, page: 1 })
+  const setSort = (next: Sort): void => update({ sort: next, page: 1 })
+  const setPage = (next: number): void => update({ page: next })
+  const savedView = SAVED_VIEWS.find((view) => JSON.stringify({ ...view.filters, search: filters.search, status: filters.status }) === JSON.stringify(filters))?.id ?? 'custom'
   const [hidden, setHidden] = useState<ReadonlySet<ColumnId>>(new Set(['issued']))
   const [density, setDensity] = useState<Density>('comfortable')
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set())
   const [quickView, setQuickView] = useState<Invoice | null>(null)
   const [pendingDelete, setPendingDelete] = useState<readonly Invoice[]>([])
 
-  const changeFilters = (next: InvoiceFilters): void => {
-    setFilters(next)
-    setPage(1)
-    const matching = SAVED_VIEWS.find((view) => JSON.stringify({ ...view.filters, search: next.search, status: next.status }) === JSON.stringify(next))
-    setSavedView(matching?.id ?? 'custom')
-  }
+  const changeFilters = (next: InvoiceFilters): void => setFilters(next)
 
   const statusCounts = useMemo(() => countByStatus(filterInvoices(source, filters, false)), [source, filters])
   const filtered = useMemo(() => sortInvoices(filterInvoices(source, filters), sort), [source, filters, sort])
@@ -82,11 +88,7 @@ export function InvoiceListPage({ state = 'ready', initialStatus = 'all' }: { re
           savedView={savedView}
           onSavedViewChange={(id) => {
             const view = SAVED_VIEWS.find((item) => item.id === id)
-            if (view !== undefined) {
-              setFilters(view.filters)
-              setSavedView(id)
-              setPage(1)
-            }
+            if (view !== undefined) setFilters(view.filters)
           }}
           hidden={hidden}
           onToggleColumn={(id) => {
@@ -153,10 +155,7 @@ export function InvoiceListPage({ state = 'ready', initialStatus = 'all' }: { re
             total={filtered.length}
             pageSize={pageSize}
             onPageChange={setPage}
-            onPageSizeChange={(size) => {
-              setPageSize(size)
-              setPage(1)
-            }}
+            onPageSizeChange={(size) => update({ pageSize: size, page: 1 })}
           />
         ) : null}
       </section>

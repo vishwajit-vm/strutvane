@@ -6,7 +6,6 @@
  * createRoot(element).render(<App />)
  */
 import type { ReactElement } from 'react'
-import { INVOICE_STATUSES, type InvoiceStatus } from '../data/invoices.ts'
 import { TooltipProvider } from '../components/ui/misc.tsx'
 import { Toaster } from '../components/ui/toast.tsx'
 import { matchPath, useLocation } from '../lib/router.tsx'
@@ -39,7 +38,6 @@ const SETTINGS_TABS: readonly SettingsTab[] = ['profile', 'security', 'sessions'
 const isSettingsTab = (value: string | undefined): value is SettingsTab => SETTINGS_TABS.some((tab) => tab === value)
 
 const listState = (value: string | null): ListState => (value === 'empty' || value === 'loading' ? value : 'ready')
-const statusParam = (value: string | null): InvoiceStatus | 'all' => INVOICE_STATUSES.find((status) => status === value) ?? 'all'
 
 /** Order matters: static segments (`/invoices/new`) before `:id`. */
 const ROUTES: readonly Route[] = [
@@ -47,7 +45,7 @@ const ROUTES: readonly Route[] = [
   { pattern: '/forgot-password', bare: true, render: () => <ForgotPasswordPage /> },
   { pattern: '/', render: () => <DashboardPage /> },
   { pattern: '/dashboard', render: () => <DashboardPage /> },
-  { pattern: '/invoices', render: (_params, search) => <InvoiceListPage state={listState(search.get('state'))} initialStatus={statusParam(search.get('status'))} /> },
+  { pattern: '/invoices', render: (_params, search) => <InvoiceListPage state={listState(search.get('state'))} /> },
   { pattern: '/invoices/new', render: () => <InvoiceFormPage /> },
   { pattern: '/invoices/board', render: () => <BoardPage /> },
   { pattern: '/invoices/calendar', render: () => <CalendarPage /> },
@@ -64,9 +62,11 @@ function Routes(): ReactElement {
   for (const route of ROUTES) {
     const params = matchPath(route.pattern, pathname)
     if (params === null) continue
-    // Keyed by path so each screen starts with fresh state (scroll, selection, form values).
+    // Keyed by PATH so each screen starts with fresh state (scroll, selection, form values). Not by
+    // the query: the invoice list keeps its state in the query, and remounting on every keystroke
+    // of its search box would drop focus and selection.
     const screen = (
-      <div key={pathname + search.toString()}>
+      <div key={pathname}>
         <ScreenErrorBoundary>{route.render(params, search)}</ScreenErrorBoundary>
       </div>
     )

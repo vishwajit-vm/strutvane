@@ -41,21 +41,36 @@ export function RelationSelect({ id, value, onChange, search, placeholder = 'Sea
   const [term, setTerm] = useState('')
   const [results, setResults] = useState<readonly Customer[]>([])
   const [loading, setLoading] = useState(false)
+  const [failed, setFailed] = useState(false)
   const request = useRef(0)
+  // The latest `search` without making it an effect dependency: callers pass an inline lambda,
+  // which re-ran the search on every parent render.
+  const searchRef = useRef(search)
+  searchRef.current = search
 
   useEffect(() => {
     if (!open) return
     const ticket = ++request.current
     setLoading(true)
+    setFailed(false)
     const timer = setTimeout(() => {
-      void search(term).then((found) => {
-        if (ticket !== request.current) return
-        setResults(found)
-        setLoading(false)
-      })
+      searchRef
+        .current(term)
+        .then((found) => {
+          if (ticket !== request.current) return
+          setResults(found)
+          setLoading(false)
+        })
+        .catch(() => {
+          // A failed search must not spin forever (or reject unhandled): say so, let them retype.
+          if (ticket !== request.current) return
+          setResults([])
+          setLoading(false)
+          setFailed(true)
+        })
     }, 200)
     return () => clearTimeout(timer)
-  }, [term, open, search])
+  }, [term, open])
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -86,7 +101,8 @@ export function RelationSelect({ id, value, onChange, search, placeholder = 'Sea
             {loading ? <IconLoader2 aria-label="Loading" className="size-4 shrink-0 animate-spin text-muted-foreground" /> : null}
           </div>
           <Command.List className="scrollbar-thin max-h-72 overflow-y-auto p-1.5">
-            {!loading && results.length === 0 ? <Command.Empty className="px-3 py-6 text-center text-sm text-muted-foreground">No customers match “{term}”.</Command.Empty> : null}
+            {failed ? <p role="alert" className="px-3 py-6 text-center text-sm text-danger">Could not load results. Check your connection and type again.</p> : null}
+            {!loading && !failed && results.length === 0 ? <Command.Empty className="px-3 py-6 text-center text-sm text-muted-foreground">No customers match “{term}”.</Command.Empty> : null}
             {results.map((customer) => (
               <Command.Item
                 key={customer.id}

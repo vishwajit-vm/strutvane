@@ -7,7 +7,7 @@
  *
  * @module
  */
-import { useSyncExternalStore, type AnchorHTMLAttributes, type MouseEvent, type ReactElement } from 'react'
+import { useEffect, useState, useSyncExternalStore, type AnchorHTMLAttributes, type MouseEvent, type ReactElement } from 'react'
 
 const NAVIGATE_EVENT = 'strutvane:navigate'
 
@@ -34,11 +34,48 @@ const snapshot = (): string => window.location.pathname + window.location.search
  * @example
  * navigate('/invoices/INV-1042')
  */
-export function navigate(to: string, options: { readonly replace?: boolean } = {}): void {
+/** Asked before an in-app navigation leaves the page; resolves `true` to leave. */
+export type LeaveGuard = () => Promise<boolean>
+
+let guard: LeaveGuard | null = null
+/** The location on screen (Back/Forward has already changed the URL when popstate fires). */
+let shown = typeof window === 'undefined' ? '' : snapshot()
+
+if (typeof window !== 'undefined') {
+  // Installed at import, BEFORE React subscribes, so it runs first: with a guard up, Back/Forward
+  // puts the URL back (React then sees no change), asks, and goes only if allowed.
+  window.addEventListener('popstate', () => {
+    const target = snapshot()
+    const ask = guard
+    if (ask === null || new URL(target, 'http://local').pathname === new URL(shown, 'http://local').pathname) {
+      shown = target
+      return
+    }
+    window.history.pushState(null, '', shown)
+    void ask().then((leave) => {
+      if (!leave) return
+      guard = null
+      navigate(target)
+    })
+  })
+}
+
+export function navigate(to: string, options: { readonly replace?: boolean; readonly keepScroll?: boolean } = {}): void {
+  const ask = guard
+  if (ask !== null && new URL(to, window.location.href).pathname !== window.location.pathname) {
+    void ask().then((leave) => {
+      if (!leave) return
+      guard = null
+      navigate(to, options)
+    })
+    return
+  }
   if (options.replace === true) window.history.replaceState(null, '', to)
   else window.history.pushState(null, '', to)
+  shown = snapshot()
   window.dispatchEvent(new Event(NAVIGATE_EVENT))
-  window.scrollTo({ top: 0 })
+  // A list filter change rewrites the URL in place; jumping to the top would lose the user's place.
+  if (options.keepScroll !== true) window.scrollTo({ top: 0 })
 }
 
 /**
@@ -47,6 +84,35 @@ export function navigate(to: string, options: { readonly replace?: boolean } = {
  * @example
  * const { pathname } = useLocation()
  */
+/**
+ * Guard a page with unsaved changes: in-app navigation (links, Back/Forward) waits for an answer,
+ * and closing or reloading the tab shows the browser's own prompt. Render a confirm dialog with
+ * the returned `open`, `stay` and `leave`.
+ *
+ * @example
+ * const leaving = useLeaveGuard(dirty && !saving)
+ * <ConfirmDialog open={leaving.open} onOpenChange={(open) => !open && leaving.stay()} onConfirm={leaving.leave} … />
+ */
+export function useLeaveGuard(when: boolean): { readonly open: boolean; readonly stay: () => void; readonly leave: () => void } {
+  const [pending, setPending] = useState<((leave: boolean) => void) | null>(null)
+  useEffect(() => {
+    if (!when) return undefined
+    const ask: LeaveGuard = () => new Promise<boolean>((resolve) => setPending(() => resolve))
+    guard = ask
+    const onBeforeUnload = (event: BeforeUnloadEvent): void => event.preventDefault()
+    window.addEventListener('beforeunload', onBeforeUnload)
+    return () => {
+      if (guard === ask) guard = null
+      window.removeEventListener('beforeunload', onBeforeUnload)
+    }
+  }, [when])
+  const answer = (leave: boolean): void => {
+    pending?.(leave)
+    setPending(null)
+  }
+  return { open: pending !== null, stay: () => answer(false), leave: () => answer(true) }
+}
+
 export function useLocation(): Location {
   const href = useSyncExternalStore(subscribe, snapshot, snapshot)
   const url = new URL(href, 'http://local')

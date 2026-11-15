@@ -7,7 +7,7 @@
  * focus and every message says how to fix the problem.
  */
 import { IconBolt, IconCalendarDue, IconCreditCard, IconDeviceFloppy, IconReceipt2 } from '@tabler/icons-react'
-import { useState, type FormEvent, type ReactElement, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type FormEvent, type ReactElement, type ReactNode } from 'react'
 import { PersonCell } from '../../components/data-display.tsx'
 import { FileDropZone, RelationSelect, TagsInput } from '../../components/form-widgets.tsx'
 import { PageHeader } from '../../components/page-header.tsx'
@@ -23,7 +23,9 @@ import { toast } from '../../components/ui/toast.tsx'
 import { findInvoice, invoices } from '../../data/invoices.ts'
 import { searchCustomers, team, type Customer } from '../../data/people.ts'
 import { formatMoney, TODAY, toDateInput } from '../../lib/format.ts'
-import { Link, navigate } from '../../lib/router.tsx'
+import { Link, navigate, useLeaveGuard } from '../../lib/router.tsx'
+import { ConfirmDialog } from '../../components/ui/dialog.tsx'
+import { NotFoundPage } from '../kit/NotFoundPage.tsx'
 
 interface FormValues {
   customer: Customer | null
@@ -113,11 +115,29 @@ function SwitchRow({ id, title, description, checked, onChange }: { readonly id:
 }
 
 export function InvoiceFormPage({ invoiceId }: { readonly invoiceId?: string }): ReactElement {
+  // Editing an invoice that does not exist is the 404, not a form for a made-up record.
+  if (invoiceId !== undefined && findInvoice(invoiceId) === undefined) return <NotFoundPage />
+  return <InvoiceForm invoiceId={invoiceId} />
+}
+
+function InvoiceForm({ invoiceId }: { readonly invoiceId: string | undefined }): ReactElement {
   const editing = invoiceId !== undefined
-  const [values, setValues] = useState<FormValues>(() => initialValues(invoiceId))
+  const [initial, setInitial] = useState<FormValues>(() => initialValues(invoiceId))
+  const [values, setValues] = useState<FormValues>(initial)
   const [submitted, setSubmitted] = useState(false)
   const [saving, setSaving] = useState(false)
   const errors = submitted ? validateInvoice(values) : {}
+  const dirty = JSON.stringify(values) !== JSON.stringify(initial)
+  // Unsaved changes: ask before leaving (not while saving: the changes are already on their way).
+  const leaving = useLeaveGuard(dirty && !saving)
+  // The save finishes after a delay; if the user left meanwhile it must not pull them back.
+  const mounted = useRef(true)
+  useEffect(
+    () => () => {
+      mounted.current = false
+    },
+    [],
+  )
   const set = <K extends keyof FormValues>(key: K, value: FormValues[K]): void => setValues((current) => ({ ...current, [key]: value }))
 
   const amount = Number(values.amount.replaceAll(',', '')) || 0
@@ -137,8 +157,11 @@ export function InvoiceFormPage({ invoiceId }: { readonly invoiceId?: string }):
     setTimeout(() => {
       setSaving(false)
       toast({ tone: 'success', title: editing ? `${values.number} updated` : `${values.number} created`, description: another ? 'Ready for the next one.' : 'The customer will get it by email.' })
+      if (!mounted.current) return
       if (another) {
-        setValues(initialValues(undefined))
+        const fresh = initialValues(undefined)
+        setInitial(fresh)
+        setValues(fresh)
         setSubmitted(false)
       } else navigate(editing ? `/invoices/${values.number}` : '/invoices')
     }, 500)
@@ -287,6 +310,14 @@ export function InvoiceFormPage({ invoiceId }: { readonly invoiceId?: string }):
           </Button>
         </div>
       </div>
+      <ConfirmDialog
+        open={leaving.open}
+        onOpenChange={(open) => (open ? undefined : leaving.stay())}
+        title="Leave without saving?"
+        description="Your changes to this invoice will be lost."
+        confirmLabel="Discard changes"
+        onConfirm={leaving.leave}
+      />
     </form>
   )
 }
