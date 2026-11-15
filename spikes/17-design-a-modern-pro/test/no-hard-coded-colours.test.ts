@@ -126,6 +126,14 @@ describe('no hard-coded colours', () => {
     expect(violations).toEqual([])
   })
 
+  it('Tailwind’s default palette is switched off, so a stray palette class cannot even render', () => {
+    const css = readFileSync(join(SRC, 'styles.css'), 'utf8')
+    const reset = css.search(/--color-\*:\s*initial;/)
+    expect(reset).toBeGreaterThan(-1)
+    // Before the token mapping, or it would wipe the tokens too.
+    expect(reset).toBeLessThan(css.indexOf('--color-background: var(--background)'))
+  })
+
   it('catches every kind of literal colour (the rule itself is tested)', () => {
     const bad = `<div className="bg-red-500 hover:text-white dark:bg-black/50 bg-[#fff]" style={{ color: '#3366ff', background: 'rgb(0 0 0)', fill: 'oklch(0.5 0.1 200)' }} />`
     expect(findHardCodedColours('x.tsx', bad).map((line) => line.split(': ')[1])).toEqual([

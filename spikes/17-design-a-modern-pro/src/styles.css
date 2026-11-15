@@ -140,6 +140,12 @@
   --elev-primary: 0 4px 14px oklch(0.5 0.2 var(--brand-hue) / 0.42);
 }
 
+/* Switch off Tailwind's default palette (CONSISTENCY #119): only the tokens below exist, so a stray
+   `bg-red-500` generates nothing instead of a colour outside the design system. */
+@theme {
+  --color-*: initial;
+}
+
 /* Map the tokens onto Tailwind's theme so `bg-card`, `shadow-md`, `rounded-xl` resolve to them. */
 @theme inline {
   --font-sans: 'Plus Jakarta Sans Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;

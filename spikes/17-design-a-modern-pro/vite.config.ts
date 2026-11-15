@@ -6,9 +6,11 @@
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
+import { cspPlugin } from './scripts/csp.ts'
 
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  // cspPlugin: the build writes a hash-based CSP for the inline theme script (CONSISTENCY #119).
+  plugins: [react(), tailwindcss(), cspPlugin()],
   server: { port: 5181, strictPort: true },
   preview: { port: 5181, strictPort: true },
   // One bundle (~300 kB gzip, mostly Recharts + Radix) is fine for a local mockup; no code-splitting.
