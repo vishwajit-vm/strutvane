@@ -96,6 +96,69 @@ await transaction(async () => {
 console.log(await Tag.query().count()) // → 0
 ```
 
+## Am I in a transaction?
+
+`inTransaction()` on the connection tells you, which helps in code that must only run inside one:
+
+```ts
+import { defaultConnection, transaction } from '@strutvane/framework'
+
+console.log(defaultConnection().inTransaction())                      // → false
+await transaction(async () => console.log(defaultConnection().inTransaction())) // → true
+```
+
+Relationship helpers that change several rows already use a transaction for you: `attach()` and `sync()` run all their inserts and deletes as one unit, and join yours when you're already in one.
+
+## Three transactions, from small to advanced
+
+**Small:** two writes, all or nothing (the first example on this page).
+
+**Typical:** create a post and its tags together, and return the post.
+
+```ts title="app/services/create-post.ts"
+import { transaction } from '@strutvane/framework'
+import type { User } from '../models/user.ts'
+import { Tag } from '../models/tag.ts'
+
+export async function createPost(author: User, title: string, tagNames: readonly string[]) {
+  return transaction(async () => {
+    const post = await author.posts().create({ title, status: 'draft' })
+    const tags = []
+    for (const name of tagNames) tags.push(await Tag.create({ name }))
+    await post.tags().attach(tags.map((tag) => tag.id))
+    return post
+  })
+}
+```
+
+If any tag fails its checks (say, a name longer than its column allows), the post and every tag before it are rolled back, so you never get a post with half its tags.
+
+**Advanced:** an optional step that may fail without spoiling the rest, using a nested transaction as a savepoint.
+
+```ts title="app/services/publish-post.ts"
+import { transaction } from '@strutvane/framework'
+import { Post } from '../models/post.ts'
+import { Tag } from '../models/tag.ts'
+
+export async function publish(postId: number, tagName: string) {
+  return transaction(async () => {
+    const post = await Post.findOrFail(postId)
+    post.status = 'published'
+    await post.save()
+
+    try {
+      await transaction(async () => {
+        const tag = await Tag.create({ name: tagName })
+        await post.tags().attach([tag.id])
+      })
+    } catch {
+      // the tag couldn't be created (a duplicate name, say): publish anyway, untagged
+    }
+    return post
+  })
+}
+```
+
 ## Who sees what
 
 - **Inside** the transaction, your code sees its own changes immediately.
@@ -169,7 +232,13 @@ await transaction(async () => {
 })
 ```
 
-**Why:** the transaction ends when your function's promise settles. A query you didn't wait for can finish after the commit. Strutvane refuses statements on a transaction that has already ended instead of letting them run unprotected.
+**What you'll see** when the late query arrives:
+
+```text
+Error: This transaction has already finished (committed or rolled back), so this statement was not run. Await all work inside transaction(…) before it returns.
+```
+
+**Why:** the transaction ends when your function's promise settles. A query you didn't wait for can finish after the commit. Strutvane refuses statements on a transaction that has already ended instead of letting them run unprotected. (Without that check, the prototype showed a late insert running outside any transaction, after a rollback, and surviving.)
 
 **Fix:** `await` every database call inside the function. Your editor's "floating promise" lint rule catches this.
 

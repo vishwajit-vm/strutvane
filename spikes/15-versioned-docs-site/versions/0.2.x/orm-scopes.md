@@ -39,6 +39,26 @@ console.log(posts.map((post) => post.title))
 
 `satisfies Scopes<'posts'>` lets TypeScript check each scope against the `posts` columns, and `query` inside the function is fully typed.
 
+To add a scope to any model:
+
+1. Add `static readonly scopes = { … } satisfies Scopes<'your_table'>` to the model class (import `Scopes` from `@strutvane/framework`).
+2. Give each scope a name and a function that receives the query and adds conditions to it.
+3. Call it on a query by its name: `Post.query().published()`.
+
+### What a scope can use
+
+Inside a scope, `query` offers the filtering part of the builder, typed by the table:
+
+| Method | Example |
+|---|---|
+| `where` / `orWhere` | `query.where('status', 'published')`, `query.where('published_on', '>=', '2026-01-01')` |
+| `whereIn` | `query.whereIn('status', ['draft', 'published'])` |
+| `whereNull` / `whereNotNull` | `query.whereNotNull('published_on')` |
+| `whereRaw` | ``query.whereRaw(sql`length(${sql.id('title')}) > ${10}`)`` |
+| `orderBy` | `query.orderBy('published_on', 'desc')` |
+
+A scope sees the **table's** types, not the model class, which keeps the model's types simple. Relationship methods (`with`, `whereHas`) and grouping with a function aren't part of a scope's query; add those where you call the scope.
+
 ## Scopes with arguments
 
 Add parameters after `query`. They become the method's parameters:
@@ -57,6 +77,20 @@ await Post.query().ofStatus('draft').orderBy('title').get()
 Post.query().ofStatus('archived') // compile error: not 'draft' | 'published'
 ```
 
+A scope can take several parameters, with defaults like any function:
+
+```ts title="app/models/post.ts (excerpt)"
+static readonly scopes = {
+  publishedBetween: (query, from: string, to: string = '9999-12-31') =>
+    query.where('status', 'published').where('published_on', '>=', from).where('published_on', '<=', to),
+} satisfies Scopes<'posts'>
+```
+
+```ts
+await Post.query().publishedBetween('2026-01-01').count()
+await Post.query().publishedBetween('2026-01-01', '2026-06-30').get()
+```
+
 ## Combining scopes
 
 Scopes chain with everything else, in any order:
@@ -64,7 +98,7 @@ Scopes chain with everything else, in any order:
 ```ts
 const latestPublished = await Post.query()
   .published()
-  .where('view_count', '>=', 10)
+  .where('published_on', '>=', '2026-01-01')
   .latest()
   .limit(5)
   .get()

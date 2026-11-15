@@ -9,7 +9,7 @@ Strutvane's ORM does the separation for you:
 
 - every query on a tenant table is limited to the **active tenant**;
 - new rows are stamped with the active tenant;
-- just before any SQL is sent, a final check refuses a statement that could reach another tenant's rows;
+- right before any SQL is sent, a final check refuses a statement that could reach another tenant's rows;
 - with **no** active tenant, tenant tables return an error, never "all rows".
 
 You set the active tenant once per request (the HTTP layer does it for you); your queries look exactly like single-tenant ones.
@@ -54,11 +54,43 @@ console.log(seenByA.map((project) => project.name))
 
 Team A never sees Borealis, and `tenant_id` was filled in for both projects without you passing it.
 
+## Making a table a tenant table
+
+1. In the table's migration, add the tenant column. It holds a UUID: the `id` of the row in your teams table.
+
+   ```ts title="database/migrations/2026_11_14_100000_create_projects_table.ts"
+   import { migration } from '@strutvane/framework/schema'
+
+   export default migration({
+     up(schema) {
+       schema.create('projects', (t) => {
+         t.id()
+         t.uuid('tenant_id').index()
+         t.string('name', 120)
+         t.slug('slug').from('name')
+         t.decimal('budget', 12, 2).default(0)
+         t.timestamps()
+       })
+     },
+     down(schema) {
+       schema.dropIfExists('projects')
+     },
+   })
+   ```
+
+2. Run `node strut migrate`. The generated types now show `tenant_id`, and the ORM treats `projects` as **scoped**.
+3. Write the model as usual. Don't list `tenant_id` in `fillable`: it's filled in for you, and listing it is refused.
+4. Run every query on it inside a tenant (the next section).
+
+:::caution[Coming in 0.2]
+A `t.tenant()` helper is designed to add the tenant column the right way in one call: the column the app is configured with, tenant-prefixed unique keys (so a slug or name is unique per team, not across all teams), and composite foreign keys `(tenant_id, project_id)` so a task can never point at another team's project. The ORM prototype was tested with that table layout, but the migration recorder doesn't write it yet; until then, `t.uuid('tenant_id')` gives you the column and the ORM's protection.
+:::
+
 ## Setting the active tenant
 
 `runWithTenant(tenantId, fn)` runs `fn` with that tenant active. Everything inside it, however deep, uses that tenant, and concurrent calls never see each other's tenant (the spike checks 200 interleaved requests).
 
-- **In HTTP requests**, the framework wraps every request in `runWithTenant` with the signed-in user's team, so controllers just query.
+- **In HTTP requests**, the framework wraps every request in `runWithTenant` with the signed-in user's team, so controllers query as usual.
 - **In jobs, commands and tests**, wrap the work yourself:
 
 ```ts title="a job or a test"
@@ -131,7 +163,7 @@ The `{ global: true }` option and a `t.tenant()` column helper in migrations are
 
 ## Choosing the tenant column
 
-There is **one** tenant column for the whole app, set once at boot. The default is `tenant_id`; apps created with "Teams" use `team_id`; single-tenant apps turn it off:
+There is **one** tenant column for the whole app, set once at boot. The ORM's default is `tenant_id`, which means tenancy is **on** unless you turn it off. Apps built around "teams" use `team_id`; single-tenant apps turn tenancy off, and then no table needs a tenant column or a global flag:
 
 ```ts title="app/providers/app.provider.ts (excerpt)"
 import { configureOrm } from '@strutvane/framework'
@@ -168,11 +200,11 @@ Inside `runWithTenant`, raw SQL that names a tenant table is refused, because St
 |---|---|---|---|
 | ORM tenant condition on every query | ✔ the guarantee | ✔ the guarantee | ✔ first layer |
 | Final SQL check before sending | ✔ | ✔ | ✔ |
-| Composite foreign keys `(tenant_id, x)` | ✔ | ✔ | ✔ |
+| Composite foreign keys `(tenant_id, x)` | coming in 0.2 | coming in 0.2 | coming in 0.2 |
 | Row-level security in the database | not available | not available | ✔ second layer |
 | One tenant per transaction | ORM check | ORM check | enforced |
 
-On **PostgreSQL**, each tenant query also sets the tenant inside the database, and row-level security (ADR-0007) refuses other tenants' rows even if the app's condition were bypassed. On **MySQL and SQLite** there's no such database feature, so the ORM's condition, its final check and attack-style tests (a tenant trying every way into another's data) are the guarantee. Tasks also can't point at another tenant's project: the foreign key includes the tenant column.
+On **PostgreSQL**, each tenant query also sets the tenant inside the database, and row-level security (ADR-0007) refuses other tenants' rows even if the app's condition were bypassed. To make that work, every query on a tenant table runs inside a short transaction that sets the tenant for the database, and one transaction can only ever belong to one tenant. On **MySQL and SQLite** there's no such database feature, so the ORM's condition, its final check and attack-style tests (a tenant trying every way into another's data) are the guarantee. Once composite foreign keys arrive, tasks also can't point at another tenant's project, because the foreign key will include the tenant column.
 
 ## Common mistakes
 
@@ -219,5 +251,5 @@ OrmUsageError: Tenancy bypasses need a short reason for the audit log, e.g. unsa
 ## Next steps
 
 - [Transactions](../orm-transactions/): one tenant per unit of work.
-- [Teams & Tenancy](../tenancy/): teams from the user's side.
+- [Teams & Tenancy](../tenancy/): how teams, sign-in and tenancy fit together in an app.
 - [Authorization](../authorization/): who may do what inside one team.

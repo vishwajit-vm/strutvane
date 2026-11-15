@@ -62,7 +62,40 @@ export class Tag extends Model('tags', { fillable: ['name'] }) {
 | `hasMany(Post, 'author_id')` | many other rows point at this one | a user's posts |
 | `belongsToMany(Tag, 'post_tag')` | rows are linked through a third table (a **pivot** table) | a post's tags |
 
-For `belongsToMany`, the pivot's key columns are guessed from the model names (`post_id`, `tag_id`). When they're named differently, pass them: `this.belongsToMany(Label, 'project_label', 'project_id', 'label_id')`.
+### What Strutvane guesses for you
+
+You can leave out the names that follow Laravel's conventions:
+
+| Relationship | Full form | Guessed when left out |
+|---|---|---|
+| `belongsTo` | `this.belongsTo(User, 'author_id', 'id')` | foreign key `<other table, singular>_id` (here it would guess `user_id`, so pass `'author_id'`); owner key `id` |
+| `hasMany` | `this.hasMany(Post, 'author_id', 'id')` | foreign key `<this table, singular>_id` (here `user_id`); local key `id` |
+| `belongsToMany` | `this.belongsToMany(Tag, 'post_tag', 'post_id', 'tag_id')` | pivot table: both singular names in alphabetical order (`post_tag`); keys `post_id` and `tag_id` |
+
+When the names are different, pass them: `this.belongsToMany(Label, 'project_label', 'project_id', 'label_id')`. Every name you pass is a typed column, so a typo doesn't compile.
+
+### The tables behind them
+
+Relationships read the foreign keys your migrations created. The `posts` → `users` link and the `post_tag` pivot table look like this:
+
+```ts title="database/migrations/2026_11_14_094000_create_post_tag_table.ts"
+import { migration } from '@strutvane/framework/schema'
+
+export default migration({
+  up(schema) {
+    schema.create('post_tag', (t) => {
+      t.foreignId('post_id').constrained().cascadeOnDelete()
+      t.foreignId('tag_id').constrained().cascadeOnDelete()
+      t.unique(['post_id', 'tag_id'])
+    })
+  },
+  down(schema) {
+    schema.dropIfExists('post_tag')
+  },
+})
+```
+
+A pivot table needs no model and no `id`. See [Migrations](../migrations/) for `foreignId()` and `constrained()`.
 
 ## Loading relationships with `with()`
 
@@ -81,7 +114,18 @@ Ada two by Ada
 Grace one by Grace
 ```
 
-However many posts there are, that's **2 queries**: one for the posts, one for all their authors (`WHERE id IN (…)`). Loading the authors one by one would have been 1 + one per post. After `with('author')`, `post.author` is typed `User | null`, and `user.posts` would be `Post[]`.
+However many posts there are, that's **2 queries**: one for the posts, one for all their authors (`WHERE id IN (…)`). After `with('author')`, `post.author` is typed `User | null`, and `user.posts` would be `Post[]`.
+
+### The N+1 problem, counted
+
+Here is what `with()` saves you, for six posts:
+
+| How | Queries |
+|---|---|
+| Load the posts, then each post's author one by one | 1 + 6 = **7** (one more for every extra post) |
+| `Post.query().with('author').get()` | **2**, for 6 posts or 6,000 |
+
+With 6,000 posts the first way would send 6,001 queries. That's why Strutvane refuses the one-by-one way inside a list (see Common mistakes). Very long lists are loaded in groups of 1,000 keys per query, so the `IN (…)` list never gets too big for the database.
 
 ### Several and nested
 
@@ -157,17 +201,21 @@ For **one** model, `load()` fetches a relationship afterwards:
 
 ```ts
 const post = await Post.query().where('title', 'Ada one').firstOrFail()
-await post.load('author')
-console.log(post.author?.name) // → Ada
+const loaded = await post.load('author')
+console.log(loaded.author?.name) // → Ada
 ```
 
-For a **list**, use `loadMany()`: one query for the whole list.
+Use the value `load()` returns: it's the same post, typed with `author` loaded (`User | null`). The variable `post` keeps its old type, where `author` is still the method.
+
+For a **list**, use `loadMany()`: one query for the whole list. It fills the models in place but can't change their TypeScript type, so prefer `with()` in the query when you can:
 
 ```ts
 import { loadMany } from '@strutvane/framework'
 
 const posts = await Post.query().get()
 await loadMany(posts, 'author')
+console.log(JSON.stringify(posts[0]))
+// → {"id":1,"title":"Ada one",…,"author":{"id":1,"name":"Ada",…}}
 ```
 
 ## Linking rows in a pivot table
@@ -194,8 +242,20 @@ console.log(JSON.stringify(post))
 // → {"id":1,"title":"Ada one",…,"author":{"id":1,"name":"Ada","email":"ada@example.test",…}}  (no password)
 ```
 
+## Relationships and teams
+
+On tenant tables (see [Tenancy](../orm-tenancy/)), every relationship query, eager load, count and `whereHas()` is limited to the active tenant, the same as a normal query. `attach()` and `sync()` first check that every id belongs to the active tenant, and refuse an id from another team as "not found":
+
+```ts
+await runWithTenant(teamA, async () => {
+  const project = await Project.query().where('name', 'Apollo').firstOrFail()
+  await project.labels().attach([labelOfTeamB.id])
+  // ModelNotFoundError: No row in "labels" with key 7. It may not exist, may be soft-deleted, or may belong to another tenant.
+})
+```
+
 :::caution[Coming in 0.2]
-These are designed but not built yet: `hasOne`, `hasManyThrough`, polymorphic relationships (`morphTo`, `morphMany`, with a required morph map), extra pivot columns (`withPivot`), `withSum`/`withExists`, `ofMany`, and a development warning that spots the same query repeated more than 5 times in one request.
+These are designed but not built yet: `hasOne`, `hasManyThrough`, polymorphic relationships (`morphTo`, `morphMany`, `morphToMany`, with a required morph map so class names are never stored), extra pivot columns and pivot timestamps (`withPivot`), `withSum`/`withExists`, `ofMany`, `touches` (updating the parent's `updated_at`), and a development warning that spots the same query repeated more than 5 times in one request.
 :::
 
 ## Common mistakes
@@ -216,9 +276,23 @@ const posts = await Post.query().with('author').get()
 await loadMany(posts, 'author')
 ```
 
-### `post.author.name` doesn't compile
+### A relationship method that isn't a relationship
 
-**Why:** until you load it, `post.author` is the relation method, not the user.
+```text
+OrmUsageError: Post.summary() is not a relation: it must return this.belongsTo(…), this.hasMany(…) or this.belongsToMany(…).
+```
+
+**Why:** `with('summary')` names a method, but that method returns something else. Relationship methods must return one of the three relationship calls, and must not be `async`.
+
+**Fix:** only pass relationship names to `with()`, `withCount()`, `whereHas()` and `load()`.
+
+### `post.author.email` doesn't compile
+
+```text
+error TS2339: Property 'email' does not exist on type '() => BelongsTo<typeof User>'.
+```
+
+(something like this). **Why:** until you load it, `post.author` is the relation method, not the user.
 
 **Fix:** add `with('author')` to the query, or `await post.load('author')` for a single post.
 

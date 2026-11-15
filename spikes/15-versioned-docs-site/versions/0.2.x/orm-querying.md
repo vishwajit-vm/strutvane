@@ -1,6 +1,6 @@
 ---
 title: "Querying"
-description: "Find exactly the rows you need with typed conditions, grouping, ordering, limits, request-driven search and safe raw SQL."
+description: "Find exactly the rows you need with typed conditions, grouping, ordering, limits, request-driven search and filters, and safe raw SQL."
 ---
 
 A **query** is a question you ask the database: "which posts are published, newest first?". In Strutvane you build it with the **query builder**: a chain of methods that starts with `Post.query()` (or a shortcut like `Post.where(...)`) and ends with a method that runs it, such as `get()` or `first()`.
@@ -8,7 +8,7 @@ A **query** is a question you ask the database: "which posts are published, newe
 Every column name and value is checked by TypeScript against your migrations, and every value is sent to the database separately from the SQL (a **bound parameter**), so user input can never become SQL.
 
 :::tip[Coming from Laravel?]
-`Post::where('status', 'published')->orderBy('created_at', 'desc')->get()` becomes `Post.where('status', 'published').orderBy('created_at', 'desc').get()`, with `await`. Columns keep their migration names. Two deliberate differences: `!=` matches rows where the column is `NULL` (like JavaScript's `!==`), and raw SQL is only accepted through the `` sql`…` `` tag, never as a string.
+`Post::where('status', 'published')->orderBy('created_at', 'desc')->get()` becomes `Post.where('status', 'published').orderBy('created_at', 'desc').get()`, with `await`. Columns keep their migration names. Two deliberate differences: `!=` matches rows where the column is `NULL` (like JavaScript's `!==`), and raw SQL is only accepted through the `` sql`…` `` tag, never as a string. `LIKE` isn't an operator: use `whereContains()` or `search()`.
 :::
 
 ## The smallest query
@@ -26,11 +26,15 @@ console.log(posts.map((post) => post.title))
 [ 'Alpha', 'Gamma' ]
 ```
 
-## Running a query: the "terminal" methods
+The examples on this page use four posts: **Alpha** (published, with a body), **Beta** (draft), **Gamma** (published) and **Delta 100%** (draft). Only Alpha has a `body`.
 
-Nothing is sent to the database until you call one of these:
+## How a query is built and run
 
-| Method | Returns | Use it when |
+1. **Start** a query: `Post.query()`, or a shortcut on the model (`Post.where(...)`, `Post.with(...)`, `Post.withTrashed()`, `Post.onlyTrashed()`).
+2. **Add** conditions, ordering, limits, relationships and scopes. Each method returns the same builder, so you can chain them.
+3. **Run** it with a terminal method. Nothing is sent to the database before this step.
+
+| Terminal method | Returns | Use it when |
 |---|---|---|
 | `get()` | `Post[]` (may be empty) | you want a list |
 | `first()` | `Post` or `undefined` | you want one row, if any |
@@ -39,6 +43,7 @@ Nothing is sent to the database until you call one of these:
 | `count()` | `number` | you only need how many |
 | `exists()` | `boolean` | you only need "any at all?" |
 | `paginate()` / `cursorPaginate()` | a page | see [Pagination](../orm-pagination/) |
+| `toSql()` | `{ sql, params }`, without running | you want to see the SQL |
 
 ## Conditions
 
@@ -48,17 +53,17 @@ Nothing is sent to the database until you call one of these:
 await Post.query().where('status', 'published').get()
 ```
 
-The value is typed by the column: `where('status', 'archived')` doesn't compile when the column only allows `draft` and `published`.
+The value is typed by the column: `where('status', 'archived')` doesn't compile when the column only allows `draft` and `published`, and `where('author_id', 'abc')` doesn't compile because `author_id` is a number.
 
 ### Comparisons
 
 Pass an operator in the middle. The allowed operators are `=`, `!=`, `<>`, `<`, `<=`, `>` and `>=`:
 
 ```ts
-await Post.query().where('view_count', '>=', 10).where('id', '>', 100).get()
+await Post.query().where('published_on', '>=', '2026-01-01').where('id', '>', 100).get()
 ```
 
-Several `where()` calls are joined with AND.
+Several `where()` calls are joined with **AND**: every condition must match.
 
 ### OR
 
@@ -67,9 +72,11 @@ const rows = await Post.query().where('title', 'Alpha').orWhere('title', 'Beta')
 // → titles: [ 'Beta', 'Alpha' ]
 ```
 
+`orWhere()` takes the same forms as `where()`.
+
 ### Grouping with parentheses
 
-Pass a function to `where()` to group conditions, like brackets in maths:
+Pass a function to `where()` (or `orWhere()`) to group conditions, like brackets in maths:
 
 ```ts
 const rows = await Post.query()
@@ -80,25 +87,29 @@ const rows = await Post.query()
 // → titles: [ 'Alpha' ]
 ```
 
+Without the group, `status = 'published' AND title = 'Alpha' OR title = 'Beta'` would also return the draft Beta. When in doubt, group.
+
 ### In a list, or not
 
 ```ts
 await Post.query().whereIn('title', ['Gamma', 'Alpha', 'Nope']).get() // → Alpha, Gamma
 await Post.query().whereIn('title', []).get()                         // → [] (an empty list matches nothing)
-await Post.query().whereNotIn('status', ['draft']).get()
+await Post.query().whereNotIn('status', ['draft']).get()              // → Alpha, Gamma
 ```
 
 ### Empty values (NULL)
 
+`NULL` is the database's "no value". These find rows with or without a value:
+
 ```ts
-await Post.query().whereNull('body').count()     // posts with no body
-await Post.query().whereNotNull('body').get()    // posts with a body
-await Post.query().where('body', null).count()   // same as whereNull
+await Post.query().whereNull('body').count()     // → 3: posts with no body
+await Post.query().whereNotNull('body').get()    // → Alpha
+await Post.query().where('body', null).count()   // → 3: the same as whereNull
 ```
 
 ### `!=` includes empty values
 
-In plain SQL, `body <> 'x'` silently skips rows where `body` is `NULL`. Strutvane's `!=` and `whereNotIn` include them, the way `!==` works in JavaScript:
+In plain SQL, `body <> 'x'` silently skips rows where `body` is `NULL`. Strutvane's `!=`, `<>` and `whereNotIn` include them, the way `!==` works in JavaScript:
 
 ```ts
 // body is NULL for Beta, Gamma and Delta, and 'has a body' for Alpha.
@@ -106,17 +117,30 @@ await Post.query().where('body', '!=', 'has a body').count() // → 3, not 0
 await Post.query().where('body', '!=', null).count()         // → 1 (only rows with a body)
 ```
 
+### Contains and starts with
+
+For "contains" and "starts with" there are two methods instead of a `LIKE` operator. Both ignore upper and lower case, and `%` and `_` are ordinary characters, not wildcards:
+
+```ts
+await Post.query().whereContains('title', '100%').get()      // → [ 'Delta 100%' ]
+await Post.query().whereStartsWith('slug', 'gam').get()      // → [ 'Gamma' ]
+```
+
+Because `%` is literal, a user searching for `100%` finds exactly that, and a search for `%` doesn't match every row.
+
 ## Ordering and limiting
 
 ```ts
 await Post.query().orderBy('title').get()                 // A → Z ('asc' is the default)
 await Post.query().orderBy('created_at', 'desc').get()    // newest first
-await Post.query().latest().get()                         // the same: newest by created_at
+await Post.query().orderBy('status').orderBy('title').get() // by status, then by title
+await Post.query().latest().get()                         // newest by created_at
+await Post.query().latest('published_on').first()         // newest by another column
 await Post.query().orderBy('title').limit(2).offset(1).get()
 // → [ 'Beta', 'Delta 100%' ] (skip 1, take 2)
 ```
 
-`latest()` sorts by `created_at`, newest first. On a table without timestamps, pass a column: `latest('id')`.
+`latest()` sorts by `created_at`, newest first. On a table without timestamps, pass a column: `latest('id')`. `limit()` and `offset()` take whole numbers of 0 or more.
 
 ## Shortcuts on the model
 
@@ -126,6 +150,7 @@ These start a query for you, so you can skip `.query()`:
 await Post.where('status', 'draft').get()
 await Post.with('author').get()          // see Relationships
 await Post.withTrashed().find(1)         // see Soft Deletes
+await Post.onlyTrashed().get()
 ```
 
 ## Branching a query with `clone()`
@@ -136,27 +161,58 @@ The builder changes in place (like Laravel's). To build two queries from a commo
 const base = Post.query().where('status', 'published')
 const total = await base.clone().count()
 const newest = await base.clone().latest().limit(5).get()
+console.log(total, newest.length)
+// → 2 2
 ```
+
+Without `clone()`, the `latest().limit(5)` would also change `base`.
 
 ## Search, filter and sort from a request
 
-Your own conditions use typed column names. When names come from a **request** (a URL like `?search=hello&sort=-title`), they're just strings, so the builder has three methods that check every name at runtime against the table and refuse anything unknown:
+Your own conditions use typed column names. When names come from a **request** (a URL like `?search=hello&sort=-title`), they're plain strings, so the builder has three methods that check every name at runtime against the table and refuse anything unknown:
 
 ```ts
 await Post.query().search('100%', ['title', 'body']).get()   // → [ 'Delta 100%' ]
 await Post.query().filter('status', 'in', ['draft']).sort('-title').get()
 await Post.query().filter('title', 'startsWith', 'ga').get() // → [ 'Gamma' ]
-await Post.query().filter('body', 'null', true).count()      // posts with no body
+await Post.query().filter('body', 'null', true).count()      // → 3: posts with no body
+await Post.query().filter('body', 'null', false).count()     // → 1: posts with a body
 ```
 
-- **`search(term, columns)`**: case-insensitive, and `%` and `_` are ordinary characters, not wildcards.
-- **`filter(column, operator, value)`**: operators are `eq`, `ne`, `gt`, `gte`, `lt`, `lte`, `in`, `contains`, `startsWith` and `null`.
-- **`sort('-created_at,title')`**: a minus sign means descending.
+- **`search(term, columns)`**: rows where **any** of the columns contains the term. Case-insensitive; `%` and `_` are ordinary characters; a blank term adds nothing; at most 200 characters.
+- **`filter(column, operator, value)`**: operators are `eq`, `ne`, `gt`, `gte`, `lt`, `lte`, `in` (a list), `contains`, `startsWith` and `null` (`true` for "is empty", `false` for "has a value").
+- **`sort('-created_at,title')`**: comma-separated columns; a minus sign means descending.
 
-The generated CRUD API is built on these (see [Search, Filters & Sorting](../crud-search/)). Hostile input stays data:
+A typical controller reads them from the URL:
+
+```ts title="app/http/controllers/post.controller.ts (excerpt)"
+const search = ctx.query.get('search') ?? ''
+const sort = ctx.query.get('sort') ?? '-created_at'
+
+const posts = await Post.query()
+  .search(search, ['title', 'body'])
+  .sort(sort)
+  .limit(25)
+  .get()
+return ctx.json({ data: posts })
+```
+
+**What you'll see** for `GET /posts?search=alp&sort=title`:
+
+```json
+{ "data": [ { "id": 1, "title": "Alpha", "status": "published" } ] }
+```
+
+(shortened: every column of the post is included).
+
+:::caution[Existing isn't the same as allowed]
+These methods only check that a column **exists**. Before passing names from a request, also check that the column may be searched, sorted or filtered (the generated CRUD API checks the lists in `.strutvane/resources.json`; see [Search, Filters & Sorting](../crud-search/)). Otherwise a user could sort by a column you never meant to expose.
+:::
+
+Hostile input stays data:
 
 ```ts
-await Post.query().where('title', "x' OR '1'='1").count() // → 0, it's just a strange title
+await Post.query().where('title', "x' OR '1'='1").count() // → 0, it's only a strange title
 Post.query().sort('title; DROP TABLE posts')              // throws OrmUsageError: no such column
 ```
 
@@ -175,6 +231,8 @@ const rows = await Post.query()
 // → [ 'Alpha', 'Delta 100%', 'Gamma' ]
 ```
 
+On tenant tables, raw conditions that name a tenant table are refused inside a tenant, because Strutvane can't check them for the tenant condition. See [Tenancy](../orm-tenancy/).
+
 ## Seeing the SQL
 
 `toSql()` shows the statement and its values without running it:
@@ -192,10 +250,45 @@ SELECT `posts`.* FROM `posts` WHERE `posts`.`status` = ? AND `posts`.`deleted_at
 [ 'published' ]
 ```
 
-Notice the `deleted_at IS NULL`: soft-deleted rows are left out automatically.
+Notice the `deleted_at IS NULL`: soft-deleted rows are left out automatically. On a tenant table you'd also see the tenant condition.
+
+## Three queries, from small to advanced
+
+**Small:** one condition.
+
+```ts
+const drafts = await Post.where('status', 'draft').get()
+```
+
+**Typical:** a page of a list screen, with a scope, a relationship and a count.
+
+```ts
+const page = await Post.query()
+  .published()
+  .with('author')
+  .withCount('tags')
+  .latest()
+  .paginate(25, 1)
+```
+
+**Advanced:** a reusable base query, a grouped OR, a relationship filter and a raw condition.
+
+```ts
+import { sql } from '@strutvane/framework'
+
+const recent = Post.query().where('published_on', '>=', '2026-01-01')
+
+const needsReview = await recent
+  .clone()
+  .where((query) => query.whereNull('body').orWhere('status', 'draft'))
+  .whereHas('tags', (query) => query.where('name', 'news'))
+  .whereRaw(sql`length(${sql.id('title')}) < ${10}`)
+  .orderBy('published_on', 'desc')
+  .get()
+```
 
 :::caution[Coming in 0.2]
-These are designed but not built yet: `join`/`leftJoin`, `select`, `groupBy`/`having`, `distinct`, `when(condition, fn)`, `lockForUpdate`, `increment`/`decrement`, bulk `update`/`delete`, aggregates (`sum`, `avg`, `min`, `max`), `pluck`/`value`, and streaming large tables with `cursor()`/`chunkById()`.
+These are designed but not built yet: `join`/`leftJoin`, `select`, `groupBy`/`having`, `distinct`, `when(condition, fn)`, `lockForUpdate`, `increment`/`decrement`, bulk `update`/`delete`, aggregates (`sum`, `avg`, `min`, `max`), `pluck`/`value`, and streaming large tables with `cursor()`/`chunkById()`. The [Query Builder](../queries/) page covers queries without models.
 :::
 
 ## Common mistakes
@@ -208,10 +301,10 @@ OrmUsageError: "LIKE" is not a supported operator. Use one of: = != <> < <= > >=
 
 **Why:** `where()` only accepts comparison operators, so a typo can never turn into SQL.
 
-**Fix:** for "contains" searches, use `search()` or `filter(column, 'contains', text)`:
+**Fix:** for "contains" searches, use `whereContains()`, `search()` or `filter(column, 'contains', text)`:
 
 ```ts
-await Post.query().filter('title', 'contains', 'hello').get()
+await Post.query().whereContains('title', 'hello').get()
 ```
 
 ### "whereRaw() needs a sql fragment, not a string"
@@ -232,7 +325,7 @@ OrmUsageError: "posts" has no column "titel". Did you mean "title"? Columns come
 
 **Why:** `sort()`, `filter()` and `search()` check names at runtime. (In your own code, a typo in `where()` is already a compile error.)
 
-**Fix:** use the real column name; check them with `node strut model:show Post`.
+**Fix:** use the real column name; list them with `node strut model:show Post`.
 
 ### Sort direction from user input
 
@@ -241,6 +334,40 @@ OrmUsageError: Sort direction must be "asc" or "desc", not "asc; DROP TABLE post
 ```
 
 **Fix:** map user input to `'asc'` or `'desc'` yourself, or use `sort('-title')`, which parses the minus sign safely.
+
+### A filter operator that doesn't exist
+
+```text
+OrmUsageError: "like" is not a filter operator. Use one of: eq, ne, gt, gte, lt, lte, in, contains, startsWith, null.
+```
+
+**Fix:** use one of the listed operators; for `in`, pass a list: `filter('status', 'in', ['draft', 'published'])`.
+
+### A very long search term
+
+```text
+OrmUsageError: Search text is limited to 200 characters.
+```
+
+**Why:** long "contains" searches are slow and almost always abuse.
+
+**Fix:** cut the term in your request validation, or tell the user it's too long.
+
+### A negative limit or offset
+
+```text
+OrmUsageError: limit() needs a whole number of 0 or more; got -1.
+```
+
+**Fix:** check numbers from the URL before using them, or use [pagination](../orm-pagination/), which checks them for you.
+
+### `latest()` on a table without timestamps
+
+```text
+OrmUsageError: "tags" has no created_at column; pass the column to sort by, e.g. latest('id').
+```
+
+**Fix:** `latest('id')`, or add `t.timestamps()` to the table in a new migration.
 
 ## Next steps
 

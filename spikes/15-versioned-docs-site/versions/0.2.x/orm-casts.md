@@ -30,16 +30,18 @@ post.meta          // → { tags: [ 'orm' ], pinned: true }  (JSON parsed)
 | `t.timestamp()`, `t.timestamps()` | `Date` | always UTC, on every database |
 | `t.date()` | `string` like `'2026-11-14'` | no time, so no time-zone shifts |
 | `t.decimal('price', 12, 2)` | `string` like `'10.50'` | exact: never a float, so no lost cents |
-| `t.integer()`, `t.id()` | `number` | values beyond the safe integer range are refused |
+| `t.integer()`, `t.bigInteger()`, `t.id()`, `t.foreignId()` | `number` | whole numbers only; a string of digits (as in a URL) is accepted on the way in; values beyond JavaScript's safe range are refused |
+| `t.double()` | `number` | must be a finite number |
 | `t.enum('status', [...])` | the union of the values | other values are refused before any SQL |
-| `t.string('title', 200)` | `string` | the length is checked, even on SQLite, which ignores it |
+| `t.string('title', 200)`, `t.slug()`, `t.text()` | `string` | the length is checked, even on SQLite, which ignores it; the NUL character is refused everywhere |
 | `t.uuid()` | `string` | must be a valid UUID; stored lower-case |
 | `t.json()` | a JSON value | parsed on read; give it a type with `json<T>()` |
 
 ### Decimals are strings
 
 ```ts
-const project = await Project.create({ name: 'Budgeted', budget: 10.5 })
+// projects.budget is t.decimal('budget', 12, 2); projects is a tenant table, so a tenant must be active.
+const project = await runWithTenant(teamId, () => Project.create({ name: 'Budgeted', budget: 10.5 }))
 console.log(project.budget) // → '10.50'
 ```
 
@@ -60,6 +62,8 @@ CastError: Can't store that value in "posts.status": "archived" is not one of dr
 ```
 
 Every database gives the same error, because the check runs in Strutvane, not in the database. In a controller, it becomes a 422 response.
+
+This matters most on MySQL, which compares across types by converting: on a raw MySQL server, `'1abc' = 1` is true. Strutvane checks the type of every value, in writes **and** in `where()`, before any SQL is sent, so an id of `'1abc'` taken from a URL is a `CastError` (`expected a whole number, got "1abc"`), not a surprise match with row 1.
 
 ## Typing a JSON column with `json<T>()`
 
@@ -154,8 +158,18 @@ post.isPublished          // → true
 post.toJSON().isPublished // undefined: accessors aren't part of the JSON
 ```
 
+### The order casts run in
+
+When you **write** a value (create, fill, assignment, or a `where()` value):
+
+1. your model cast's `set` runs, if the column has one;
+2. the built-in cast for the column type checks and converts it;
+3. the value is sent to the database as a bound parameter.
+
+When you **read** a row, it's the other way round: the built-in cast first, then your cast's `get`. `NULL` skips both and stays `null`.
+
 :::caution[Coming in 0.2]
-`encrypted()` (a cast that encrypts a column with your `APP_KEY`) and `asEnum(MyEnum)` are designed but not built yet. Computed fields in JSON will come with API resources (see [API Resources](../orm-resources/)).
+`encrypted()` (a cast that encrypts a column with your `APP_KEY`) and `asEnum(MyEnum)` (a TypeScript enum for a column) are designed but not built yet. A `t.enum()` column already gives you a checked union type today. Computed fields in JSON will come with API resources (see [API Resources](../orm-resources/)).
 :::
 
 ## Common mistakes
@@ -193,6 +207,16 @@ OrmUsageError: Post casts "metadata", but "posts" has no such column.
 ```
 
 **Fix:** use the column name from the migration (`meta`), or add the column first.
+
+### A JSON body sends a number where text is expected
+
+```text
+CastError: Can't store that value in "posts.title": expected text, got 42.
+```
+
+**Why:** a request body can contain any JSON type. The cast refuses a number for a text column instead of storing `'42'` by surprise.
+
+**Fix:** validate request bodies first (see [Validation](../validation/)), so users get a field-level message.
 
 ### Comparing a decimal as a number
 

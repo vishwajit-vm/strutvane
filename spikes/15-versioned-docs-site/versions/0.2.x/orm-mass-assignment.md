@@ -68,11 +68,24 @@ await draft.save()
 Seeders, imports and your own services sometimes need to set columns users must never set. Use the `force` versions, and only with data you control:
 
 ```ts title="database/seeders/post.seeder.ts (excerpt)"
-const post = await Post.forceCreate({ title: 'Seeded', author_id: ada.id, view_count: 7 })
-console.log(post.view_count) // → 7
+const post = await Post.forceCreate({ title: 'Seeded', author_id: ada.id, status: 'published' })
+console.log(post.author_id === ada.id) // → true
 ```
 
-Even `forceCreate()` refuses columns Strutvane manages itself.
+`forceFill()` does the same on a model you already have, and `setAttribute()` sets one column by name (handy when the name is in a variable):
+
+```ts
+const post = await Post.findOrFail(1)
+post.forceFill({ author_id: grace.id, status: 'published' })
+post.setAttribute('title', 'Edited by an admin script')
+await post.save()
+```
+
+Even `forceCreate()` and `forceFill()` refuse columns Strutvane manages itself, and every name must still be a real column: a typo throws with a "did you mean".
+
+:::danger[Never pass request data to the force methods]
+`forceCreate(ctx.body)` would let anyone set any column, including `is_admin`. Use the force methods only with values your own code chose.
+:::
 
 ## Columns Strutvane manages
 
@@ -84,9 +97,11 @@ These can never be mass-assigned, not even with `forceCreate()`:
 
 ## Sensitive-looking columns need `allowSensitive`
 
-Some names usually mean "privileges" or "workflow": `is_*`, `*_at`, `*_by`, `role`, `plan`, `permissions`, `user_id`, `owner_id`. If you list one in `fillable`, Strutvane asks you to confirm it by listing it in `allowSensitive` too:
+Some names usually mean "privileges" or "workflow": `is_*`, `*_at`, `*_by`, `role`, `roles`, `plan`, `permissions`, `user_id`, `owner_id`. If you list one in `fillable`, Strutvane asks you to confirm it by listing it in `allowSensitive` too. Say your `tasks` table has an `is_urgent` flag that users may really tick:
 
 ```ts title="app/models/task.ts"
+import { Model } from '@strutvane/framework'
+
 export class Task extends Model('tasks', {
   fillable: ['title', 'done', 'is_urgent'],
   allowSensitive: ['is_urgent'], // yes, users may really set this one
@@ -97,7 +112,26 @@ Without `allowSensitive`, Strutvane refuses to use the model the first time it l
 
 ## New columns are read-only until you list them
 
-When a later migration adds a column, it's **not** fillable until you add it to the list. A column nobody thought about can't be set from a request by accident.
+When a later migration adds a column, it's **not** fillable until you add it to the list. A column nobody thought about can't be set from a request by accident. That's also why a model written by `node strut make:migration create_posts_table` starts with an empty `fillable` list.
+
+### Deciding what goes in `fillable`
+
+For each column, ask in order:
+
+1. **Does Strutvane manage it?** (`id`, timestamps, `deleted_at`, the tenant column) Leave it out; you can't list it anyway.
+2. **Does it say who owns the row, or grant something?** (`author_id`, `is_admin`, `role`, `plan`) Leave it out and set it in your own code, usually through a relationship.
+3. **Is it a plain value a user types in a form?** (`title`, `body`, `status`) Put it in `fillable`.
+4. **Is it sensitive-looking but really user-editable?** Put it in `fillable` **and** `allowSensitive`.
+
+## The order of the checks
+
+For every key in the object you pass to `create()` or `fill()`, Strutvane checks, in this order, and stops at the first problem:
+
+1. the column exists (otherwise "has no column", with a suggestion);
+2. it isn't managed by Strutvane (otherwise "is managed by Strutvane");
+3. it's in `fillable` (otherwise "can't be mass-assigned").
+
+A refused body is never saved: `create()` stops before the INSERT. With `fill()` on a model you already loaded, the keys before the bad one are already set on the object, so after catching the error don't `save()` it; call `await post.refresh()` to get the stored values back.
 
 ## Typos get a suggestion, and tricks are refused
 
@@ -109,7 +143,7 @@ await User.create(JSON.parse('{"name": "Eve", "email": "e@x.test", "__proto__": 
 // MassAssignmentError: "users" has no column "__proto__". …
 ```
 
-The second one is a classic JavaScript trick (prototype pollution). It's just an unknown column here.
+The second one is a classic JavaScript trick (prototype pollution). Here it's one more unknown column.
 
 :::caution[Don't merge request bodies with Object.assign]
 `Object.assign(target, body)` with a body that contains `__proto__` changes the object's prototype instead of copying a field. Pass request bodies straight to `create()`/`fill()` (which check every key), or validate them first with a form request (see [Validation](../validation/)).

@@ -75,9 +75,18 @@ page.data[0]?.tags_count
 The page number usually comes from the URL (`?page=2`). Turn it into a number and let Strutvane check it:
 
 ```ts title="app/http/controllers/post.controller.ts (excerpt)"
-const pageNumber = Number(ctx.url.searchParams.get('page') ?? '1')
+const pageNumber = Number(ctx.query.get('page') ?? '1')
 const page = await Post.query().latest().paginate(25, pageNumber)
-return ctx.json({ data: page.data, meta: { total: page.total, page: page.currentPage, lastPage: page.lastPage } })
+return ctx.json({ data: page.data, meta: { total: page.total, page: page.currentPage, perPage: page.perPage, lastPage: page.lastPage } })
+```
+
+**What you'll see** for `GET /posts?page=2`, with 30 posts (shortened):
+
+```json
+{
+  "data": [ { "id": 5, "title": "Post 5" }, { "id": 4, "title": "Post 4" } ],
+  "meta": { "total": 30, "page": 2, "perPage": 25, "lastPage": 2 }
+}
 ```
 
 A page number below 1, or something that isn't a whole number, is refused (see Common mistakes). The generated CRUD API already does all of this for you.
@@ -126,7 +135,33 @@ const page = await Post.query().orderBy('status', 'desc').cursorPaginate(3)
 
 ### Cursors are tied to their query
 
-A cursor remembers the sort order it was made for. Using it with a different order, or changing a single character, is refused instead of returning wrong rows.
+A cursor remembers the table and the sort order it was made for. Using it with a different order, or changing a single character, is refused instead of returning wrong rows. A cursor is not a secret, though: it holds the sort values of the last row (base64 text), so don't sort cursor pages by a column the user mustn't see.
+
+### Cursor pages in an API
+
+Send the cursor to the client and read it back from the next request:
+
+```ts title="app/http/controllers/post.controller.ts (excerpt)"
+const cursor = ctx.query.get('cursor') ?? undefined
+const page = await Post.query().published().orderBy('created_at', 'desc').cursorPaginate(25, cursor)
+return ctx.json({ data: page.data, meta: { perPage: page.perPage, nextCursor: page.nextCursor } })
+```
+
+**What you'll see** (shortened):
+
+```json
+{ "data": [ { "id": 30, "title": "Post 30" } ], "meta": { "perPage": 25, "nextCursor": "eyJmIjoicG9zdHM6Y3JlYXRlZF9hdDpkZXNjLGlkOmRlc2MiLCJ2IjpbIjIwMjYtMTEtMTRUMDk6MzA6MDAuMDAwWiIsNl19" } }
+```
+
+The client calls `GET /posts?cursor=<nextCursor>` for more, and stops when `nextCursor` is `null`.
+
+## How the generated API pages lists
+
+The generated CRUD API uses the same two modes, with its own URL parameters (`?page=2&perPage=25`), a maximum of 100 per page, and a `meta` object with `page`, `perPage`, `total`, `lastPage`, `from` and `to`. The admin screens show numbered pages with 10, 25, 50 or 100 rows. See [Pagination](../pagination/) for the API and the screens.
+
+:::caution[Coming in 0.2]
+`simplePaginate()` (next and previous only, without counting the total) and capping the total count at 10,000 rows on very large tables are designed but not built yet.
+:::
 
 ## Which one should I use?
 
@@ -154,7 +189,7 @@ OrmUsageError: Page numbers start at 1; got 0.
 
 **Why:** pages are numbered from 1, like in a book.
 
-**Fix:** default to 1 when the request has no page: `Number(ctx.url.searchParams.get('page') ?? '1')`.
+**Fix:** default to 1 when the request has no page: `Number(ctx.query.get('page') ?? '1')`.
 
 ### A cursor from a different sort, or a tampered one
 

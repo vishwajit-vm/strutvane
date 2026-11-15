@@ -31,7 +31,11 @@ export default migration({
 })
 ```
 
-`t.slug('slug')` creates a unique text column called `slug`, and `.from('title')` says where its value comes from. Run `node strut migrate`. The model needs nothing extra.
+`t.slug('slug')` creates a unique text column called `slug` (255 characters unless you pass a length: `t.slug('slug', 120)`), and `.from('title')` says where its value comes from. Then:
+
+1. Run `node strut migrate`. The slug column and its unique index (`posts_slug_unique`) are created.
+2. Leave the model as it is: it needs nothing extra.
+3. Create rows without a slug; the ORM fills it in.
 
 ## The smallest example
 
@@ -75,11 +79,11 @@ console.log(first.slug, second.slug)
 launch launch-k3f9
 ```
 
-The suffix is four characters from an alphabet without look-alikes (no `0`/`o`, no `1`/`l`), so it's easy to read aloud and type.
+The suffix is four characters from an alphabet without look-alikes (no `0`/`o`, no `1`/`l`), so it reads aloud and types without mix-ups.
 
 Behind the scenes:
 
-- **Characters like `%` and `_` in titles are just characters**: looking for taken slugs never treats them as wildcards, so `a_b` and `axb` don't block each other.
+- **Characters like `%` and `_` in titles are plain characters**: looking for taken slugs never treats them as wildcards, so `a_b` and `axb` don't block each other.
 - **Two requests at the same moment** may pick the same slug. The database's unique index refuses the second one, and Strutvane retries it with a fresh suffix. Inside a [transaction](../orm-transactions/), the retry uses a savepoint, so your surrounding transaction survives.
 - **Soft-deleted rows keep their slug**, so restoring them never clashes.
 
@@ -93,6 +97,12 @@ const b = await runWithTenant(teamB, () => Project.create({ name: 'Launch' }))
 console.log(a.slug, b.slug)
 // → launch launch   (each team gets its own "launch")
 ```
+
+This needs the slug's unique index to include the tenant column (`UNIQUE (tenant_id, slug)`), so the database agrees that two teams may both have `launch`. The ORM looks for taken slugs only inside the active tenant, whatever the index says.
+
+:::caution[Coming in 0.2]
+Today `t.slug('slug')` always adds a unique index on the slug alone, so on a tenant table two teams can't share a slug yet. The `t.tenant()` helper (see [Tenancy](../orm-tenancy/)) is designed to make slug and other unique indexes tenant-prefixed automatically.
+:::
 
 ## Choosing a slug yourself
 

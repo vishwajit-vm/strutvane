@@ -8,7 +8,7 @@ A **soft delete** marks a row as deleted instead of removing it. The row stays i
 Use soft deletes for anything a user might delete by mistake (posts, customers, invoices), or anything you must keep for a while for legal or audit reasons.
 
 :::tip[Coming from Laravel?]
-Same idea as the `SoftDeletes` trait, but you don't add anything to the model: a table with `t.softDeletes()` in its migration *is* soft-deleting. `delete()`, `restore()`, `forceDelete()`, `trashed()`, `withTrashed()` and `onlyTrashed()` work as in Eloquent. Scheduled pruning is coming in 0.2.
+Same idea as the `SoftDeletes` trait, but you don't add anything to the model: a table with `t.softDeletes()` in its migration *is* soft-deleting. `delete()`, `restore()`, `forceDelete()`, `trashed()`, `withTrashed()` and `onlyTrashed()` work as in Eloquent. `Prunable` and `model:prune` are planned for 0.3; until then, a small job does the same (below).
 :::
 
 ## Turning it on
@@ -117,8 +117,29 @@ A deleted post still owns its slug (the unique index covers it), so restoring it
 
 The admin list hides deleted rows by default and offers a "Trashed" filter (without / with / only), a **Restore** action and, when allowed, **Delete permanently**. See [Resources](../crud/).
 
-:::caution[Coming in 0.2]
-Scheduled pruning (removing rows deleted more than N days ago) and the `restored` and `forceDeleted` model events are designed but not built yet.
+## Emptying the bin
+
+**Pruning** means removing, on a schedule, rows that were soft-deleted long ago. Until the built-in version arrives, write it as a job that runs every night:
+
+```ts title="app/jobs/prune-posts.ts"
+import { transaction } from '@strutvane/framework'
+import { Post } from '../models/post.ts'
+
+/** Removes posts that have been in the bin for more than 30 days. */
+export async function prunePosts(): Promise<number> {
+  const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+  const old = await Post.onlyTrashed().where('deleted_at', '<', cutoff).limit(500).get()
+  await transaction(async () => {
+    for (const post of old) await post.forceDelete()
+  })
+  return old.length
+}
+```
+
+**What you'll see:** the function returns how many posts it removed, at most 500 per run, so one run never locks the table for long.
+
+:::caution[Coming in 0.3]
+A `prunable()` method on the model and a scheduled `node strut model:prune` command (Laravel's `Prunable`) are planned for the release after 0.2. The `restored` and `forceDeleted` model events come with model events (designed for 0.2, not built yet).
 :::
 
 ## Common mistakes
