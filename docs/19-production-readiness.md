@@ -27,6 +27,27 @@ A package version reaches npm `latest` only when **every gate below (R1–R9) pa
 | **R8 Release** | The version follows ADR-0020. Publishing is staged by CI through trusted publishing with provenance and approved with 2FA by a maintainer (ADR-0018). The dist-tag is correct. There are release notes and a rollback plan (`npm deprecate`, plus moving the dist-tag back). The support table (`versions.json`) is updated. | The release workflow; owner approval |
 | **R9 Operations** | Logging goes only through the framework `Logger`, with redaction (ADR-0022). Health and readiness checks are registered where relevant. No debug tool is reachable in production. | Tests plus `security:check` |
 
+## Docs are the spec (project lead, 2026-11-15)
+
+The 0.2.x docs site's sidebar structure is approved and stays in this order:
+1. Prologue
+2. Getting Started
+3. Architecture Concepts
+4. The Basics
+5. Digging Deeper
+6. Security
+7. Database
+8. ORM
+9. Auto CRUD & UI
+10. Testing
+11. Packages
+12. CLI Reference
+
+The project is **built to match the docs**. Each page describes the behaviour, API and output that the code must deliver.
+- When code and docs differ, that's a bug in one of them. Fix the code, or change the docs through a recorded decision (`spikes/CONSISTENCY-*.md` or an ADR). Never leave them apart silently.
+- A feature is done only when its page has no "Coming in" marker and its examples are tested against the real package.
+- New Laravel-equivalent topics get a page in the matching group (see doc 20).
+
 ## Evidence
 
 Each repo keeps a `RELEASE-READINESS.md` with one row per gate. Each row records:
