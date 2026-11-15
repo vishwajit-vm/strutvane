@@ -156,6 +156,7 @@ export class Builder<TClass extends AnyModelClass, TResult> {
    * Post.query().whereIn('status', ['draft', 'published'])
    */
   whereIn<TColumn extends ColumnOf<TableOf<TClass>>>(column: TColumn, values: readonly NonNullable<ColumnValue<TableOf<TClass>, TColumn>>[]): this {
+    assertInSize(column, values.length)
     const ref = this.#column(column)
     this.#where.push({ kind: 'in', conjunction: 'and', column: ref, values: values.map((item) => this.#bind(ref, item)), negated: false })
     return this
@@ -168,6 +169,7 @@ export class Builder<TClass extends AnyModelClass, TResult> {
    * Post.query().whereNotIn('status', ['draft'])
    */
   whereNotIn<TColumn extends ColumnOf<TableOf<TClass>>>(column: TColumn, values: readonly NonNullable<ColumnValue<TableOf<TClass>, TColumn>>[]): this {
+    assertInSize(column, values.length)
     const ref = this.#column(column)
     this.#where.push({ kind: 'in', conjunction: 'and', column: ref, values: values.map((item) => this.#bind(ref, item)), negated: true })
     return this
@@ -298,6 +300,7 @@ export class Builder<TClass extends AnyModelClass, TResult> {
         return this
       case 'in':
         if (!Array.isArray(operand)) throw new OrmUsageError('INVALID_FILTER', `The "in" filter on "${column}" needs a list of values.`)
+        assertInSize(column, operand.length)
         this.#where.push({ kind: 'in', conjunction: 'and', column: ref, values: operand.map((item: unknown) => this.#bind(ref, item)), negated: false })
         return this
       case 'contains':
@@ -968,6 +971,14 @@ function toColumnName<TClass extends AnyModelClass>(name: string): ColumnOf<Tabl
 function withoutPaging(ast: SelectAst): SelectAst {
   const { limit: _limit, offset: _offset, ...rest } = ast
   return rest
+}
+
+/** One statement per list: refuse lists longer than `maxInValues` before any SQL is built. */
+function assertInSize(column: string, size: number): void {
+  const max = ormConfig().maxInValues
+  if (size > max) {
+    throw new OrmUsageError('TOO_MANY_VALUES', `An "in" list on "${column}" may hold at most ${max} values; got ${size}. Split the work into smaller lists, or raise the limit with configureOrm({ maxInValues }).`)
+  }
 }
 
 /** Search and text filters bind the text as-is (not through a column cast): refuse a lone surrogate there too. */

@@ -17,6 +17,11 @@ export interface OrmConfig {
   /** The largest page size `paginate()`/`cursorPaginate()` accept (protects the database). */
   readonly maxPerPage: number
   /**
+   * The longest list `whereIn`, `whereNotIn` and `filter(…, 'in', …)` accept. A request-driven
+   * `filter[id][in]=…` with 100,000 values would exceed SQLite's and PostgreSQL's parameter limits.
+   */
+  readonly maxInValues: number
+  /**
    * Multi-tenancy: the one canonical tenant column for the whole app (`tenant_id`, or `team_id`
    * for "teams"), or `false` for a single-tenant app. With tenancy on, every table either has
    * that column (scoped), is marked `global` (shared data), or is refused (fail closed).
@@ -41,6 +46,7 @@ export interface UnsafeTenancyEvent {
 let config: OrmConfig = {
   preventLazyLoading: process.env['NODE_ENV'] !== 'production',
   maxPerPage: 100,
+  maxInValues: 1000,
   tenancy: { column: 'tenant_id' },
   onUnsafeTenancy: () => undefined,
 }

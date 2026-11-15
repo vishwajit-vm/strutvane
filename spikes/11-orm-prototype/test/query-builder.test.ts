@@ -3,7 +3,7 @@
  * search/filter/sort, raw SQL, injection attempts and pagination, on every engine.
  */
 import { describe, expect, test } from 'vitest'
-import { OrmUsageError, sql } from '#orm'
+import { configureOrm, OrmUsageError, sql } from '#orm'
 import { Post, PublishedPost } from '#app/models/post'
 import { User } from '#app/models/user'
 import { type Engine, engines, engineTitle, useEngine } from './support/engines.ts'
@@ -103,6 +103,24 @@ function suite(engine: Engine): void {
     expect(await Post.query().where('title', payload).count()).toBe(0)
     expect(await Post.query().search(payload, ['title']).count()).toBe(0)
     expect(await Post.query().count()).toBe(4)
+  })
+
+  test('in-lists are capped (default 1,000, configurable) with a friendly error before any SQL', async () => {
+    // filter[id][in]=1,2,…,100000 became one statement with 100,000 placeholders: over SQLite's
+    // and PostgreSQL's parameter limits (a 500) and heavy for MySQL. The cap is checked first.
+    const many = Array.from({ length: 1001 }, (_, index) => index + 1)
+    for (const attempt of [() => Post.query().whereIn('id', many), () => Post.query().whereNotIn('id', many), () => Post.query().filter('id', 'in', many)]) {
+      expect(attempt).toThrow(OrmUsageError)
+      expect(attempt).toThrow(/at most 1000 values/)
+    }
+    expect(await Post.query().whereIn('id', many.slice(0, 1000)).count()).toBe(0)
+    try {
+      configureOrm({ maxInValues: 2 })
+      expect(() => Post.query().filter('id', 'in', [1, 2, 3])).toThrow(/at most 2 values/)
+      expect(await Post.query().filter('id', 'in', [1, 2]).count()).toBe(0)
+    } finally {
+      configureOrm({ maxInValues: 1000 })
+    }
   })
 
   test('case-insensitive search folds non-ASCII letters on every engine (SQLite included)', async () => {
