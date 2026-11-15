@@ -136,9 +136,13 @@ export function toDatabase(table: string, column: ColumnDef, value: unknown, dia
       return dateToDatabase(table, column, value)
     case 'json':
       return JSON.stringify(value)
-    case 'decimal':
+    case 'decimal': {
       if (typeof value !== 'number' && typeof value !== 'string') throw new CastError(table, column.name, `expected a number or numeric string, got ${describe(value)}`)
-      return canonicalDecimal(value, column.scale ?? 2, () => new CastError(table, column.name, `"${String(value)}" is not a decimal with at most ${column.scale ?? 2} decimal places`))
+      // A number is checked as JavaScript prints it (its shortest exact form), never via toFixed:
+      // toFixed *rounds*, so 10.555 became 10.55 and 0.1 + 0.2 became 0.30 without an error.
+      const text = typeof value === 'number' ? String(value) : value
+      return canonicalDecimal(text, column.scale ?? 2, () => new CastError(table, column.name, `"${text}" is not a decimal with at most ${column.scale ?? 2} decimal places`))
+    }
     case 'enum':
       if (typeof value !== 'string' || !(column.values ?? []).includes(value)) {
         throw new CastError(table, column.name, `${describe(value)} is not one of ${(column.values ?? []).join(', ')}`)
@@ -213,7 +217,9 @@ const DECIMAL = /^(-?)(\d+)(?:\.(\d+))?$/
 
 /**
  * Canonical decimal text with exactly `scale` decimals (`10.5` → `"10.50"`). Values with more
- * decimals than the column holds are rejected, never silently rounded.
+ * decimals than the column holds are rejected, never silently rounded. A number here is only ever
+ * a value *read* from SQLite (a float holding a stored decimal), so formatting it to the scale is
+ * exact; numbers written by app code are turned into text before they get here.
  */
 function canonicalDecimal(raw: unknown, scale: number, invalid?: () => Error): string {
   // SQLite hands decimals back as floating-point numbers: format them to the column's scale.

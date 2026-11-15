@@ -81,6 +81,22 @@ describe.each(engines)('models on $name', (engine) => {
       expect((await LoosePost.query().get()).length).toBe(8) // a list read never trips over one row
     })
 
+    test('decimals given as JS numbers are checked, never silently rounded to the column scale', async () => {
+      await runWithTenant(TENANT, async () => {
+        // 10.555 used to be stored as 10.55 or 10.56 (toFixed on a float), and 0.1 + 0.2 as 0.30:
+        // money changed without an error. Now they are refused like the string "10.555" already was.
+        for (const budget of [10.555, 0.1 + 0.2, 1e21, 1e-7, Number.NaN, Number.POSITIVE_INFINITY]) {
+          await expect(Project.create({ name: `Budget ${String(budget)}`, budget }), String(budget)).rejects.toBeInstanceOf(CastError)
+        }
+        await expect(Project.create({ name: 'Too precise', budget: '10.555' })).rejects.toBeInstanceOf(CastError)
+        // Exact values keep working, as numbers and as strings.
+        expect((await Project.create({ name: 'Whole', budget: 12 })).budget).toBe('12.00')
+        expect((await Project.create({ name: 'Cents', budget: 10.25 })).budget).toBe('10.25')
+        expect((await Project.create({ name: 'Negative', budget: -0.5 })).budget).toBe('-0.50')
+        expect((await Project.create({ name: 'Text', budget: '999.90' })).budget).toBe('999.90')
+      })
+    })
+
     test('enum and length violations fail the same way on every engine', async () => {
       const ada = await makeUser('Ada')
       const post = await makePost(ada, 'Strict')
