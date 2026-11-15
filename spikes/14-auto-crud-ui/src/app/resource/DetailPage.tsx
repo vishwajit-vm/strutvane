@@ -100,7 +100,11 @@ function RecordDetail({ resource, row }: { readonly resource: ResolvedResourceUi
       />
       <Tabs tabs={[{ id: DETAILS_TAB, label: 'Details' }, ...tabs.map((tab) => ({ id: tab.relation.name, label: tab.target.label.plural, count: counts.data?.get(tab.relation.name) }))]} current={current} onSelect={selectTab} />
       <Card role="tabpanel" id={`panel-${current}`} aria-labelledby={`tab-${current}`} tabIndex={0} className="p-5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-        {current === DETAILS_TAB ? <FieldList resource={resource} row={row} /> : <RelationPanel tab={tabs.find((tab) => tab.relation.name === current)} parentId={recordId(resource, row)} />}
+        {current === DETAILS_TAB ? <FieldList resource={resource} row={row} /> : (
+          // Keyed by tab: the panel's list state is initialised from ITS relation (foreign key, sort);
+          // without a key, React reused the previous tab's state and filtered by the wrong column.
+          <RelationPanel key={current} tab={tabs.find((tab) => tab.relation.name === current)} parentId={recordId(resource, row)} />
+        )}
       </Card>
     </div>
   )

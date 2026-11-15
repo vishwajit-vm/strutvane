@@ -5,7 +5,9 @@
  */
 import { screen, waitFor, within } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
-import { renderApp } from './render-app.tsx'
+import { metadata as generatedMetadata } from '../../example/.strutvane/ui.gen.ts'
+import { commentsResource, stringField, withResource } from '../fixtures.ts'
+import { lastListQuery, renderApp } from './render-app.tsx'
 
 async function openNewPost() {
   const app = renderApp({ path: '/posts/new' })
@@ -135,6 +137,29 @@ describe('detail page', () => {
     const table = await screen.findByRole('table', { name: 'Posts' })
     expect(within(table).getAllByRole('row').length).toBeGreaterThan(1)
     expect(listed()).toBe(true)
+  })
+
+  it('each relation tab keeps its OWN list state (foreign key, sort), never the previous tab\'s', async () => {
+    // users hasMany posts (author_id) AND hasMany comments (user_id): two tabs, two foreign keys.
+    const comments = commentsResource()
+    const userId = { ...stringField('user_id', 'User'), kind: 'integer' as const, cast: 'integer' as const, input: 'number' as const, filterOperators: ['eq', 'in'] as const }
+    const withComments = withResource(generatedMetadata, { ...comments, defaultSort: '-id', fields: [...comments.fields, userId] })
+    const metadata = {
+      ...withComments,
+      resources: withComments.resources.map((resource) =>
+        resource.table === 'users'
+          ? { ...resource, relations: [...resource.relations, { name: 'comments', kind: 'hasMany' as const, resource: 'comments', foreignKey: 'user_id', ownerKey: 'id' }] }
+          : resource,
+      ),
+    }
+    const app = renderApp({ path: '/users/1?tab=posts', metadata })
+    await screen.findByRole('table', { name: 'Posts' })
+    await app.user.click(screen.getByRole('tab', { name: /^Comments/ }))
+    await waitFor(() => expect(lastListQuery(app.requests, 'comments')['sort']).toBeDefined())
+    const query = lastListQuery(app.requests, 'comments')
+    expect(query['filter[user_id][eq]']).toBe('1')
+    expect(query['filter[author_id][eq]']).toBeUndefined()
+    expect(query['sort']).toBe('-id')
   })
 
   it('explains a missing record without saying whether it exists elsewhere', async () => {
