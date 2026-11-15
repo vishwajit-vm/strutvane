@@ -170,3 +170,15 @@ describe('review screen', () => {
     expect(pruneAnswers({ ai: false, aiProvider: 'openai' })).toEqual({ ai: false })
   })
 })
+
+// Regression (class: an edit prompt that does not start on the current value). Driven in a real
+// terminal: "Change an answer" re-asked the design starting on the default (Crisp) although Vivid
+// was chosen, so pressing Enter silently changed the answer back.
+describe('"Change an answer" starts on the current answer', () => {
+  it('keeps the chosen design highlighted, so Enter changes nothing', async () => {
+    const { prompter, initials } = scriptedPrompter({ review: ['change', 'create'], change: 'design', design: 'vivid' })
+    const answers = await review({ name: 'my-app', mode: 'recommended', stack: 'full', design: 'vivid', auth: 'email', teams: false, database: 'sqlite', docker: false, agents: true }, prompter, { cwd: '/code', targetProblem: () => undefined })
+    expect(initials['design']).toBe('vivid')
+    expect(answers.design).toBe('vivid')
+  })
+})

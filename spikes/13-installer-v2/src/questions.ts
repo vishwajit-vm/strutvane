@@ -146,7 +146,10 @@ async function changeOne(answers: Answers, prompter: Prompter, context: Question
   )
   const question = QUESTIONS.find((q) => q.id === key)
   if (question === undefined) return answers
-  const changed = await question.ask(prompter, withoutKey(answers, key), context)
+  // The prompt starts on the current answer (found by driving the real prompts: it started on the
+  // default, so "Change an answer" + Enter silently reverted a choice). Feature options are the
+  // exception: that question only asks what is still unanswered, so its answers are cleared first.
+  const changed = await question.ask(prompter, key === 'featureOptions' ? withoutKey(answers, key) : answers, context)
   return askMissing(pruneAnswers(changed), prompter, context)
 }
 
