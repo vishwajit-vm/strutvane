@@ -170,7 +170,10 @@ export function tokenService(deps: AuthDeps): TokenService {
       if (!user) return undefined
       if (record.lastUsedAt === null || now - record.lastUsedAt >= TOUCH_EVERY_MS) await deps.store.touchToken(record.id, now)
       const token = view(record)
-      return Object.freeze({ user, token, can: (ability: string) => abilityGranted(record.abilities, ability) })
+      // The token's own abilities AND the app's CURRENT allowed patterns: narrowing the config
+      // narrows tokens issued before it, instead of grandfathering them.
+      const can = (ability: string): boolean => abilityGranted(record.abilities, ability) && abilityGranted(tokens.abilities, ability)
+      return Object.freeze({ user, token, can })
     },
   }
 }

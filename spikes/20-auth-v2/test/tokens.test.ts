@@ -92,6 +92,21 @@ describe.each(STORES)('personal access tokens (%s store)', (store) => {
     expect(await h.auth.tokens.authenticate(`bearer   ${plainText}`)).toBeDefined()
   })
 
+  it('narrowing the allowed abilities in config also narrows tokens issued before (no grandfathering)', async () => {
+    const before = harness({ store, config })
+    const user = await before.user()
+    const b = await before.signedIn(user.email)
+    const { plainText } = await before.auth.tokens.create(b.req, { name: 'ci', abilities: ['post.*', 'comment.view'] })
+    // The app drops `post.*` (say, after a leak scare) and redeploys: same data, same APP_KEY.
+    const after = harness({ store, config: { ...config, tokens: { abilities: ['comment.view'] } } })
+    await after.store.createUser(user)
+    for (const t of await before.store.listTokens(user.id)) await after.store.addToken(t)
+    const auth = await after.auth.tokens.authenticate(`Bearer ${plainText}`)
+    expect(auth?.can('comment.view')).toBe(true)
+    expect(auth?.can('post.delete')).toBe(false)
+    expect(auth?.can('post.view')).toBe(false)
+  })
+
   it('a disabled tokens feature authenticates nothing (no leak through the guard)', async () => {
     const on = harness({ store, config })
     const b = await on.signedIn((await on.user()).email)
