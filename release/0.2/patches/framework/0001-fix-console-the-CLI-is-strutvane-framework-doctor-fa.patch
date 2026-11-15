@@ -1,0 +1,548 @@
+From 7366e259dcc45e5f1de61749cabdf31b2c35e0a7 Mon Sep 17 00:00:00 2001
+From: vishwajitvm <vishwajitmall50@gmail.com>
+Date: Sun, 15 Nov 2026 11:55:14 +0530
+Subject: [PATCH] fix(console): the CLI is @strutvane/framework; doctor fails
+ on a second kernel (B6)
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The CLI still called itself @strutvane/cli. Its doctor told apps to
+`pnpm add -D @strutvane/cli`, which installs a second kernel next to the
+framework (and pnpm, which npm apps don't have); a package.json that
+lists only @strutvane/framework was not detected as a project; `about`,
+`help` sources and generated headers named the absorbed package.
+
+- CLI_PACKAGE = '@strutvane/framework' (about, help, generated headers)
+- project detection accepts @strutvane/framework (and still
+  @strutvane/cli, so older apps are found and told what to remove)
+- doctor `cli-local`: checks the framework, and the hint uses the
+  project's own package manager (npm by default)
+- doctor `absorbed` / `absorbed-transitive` (new, fail): any of
+  @strutvane/{core,contracts,devkit,cli} or the `strutvane` launcher
+  declared or installed next to the framework. Two kernels break
+  container tokens and instanceof error checks, and @strutvane/cli and
+  strutvane declare the same bins as the framework. The hint gives the
+  remove command and the new import paths.
+- Node.js >=24.3 (engines.node and doctor's `node` check; earlier 24.x
+  break arguments in PowerShell, blueprint §5)
+- dev-server hint says `npm install`, not `pnpm install`
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Signed-off-by: vishwajitvm <vishwajitmall50@gmail.com>
+---
+ .changeset/cli-identity-framework.md |  5 ++
+ package.json                         |  2 +-
+ src/console/commands/about.ts        |  3 +-
+ src/console/commands/doctor.ts       | 87 ++++++++++++++++++++++++----
+ src/console/framework/help.ts        |  4 +-
+ src/console/framework/messages.ts    |  2 +-
+ src/console/framework/run.ts         |  4 +-
+ src/console/project/absorbed.ts      | 30 ++++++++++
+ src/console/project/boundary.ts      | 15 ++++-
+ src/console/version.ts               |  8 ++-
+ src/runtime/server.ts                |  2 +-
+ test/console/commands.test.ts        | 67 ++++++++++++++++++---
+ test/console/process.test.ts         |  8 ++-
+ test/console/run.test.ts             |  2 +-
+ 14 files changed, 206 insertions(+), 33 deletions(-)
+ create mode 100644 .changeset/cli-identity-framework.md
+ create mode 100644 src/console/project/absorbed.ts
+
+diff --git a/.changeset/cli-identity-framework.md b/.changeset/cli-identity-framework.md
+new file mode 100644
+index 0000000..0b94a4b
+--- /dev/null
++++ b/.changeset/cli-identity-framework.md
+@@ -0,0 +1,5 @@
++---
++"@strutvane/framework": minor
++---
++
++The CLI now identifies as `@strutvane/framework` (B6): `sv about`, `sv help` sources, generated headers and project detection (a package.json that lists `@strutvane/framework` is a project; `@strutvane/cli` still counts for older apps). `sv doctor` checks that the framework is a dependency, gives the install command for the project's own package manager, and fails when `@strutvane/core`, `contracts`, `devkit`, `cli` or the `strutvane` launcher is declared or installed next to it (two kernels, duplicate bins), with the command that removes them. Node.js 24.3 or newer is required (`engines` and `sv doctor`).
+diff --git a/package.json b/package.json
+index 4add7a7..40c5852 100644
+--- a/package.json
++++ b/package.json
+@@ -79,7 +79,7 @@
+     "LICENSE"
+   ],
+   "engines": {
+-    "node": ">=24"
++    "node": ">=24.3"
+   },
+   "devEngines": {
+     "packageManager": {
+diff --git a/src/console/commands/about.ts b/src/console/commands/about.ts
+index 1e01b9d..959c11b 100644
+--- a/src/console/commands/about.ts
++++ b/src/console/commands/about.ts
+@@ -12,6 +12,7 @@ import {
+   detectPackageManager,
+   readInstalledPackage,
+ } from '../project/project.ts'
++import { CLI_PACKAGE } from '../version.ts'
+ 
+ /** One Strutvane package in the project. */
+ export interface AboutPackage {
+@@ -64,7 +65,7 @@ export const aboutCommand: AnyCommand = defineCommand({
+     out.table(
+       ['', ''],
+       [
+-        ['@strutvane/cli', data.cli],
++        [CLI_PACKAGE, data.cli],
+         ['Node.js', data.node],
+         ['Platform', data.platform],
+         ...(data.project === null
+diff --git a/src/console/commands/doctor.ts b/src/console/commands/doctor.ts
+index 951a2f8..86336b1 100644
+--- a/src/console/commands/doctor.ts
++++ b/src/console/commands/doctor.ts
+@@ -16,14 +16,22 @@ import { type AnyCommand, defineCommand, type Project } from '../framework/comma
+ import { CliError, toFailure } from '../framework/errors.ts'
+ import { EXIT } from '../framework/exit-codes.ts'
+ import { renderMessages } from '../framework/run.ts'
++import { ABSORBED_PACKAGES, isAbsorbedPackage } from '../project/absorbed.ts'
+ import { channelSpec } from '../project/channel.ts'
+ import { checkEnv } from '../project/env-check.ts'
+ import { packageMigrations } from '../project/package-migrations.ts'
+ import { loadPluginCommands } from '../project/plugin-commands.ts'
+-import { declaredRange, dependencyNames, readInstalledPackage } from '../project/project.ts'
+-import { parseVersion } from '../project/semver.ts'
++import {
++  declaredRange,
++  dependencyNames,
++  detectPackageManager,
++  packageManagerCommand,
++  readInstalledPackage,
++} from '../project/project.ts'
++import { compareVersions, parseVersion } from '../project/semver.ts'
+ import { RegistryCompiler } from '../registry/compiler.ts'
+ import { verifyContentHash } from '../registry/emit.ts'
++import { CLI_PACKAGE } from '../version.ts'
+ import { isStrutvanePackage } from './about.ts'
+ 
+ /** The outcome of one check. */
+@@ -43,12 +51,23 @@ const fail = (id: string, message: string, hint?: string): DoctorCheck =>
+ /** The minimum supported Node.js major version (D-decision: Node 24+). */
+ export const MIN_NODE_MAJOR = 24
+ 
++/**
++ * The minimum supported Node.js version, as in `engines.node` (`>=24.3`). Earlier 24.x releases
++ * break arguments in PowerShell (blueprint §5), so 24.0–24.2 fail like 22 does.
++ */
++export const MIN_NODE_VERSION = '24.3.0'
++
+ /** Node.js version check. */
+ export function checkNode(version: string): DoctorCheck {
+-  const major = parseVersion(version)?.major ?? 0
+-  return major >= MIN_NODE_MAJOR
++  const parsed = parseVersion(version)
++  const min = parseVersion(MIN_NODE_VERSION)
++  const supported =
++    parsed !== undefined &&
++    min !== undefined &&
++    compareVersions({ ...parsed, prerelease: [] }, min) >= 0
++  return supported
+     ? ok('node', `Node.js ${version}`)
+-    : fail('node', `Node.js ${version} is too old`, `Install Node.js ${MIN_NODE_MAJOR} or newer.`)
++    : fail('node', `Node.js ${version} is too old`, `Install Node.js ${MIN_NODE_VERSION} or newer.`)
+ }
+ 
+ function checkPackageJson(project: Project, cliVersion: string): DoctorCheck[] {
+@@ -58,20 +77,65 @@ function checkPackageJson(project: Project, cliVersion: string): DoctorCheck[] {
+       ? ok('esm', 'package.json has "type": "module"')
+       : warn('esm', 'package.json is not ESM', 'Strutvane apps are ESM: add "type": "module".'),
+   )
++  // The CLI ships in the framework, so the framework dependency is what pins the CLI version.
++  // Named on this CLI's release channel: before 1.0, a bare name resolves `latest`, which is only
++  // the npm name placeholder (see project/channel.ts). The command is the project's own package
++  // manager's, so the hint never installs a second kernel or uses a tool the app does not have.
++  const { command, args } = packageManagerCommand(detectPackageManager(project), 'add', [
++    channelSpec(CLI_PACKAGE, cliVersion),
++  ])
+   checks.push(
+-    declaredRange(project.packageJson, '@strutvane/cli') !== undefined
+-      ? ok('cli-local', '@strutvane/cli is a project dependency')
++    declaredRange(project.packageJson, CLI_PACKAGE) !== undefined
++      ? ok('cli-local', `${CLI_PACKAGE} is a project dependency`)
+       : warn(
+           'cli-local',
+-          '@strutvane/cli is not in package.json',
+-          // Named on this CLI's release channel: before 1.0, a bare name resolves `latest`, which
+-          // is only the npm name placeholder (see project/channel.ts).
+-          `Add it (pnpm add -D ${channelSpec('@strutvane/cli', cliVersion)}) so everyone runs the same CLI version.`,
++          `${CLI_PACKAGE} is not in package.json`,
++          `Add it (${command} ${args.join(' ')}) so everyone runs the same CLI version.`,
+         ),
+   )
+   return checks
+ }
+ 
++/**
++ * Absorbed packages (`@strutvane/core`, `contracts`, `devkit`, `cli`, the `strutvane` launcher)
++ * next to the framework: declared by the app, or pulled in by an add-on built for the old layout.
++ * Either way the app runs two kernels (or two owners of the same bin), so this fails.
++ */
++function checkAbsorbed(project: Project): DoctorCheck[] {
++  const declared = dependencyNames(project.packageJson).filter(isAbsorbedPackage)
++  const installed = Object.keys(ABSORBED_PACKAGES).filter(
++    (n) => !declared.includes(n) && readInstalledPackage(project.root, n) !== undefined,
++  )
++  if (declared.length === 0 && installed.length === 0)
++    return [ok('absorbed', 'No package that @strutvane/framework replaced is installed')]
++  const checks: DoctorCheck[] = []
++  if (declared.length > 0) {
++    const { command, args } = packageManagerCommand(
++      detectPackageManager(project),
++      'remove',
++      declared,
++    )
++    const moves = declared.map((n) => `${n} → ${ABSORBED_PACKAGES[n]}`).join('; ')
++    checks.push(
++      fail(
++        'absorbed',
++        `package.json still lists ${declared.join(', ')}, now part of ${CLI_PACKAGE}`,
++        `Remove them (${command} ${args.join(' ')}) and import from the framework instead (${moves}). A second copy breaks container tokens and error handling.`,
++      ),
++    )
++  }
++  if (installed.length > 0) {
++    checks.push(
++      fail(
++        'absorbed-transitive',
++        `A dependency installs ${installed.join(', ')} next to ${CLI_PACKAGE} (two kernels)`,
++        `Find it with \`npm ls ${installed.join(' ')}\` and upgrade it to a version that peer-depends on ${CLI_PACKAGE}.`,
++      ),
++    )
++  }
++  return checks
++}
++
+ function checkPackages(project: Project): DoctorCheck[] {
+   const names = dependencyNames(project.packageJson).filter(
+     (n) => isStrutvanePackage(n) && n.startsWith('@strutvane/'),
+@@ -299,6 +363,7 @@ export const doctorCommand: AnyCommand = defineCommand({
+     if (project !== undefined) {
+       checks.push(
+         ...checkPackageJson(project, ctx.version),
++        ...checkAbsorbed(project),
+         ...checkPackages(project),
+         ...checkEnvFiles(project),
+       )
+diff --git a/src/console/framework/help.ts b/src/console/framework/help.ts
+index 1728f85..93bf305 100644
+--- a/src/console/framework/help.ts
++++ b/src/console/framework/help.ts
+@@ -6,6 +6,8 @@
+  *
+  * @module
+  */
++
++import { CLI_PACKAGE } from '../version.ts'
+ import type { AnyCommand, FlagDefinition } from './command.ts'
+ import { GLOBAL_FLAGS } from './globals.ts'
+ import { formatTable, type Style } from './output.ts'
+@@ -50,7 +52,7 @@ export function summarize(
+     .map((c) => ({
+       name: c.name,
+       description: c.description,
+-      source: sources.get(c.name) ?? '@strutvane/cli',
++      source: sources.get(c.name) ?? CLI_PACKAGE,
+     }))
+     .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))
+ }
+diff --git a/src/console/framework/messages.ts b/src/console/framework/messages.ts
+index dd98108..9b62669 100644
+--- a/src/console/framework/messages.ts
++++ b/src/console/framework/messages.ts
+@@ -36,7 +36,7 @@ export const CLI_MESSAGES_EN: MessageCatalog = defineMessages('en', {
+   'cli.hint.INPUT_REQUIRED': 'Pass it on the command line, or use --yes to accept defaults.',
+   'cli.error.PROJECT_NOT_FOUND': 'No Strutvane project found at or above {cwd}.',
+   'cli.hint.PROJECT_NOT_FOUND':
+-    'Run this inside a project (a folder with strutvane.config.ts, or whose package.json lists @strutvane/cli), or pass --cwd <path>. Drive roots, the temp folder and folders above your home directory never count. On Linux and macOS the project folder must also be owned by the user running the command (in a container, build and run as the same user, e.g. node).',
++    'Run this inside a project (a folder with strutvane.config.ts, or whose package.json lists @strutvane/framework), or pass --cwd <path>. Drive roots, the temp folder and folders above your home directory never count. On Linux and macOS the project folder must also be owned by the user running the command (in a container, build and run as the same user, e.g. node).',
+   'cli.error.CWD_NOT_FOUND': 'The --cwd directory does not exist: {cwd}.',
+   'cli.error.INVALID_PACKAGE_JSON': 'Could not read {path}: {detail}.',
+   'cli.error.INVALID_FIELD': 'Invalid field "{spec}": {detail}',
+diff --git a/src/console/framework/run.ts b/src/console/framework/run.ts
+index 012589a..6073b72 100644
+--- a/src/console/framework/run.ts
++++ b/src/console/framework/run.ts
+@@ -33,7 +33,7 @@ import {
+   type PluginCommands,
+ } from '../project/plugin-commands.ts'
+ import { findProjectRoot, loadProject } from '../project/project.ts'
+-import { CLI_VERSION } from '../version.ts'
++import { CLI_PACKAGE, CLI_VERSION } from '../version.ts'
+ import type { AnyCommand, CommandContext, Project } from './command.ts'
+ import { CliError, type CliFailure, type CliIssue, toFailure, usageError } from './errors.ts'
+ import { EXIT } from './exit-codes.ts'
+@@ -304,7 +304,7 @@ function describe(command: AnyCommand, source: string | undefined): unknown {
+     args: command.args ?? {},
+     flags: command.flags ?? {},
+     examples: command.examples ?? [],
+-    source: source ?? '@strutvane/cli',
++    source: source ?? CLI_PACKAGE,
+   }
+ }
+ 
+diff --git a/src/console/project/absorbed.ts b/src/console/project/absorbed.ts
+new file mode 100644
+index 0000000..788511f
+--- /dev/null
++++ b/src/console/project/absorbed.ts
+@@ -0,0 +1,30 @@
++/**
++ * Packages that `@strutvane/framework` absorbed (CONSOLIDATION.md), and the launcher it replaced.
++ *
++ * Why this matters to an app: each of these carries its own copy of the kernel or declares the
++ * same bins as the framework.
++ * - `@strutvane/core` / `contracts` / `devkit` / `cli` next to the framework is a **second
++ *   kernel**: container tokens are `Symbol()`s and errors are checked with `instanceof`, so a
++ *   provider that binds the old `LoggerToken` is invisible to the framework, and an old
++ *   `NotFoundError` renders as a 500.
++ * - `@strutvane/cli` declares `strutvane-cli` and the `strutvane` launcher declares `strutvane`;
++ *   the framework declares both. Which one `npm run` executes then depends on install order.
++ *
++ * `sv doctor` fails on any of them so the app fails closed with a fix, not at run time.
++ *
++ * @module
++ */
++
++/** The absorbed package, and where its code lives now. */
++export const ABSORBED_PACKAGES: Readonly<Record<string, string>> = Object.freeze({
++  '@strutvane/contracts': '@strutvane/framework/contracts',
++  '@strutvane/core': '@strutvane/framework/core',
++  '@strutvane/devkit': '@strutvane/framework/devkit',
++  '@strutvane/cli': 'the `strutvane` bin of @strutvane/framework',
++  strutvane: 'the `strutvane` bin of @strutvane/framework',
++})
++
++/** Whether `name` was absorbed into the framework (and must not be installed next to it). */
++export function isAbsorbedPackage(name: string): boolean {
++  return Object.hasOwn(ABSORBED_PACKAGES, name)
++}
+diff --git a/src/console/project/boundary.ts b/src/console/project/boundary.ts
+index 8a3f6d7..3033dd6 100644
+--- a/src/console/project/boundary.ts
++++ b/src/console/project/boundary.ts
+@@ -77,7 +77,14 @@ export function isOwnedByCurrentUser(dir: string, facts: BoundaryFacts): boolean
+   }
+ }
+ 
+-/** Whether a package.json object declares `@strutvane/cli` in dependencies or devDependencies. */
++/**
++ * Packages whose presence in dependencies or devDependencies marks a project: the framework, which
++ * ships the CLI, and `@strutvane/cli`, so projects created before the consolidation are still
++ * found (and `sv doctor` can then tell them to remove it).
++ */
++const CLI_PACKAGES: readonly string[] = ['@strutvane/framework', '@strutvane/cli']
++
++/** Whether a package.json object declares the CLI's package in dependencies or devDependencies. */
+ export function declaresCli(manifest: unknown): boolean {
+   if (typeof manifest !== 'object' || manifest === null) return false
+   return ['dependencies', 'devDependencies'].some((field) => {
+@@ -85,8 +92,10 @@ export function declaresCli(manifest: unknown): boolean {
+     return (
+       typeof deps === 'object' &&
+       deps !== null &&
+-      Object.hasOwn(deps, '@strutvane/cli') &&
+-      typeof (deps as Record<string, unknown>)['@strutvane/cli'] === 'string'
++      CLI_PACKAGES.some(
++        (name) =>
++          Object.hasOwn(deps, name) && typeof (deps as Record<string, unknown>)[name] === 'string',
++      )
+     )
+   })
+ }
+diff --git a/src/console/version.ts b/src/console/version.ts
+index 556e88c..8a17314 100644
+--- a/src/console/version.ts
++++ b/src/console/version.ts
+@@ -11,8 +11,12 @@
+  */
+ import { existsSync, readFileSync } from 'node:fs'
+ 
+-/** The npm package that implements the CLI. */
+-export const CLI_PACKAGE = '@strutvane/cli'
++/**
++ * The npm package that implements the CLI. Since the consolidation the CLI ships inside
++ * `@strutvane/framework` (bins `strutvane` and `strutvane-cli`); `@strutvane/cli` is absorbed and
++ * must not be installed next to it (see `project/absorbed.ts`).
++ */
++export const CLI_PACKAGE = '@strutvane/framework'
+ 
+ /** Read a `version` field from a package.json URL; `0.0.0` if it is missing or unreadable. */
+ export function readPackageVersion(url: URL): string {
+diff --git a/src/runtime/server.ts b/src/runtime/server.ts
+index 536658c..68dbf68 100644
+--- a/src/runtime/server.ts
++++ b/src/runtime/server.ts
+@@ -77,7 +77,7 @@ export async function startServer(options: StartServerOptions): Promise<StartedS
+   else if (devVite?.status === 'not-installed')
+     logger.info('Found a Vite config but "vite" is not installed: serving the API only', {
+       configFile: devVite.configFile,
+-      hint: 'install the project dependencies (e.g. pnpm install)',
++      hint: 'install the project dependencies (e.g. npm install)',
+     })
+   let dev: ViteDevServerLike | undefined
+   const appConfig = loaded.config['app'] as
+diff --git a/test/console/commands.test.ts b/test/console/commands.test.ts
+index 7ef7d94..1b19bed 100644
+--- a/test/console/commands.test.ts
++++ b/test/console/commands.test.ts
+@@ -287,9 +287,9 @@ describe('doctor', () => {
+   test('a healthy project passes', async () => {
+     const root = makeProject(
+       { '.env.example': 'A=1\n', '.env': 'A=1\n', '.gitignore': 'node_modules\n.env\n' },
+-      { devDependencies: { '@strutvane/cli': '0.1.0' } },
++      { dependencies: { '@strutvane/framework': '0.1.0' } },
+     )
+-    installFakePackage(root, '@strutvane/cli', { version: '0.1.0' })
++    installFakePackage(root, '@strutvane/framework', { version: '0.1.0' })
+     const r = await cli(['doctor', '--json'], { cwd: root })
+     expect(r.code, r.stdout).toBe(0)
+     const ids = (r.json().data as { checks: { id: string; status: string }[] }).checks
+@@ -320,6 +320,7 @@ describe('doctor', () => {
+       node: 'ok',
+       esm: 'warn',
+       'cli-local': 'warn',
++      absorbed: 'fail',
+       installed: 'fail',
+       'release-train': 'warn',
+       env: 'fail',
+@@ -330,16 +331,58 @@ describe('doctor', () => {
+     expect(human.stderr).toContain('check')
+   })
+ 
+-  test('the install hint for a missing @strutvane/cli names the release channel', async () => {
++  test('the install hint for a missing framework names the release channel and the project PM', async () => {
+     const root = makeProject({}, {})
+     const hint = async (version: string): Promise<string | undefined> => {
+       const r = await cli(['doctor', '--json'], { cwd: root, version })
+       const checks = (r.json().data as { checks: { id: string; hint?: string }[] }).checks
+       return checks.find((c) => c.id === 'cli-local')?.hint
+     }
+-    expect(await hint('0.1.0-next.0')).toContain('(pnpm add -D @strutvane/cli@next)')
+-    expect(await hint('1.0.0')).toContain('(pnpm add -D @strutvane/cli)')
+-    expect(await hint('1.0.0-Weird.0')).toContain('(pnpm add -D @strutvane/cli)')
++    // No lockfile and no packageManager field: npm, the blueprint's package manager.
++    expect(await hint('0.1.0-next.0')).toContain('(npm install @strutvane/framework@next)')
++    expect(await hint('1.0.0')).toContain('(npm install @strutvane/framework)')
++    expect(await hint('1.0.0-Weird.0')).toContain('(npm install @strutvane/framework)')
++    // The hint never names the absorbed @strutvane/cli: installing it adds a second kernel.
++    expect(await hint('0.1.0-next.0')).not.toContain('@strutvane/cli')
++    write(root, 'pnpm-lock.yaml', '')
++    expect(await hint('0.1.0-next.0')).toContain('(pnpm add @strutvane/framework@next)')
++  })
++
++  test('absorbed packages next to the framework fail with a fix (two kernels, duplicate bins)', async () => {
++    type Check = { id: string; status: string; message: string; hint?: string }
++    const checksOf = async (root: string): Promise<{ code: number; checks: Check[] }> => {
++      const r = await cli(['doctor', '--json'], { cwd: root })
++      return { code: r.code, checks: (r.json().data as { checks: Check[] }).checks }
++    }
++    const files = { '.env.example': 'A=1\n', '.env': 'A=1\n', '.gitignore': 'node_modules\n.env\n' }
++    // An app generated before the consolidation: core, cli and the launcher declared.
++    const legacy = makeProject(files, {
++      dependencies: { '@strutvane/framework': '0.1.0', '@strutvane/core': '0.1.0' },
++      devDependencies: { '@strutvane/cli': '0.1.0', strutvane: '0.1.0' },
++    })
++    for (const n of ['@strutvane/framework', '@strutvane/core', '@strutvane/cli', 'strutvane'])
++      installFakePackage(legacy, n, { version: '0.1.0' })
++    const a = await checksOf(legacy)
++    expect(a.code).toBe(3)
++    const absorbed = a.checks.find((c) => c.id === 'absorbed')
++    expect(absorbed).toMatchObject({ status: 'fail' })
++    for (const n of ['@strutvane/core', '@strutvane/cli', 'strutvane'])
++      expect(absorbed?.message).toContain(n)
++    expect(absorbed?.hint).toMatch(/npm uninstall (@strutvane\/core|@strutvane\/cli|strutvane)/)
++    expect(absorbed?.hint).toContain('@strutvane/core → @strutvane/framework/core')
++    // Not declared, but an add-on built for the old layout installed @strutvane/core anyway.
++    const transitive = makeProject(files, {
++      dependencies: { '@strutvane/framework': '0.1.0', '@strutvane/auth': '0.1.0' },
++    })
++    for (const n of ['@strutvane/framework', '@strutvane/auth', '@strutvane/core'])
++      installFakePackage(transitive, n, { version: '0.1.0' })
++    const t = await checksOf(transitive)
++    expect(t.code).toBe(3)
++    expect(t.checks.find((c) => c.id === 'absorbed-transitive')).toMatchObject({
++      status: 'fail',
++      message: expect.stringContaining('@strutvane/core'),
++    })
++    expect(t.checks.find((c) => c.id === 'absorbed')).toBeUndefined()
+   })
+ 
+   test('env errors, registry state, lock conflicts and plugins', async () => {
+@@ -472,7 +515,15 @@ describe('doctor', () => {
+   })
+ 
+   test('checkNode', () => {
+-    expect(checkNode('24.0.0').status).toBe('ok')
++    // engines.node is >=24.3: earlier 24.x releases break arguments in PowerShell.
++    expect(checkNode('24.0.0')).toMatchObject({
++      status: 'fail',
++      hint: expect.stringContaining('24.3.0'),
++    })
++    expect(checkNode('24.2.9').status).toBe('fail')
++    expect(checkNode('24.3.0').status).toBe('ok')
++    expect(checkNode('v26.1.0').status).toBe('ok')
++    expect(checkNode('24.3.0-pre').status).toBe('ok')
+     expect(checkNode('22.11.0')).toMatchObject({ status: 'fail' })
+     expect(checkNode('garbage').status).toBe('fail')
+   })
+@@ -507,7 +558,7 @@ describe('registry:build / registry:watch', () => {
+     const again = await cli(['registry:build', '--json'], { cwd: root })
+     expect(again.json().data).toMatchObject({ written: false })
+     expect(read(root, '.strutvane/registry.gen.ts')).toBe(first)
+-    expect(first).toContain('// @generated by @strutvane/cli ')
++    expect(first).toContain('// @generated by @strutvane/framework ')
+     const human = await cli(['registry:build'], { cwd: root })
+     expect(human.stdout).toContain('Up to date: .strutvane/registry.gen.ts')
+   })
+diff --git a/test/console/process.test.ts b/test/console/process.test.ts
+index d993f8c..8b22a09 100644
+--- a/test/console/process.test.ts
++++ b/test/console/process.test.ts
+@@ -394,10 +394,13 @@ describe('contribution containment and Windows paths', () => {
+     write(root, 'packages/inner/package.json', '{}')
+     mkdirSync(join(root, 'packages', 'inner', 'src'), { recursive: true })
+     expect(findProjectRoot(join(root, 'packages', 'inner', 'src'))).toBe(root)
+-    // A package.json alone is not a project; one that declares @strutvane/cli is.
++    // A package.json alone is not a project; one that declares the framework (which ships the
++    // CLI) is, and so is one created before the consolidation that declares @strutvane/cli.
+     const plain = tempDir()
+     write(plain, 'package.json', '{}')
+     expect(findProjectRoot(join(plain))).toBeUndefined()
++    write(plain, 'package.json', '{"dependencies":{"@strutvane/framework":"^0.1.0"}}')
++    expect(findProjectRoot(join(plain))).toBe(plain)
+     write(plain, 'package.json', '{"devDependencies":{"@strutvane/cli":"^0.1.0"}}')
+     expect(findProjectRoot(join(plain))).toBe(plain)
+   })
+@@ -440,6 +443,9 @@ describe('contribution containment and Windows paths', () => {
+     expect(isOwnedByCurrentUser(join(project, 'missing'), { ...facts, uid: 1 })).toBe(false)
+     expect(declaresCli(null)).toBe(false)
+     expect(declaresCli({ dependencies: { '@strutvane/cli': '1' } })).toBe(true)
++    expect(declaresCli({ dependencies: { '@strutvane/framework': '1' } })).toBe(true)
++    expect(declaresCli({ peerDependencies: { '@strutvane/framework': '1' } })).toBe(false)
++    expect(declaresCli({ dependencies: { '@strutvane/framework': 1 } })).toBe(false)
+     expect(declaresCli({ peerDependencies: { '@strutvane/cli': '1' } })).toBe(false)
+     expect(
+       declaresCli(JSON.parse('{"devDependencies":{"__proto__":{"@strutvane/cli":"1"}}}')),
+diff --git a/test/console/run.test.ts b/test/console/run.test.ts
+index ce7c4db..864d8d5 100644
+--- a/test/console/run.test.ts
++++ b/test/console/run.test.ts
+@@ -68,7 +68,7 @@ describe('help and version', () => {
+     const doc = r.json()
+     expectEnvelope(doc as unknown as Record<string, unknown>)
+     const data = doc.data as { commands: { name: string; source: string }[] }
+-    expect(data.commands.find((c) => c.name === 'about')?.source).toBe('@strutvane/cli')
++    expect(data.commands.find((c) => c.name === 'about')?.source).toBe('@strutvane/framework')
+     const one = await cli(['help', 'routes', '--json'], { cwd: makeProject() })
+     expect((one.json().data as { name: string }).name).toBe('routes')
+   })
+-- 
+2.56.0.windows.2
+

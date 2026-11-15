@@ -1,0 +1,762 @@
+From 5d03da29c8ed7e9e3cea30c92841aa9fbc6d8f82 Mon Sep 17 00:00:00 2001
+From: vishwajitvm <vishwajitmall50@gmail.com>
+Date: Sun, 15 Nov 2026 12:14:50 +0530
+Subject: [PATCH] fix(deps): peer-depend on the merged @strutvane/framework
+ (one kernel)
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+contracts, core, devkit and cli now ship inside @strutvane/framework
+(framework CONSOLIDATION.md). This package still depended on the
+published @strutvane/core and @strutvane/contracts, so installing it
+next to the framework gave the app two kernels: container tokens are
+Symbol()s and errors are checked with instanceof, so across the copies
+LoggerToken did not match and a NotFoundError rendered as a 500
+(verified in a test app: tokens differ, toProblem(...).status = 500).
+
+- imports use @strutvane/framework/{core,contracts} (codemod of real
+  specifiers only; comments untouched)
+- @strutvane/framework is a peer (^0.1.0-next.1, which excludes the
+  pre-merge 0.1.0-next.0 that has no ./core or ./contracts subpath) and
+  a devDependency; the absorbed packages are gone
+- tsdown never bundles the framework (/^@strutvane\/framework(\/|$)/)
+- engines.node >=24.3 (blueprint §5)
+- test/packaging.test.ts guards all of the above
+
+Apply after @strutvane/framework 0.1.0-next.1 is published, then
+regenerate the lockfile (npm install; dry run §6 step 8).
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Signed-off-by: vishwajitvm <vishwajitmall50@gmail.com>
+---
+ .changeset/one-kernel-peer.md         |  5 ++
+ package.json                          |  8 ++-
+ src/audit/audit.ts                    |  4 +-
+ src/config.ts                         |  2 +-
+ src/errors.ts                         |  2 +-
+ src/field-rules.ts                    |  4 +-
+ src/identity/app-identity.ts          |  2 +-
+ src/identity/better-auth.ts           |  2 +-
+ src/identity/engine.ts                |  2 +-
+ src/identity/limiter.ts               |  2 +-
+ src/identity/native.ts                |  4 +-
+ src/middleware/core.ts                |  4 +-
+ src/middleware/hono.ts                |  2 +-
+ src/policy/bind.ts                    |  2 +-
+ src/policy/builder.ts                 |  7 ++-
+ src/policy/evaluate.ts                |  2 +-
+ src/policy/filter.ts                  |  2 +-
+ src/policy/policy.ts                  |  2 +-
+ src/policy/provider.ts                |  2 +-
+ src/policy/roles.ts                   |  2 +-
+ src/policy/validate.ts                |  2 +-
+ src/provider.ts                       |  4 +-
+ src/sql/compile.ts                    |  2 +-
+ src/tenancy/resolver.ts               |  2 +-
+ src/testing/helpers.ts                |  4 +-
+ test/app-identity.test.ts             |  4 +-
+ test/app-provider.test.ts             |  4 +-
+ test/audit.test.ts                    |  2 +-
+ test/builder.test.ts                  |  2 +-
+ test/equivalence.test.ts              |  2 +-
+ test/field-rules.test.ts              |  4 +-
+ test/filter-semantics.test.ts         |  2 +-
+ test/fixtures.ts                      |  2 +-
+ test/integration/app-identity.test.ts |  4 +-
+ test/middleware.test.ts               |  6 +--
+ test/packaging.test.ts                | 71 +++++++++++++++++++++++++++
+ test/policy.test.ts                   |  2 +-
+ test/provider.test.ts                 |  2 +-
+ test/roles.test.ts                    |  2 +-
+ test/security-regressions.test.ts     |  2 +-
+ test/sql.test.ts                      |  2 +-
+ test/types.test-d.ts                  |  2 +-
+ test/vapt.test.ts                     |  4 +-
+ 43 files changed, 137 insertions(+), 58 deletions(-)
+ create mode 100644 .changeset/one-kernel-peer.md
+ create mode 100644 test/packaging.test.ts
+
+diff --git a/.changeset/one-kernel-peer.md b/.changeset/one-kernel-peer.md
+new file mode 100644
+index 0000000..efe5512
+--- /dev/null
++++ b/.changeset/one-kernel-peer.md
+@@ -0,0 +1,5 @@
++---
++"@strutvane/auth": minor
++---
++
++Depend on the merged `@strutvane/framework` as a **peer** (`^0.1.0-next.1`) instead of `@strutvane/core` and `@strutvane/contracts`. Imports now use `@strutvane/framework/core` and `@strutvane/framework/contracts`, so an app has exactly one kernel: before, installing this package next to the framework added a second copy of core, and its container tokens and error classes did not match the framework's (the logger binding was not found and errors rendered as 500). Requires Node.js 24.3 or newer.
+diff --git a/package.json b/package.json
+index d1d33b0..84e805c 100644
+--- a/package.json
++++ b/package.json
+@@ -76,7 +76,7 @@
+     "migrations"
+   ],
+   "engines": {
+-    "node": ">=24"
++    "node": ">=24.3"
+   },
+   "packageManager": "pnpm@12.18.0",
+   "publishConfig": {
+@@ -96,11 +96,8 @@
+     "version-packages": "changeset version",
+     "release": "changeset publish"
+   },
+-  "dependencies": {
+-    "@strutvane/contracts": "0.1.0-next.0",
+-    "@strutvane/core": "0.1.0-next.0"
+-  },
+   "peerDependencies": {
++    "@strutvane/framework": "^0.1.0-next.1",
+     "better-auth": "1.7.23",
+     "hono": "^4.13.0",
+     "pg": "^8.23.0",
+@@ -124,6 +121,7 @@
+     "@biomejs/biome": "2.6.7",
+     "@changesets/cli": "3.0.3",
+     "@electric-sql/pglite": "0.5.16",
++    "@strutvane/framework": "0.1.0-next.1",
+     "@types/node": "24.19.2",
+     "@types/pg": "8.23.1",
+     "@vitest/coverage-v8": "5.1.0",
+diff --git a/src/audit/audit.ts b/src/audit/audit.ts
+index 1a84668..627c15d 100644
+--- a/src/audit/audit.ts
++++ b/src/audit/audit.ts
+@@ -15,7 +15,7 @@
+  *
+  * @module
+  */
+-import type { Actor, AuditEvent, FieldChange } from '@strutvane/contracts'
++import type { Actor, AuditEvent, FieldChange } from '@strutvane/framework/contracts'
+ import {
+   currentContext,
+   DEFAULT_SENSITIVE_KEYS,
+@@ -23,7 +23,7 @@ import {
+   sensitiveKeyMatcher,
+   toLoggable,
+   uuidv7,
+-} from '@strutvane/core'
++} from '@strutvane/framework/core'
+ 
+ /** Where audit events go. Implementations should write durably and atomically with the change. */
+ export interface AuditSink {
+diff --git a/src/config.ts b/src/config.ts
+index 5fd3b55..3f9ef78 100644
+--- a/src/config.ts
++++ b/src/config.ts
+@@ -27,7 +27,7 @@
+  *
+  * @module
+  */
+-import { type DeepReadonly, defineConfig } from '@strutvane/core'
++import { type DeepReadonly, defineConfig } from '@strutvane/framework/core'
+ import type { NewModelDefaults, RoleDefinition } from './policy/roles.ts'
+ 
+ /** Client credentials of one social sign-in provider (values usually come from the env). */
+diff --git a/src/errors.ts b/src/errors.ts
+index 3297378..6e8da31 100644
+--- a/src/errors.ts
++++ b/src/errors.ts
+@@ -11,7 +11,7 @@
+  *
+  * @module
+  */
+-import { type ErrorDefinition, StrutvaneError } from '@strutvane/core'
++import { type ErrorDefinition, StrutvaneError } from '@strutvane/framework/core'
+ 
+ /** Error codes owned by `@strutvane/auth`. Register them with core's error registry at boot. */
+ export const AUTH_ERRORS: readonly ErrorDefinition[] = Object.freeze(
+diff --git a/src/field-rules.ts b/src/field-rules.ts
+index 5a98fd7..62f5c31 100644
+--- a/src/field-rules.ts
++++ b/src/field-rules.ts
+@@ -25,8 +25,8 @@ import type {
+   FieldDescriptor,
+   ResourceDescriptor,
+   ResourceManifest,
+-} from '@strutvane/contracts'
+-import { ForbiddenError, type HookRegistry } from '@strutvane/core'
++} from '@strutvane/framework/contracts'
++import { ForbiddenError, type HookRegistry } from '@strutvane/framework/core'
+ import type { Policy } from './policy/policy.ts'
+ 
+ /** The part of the permission provider these rules need. */
+diff --git a/src/identity/app-identity.ts b/src/identity/app-identity.ts
+index 71b3236..e567c0e 100644
+--- a/src/identity/app-identity.ts
++++ b/src/identity/app-identity.ts
+@@ -20,7 +20,7 @@
+  *
+  * @module
+  */
+-import type { Logger } from '@strutvane/contracts'
++import type { Logger } from '@strutvane/framework/contracts'
+ import type { AuthConfig } from '../config.ts'
+ import type { IdentityEngine, PasswordResetDelivery } from './engine.ts'
+ import { createNativeEngine, type GlobalRoles } from './native.ts'
+diff --git a/src/identity/better-auth.ts b/src/identity/better-auth.ts
+index 3b84d05..b0540e7 100644
+--- a/src/identity/better-auth.ts
++++ b/src/identity/better-auth.ts
+@@ -32,7 +32,7 @@
+  * @module
+  */
+ 
+-import type { Actor, Logger } from '@strutvane/contracts'
++import type { Actor, Logger } from '@strutvane/framework/contracts'
+ import { betterAuth } from 'better-auth'
+ import { getSchema } from 'better-auth/db'
+ import { getMigrations } from 'better-auth/db/migration'
+diff --git a/src/identity/engine.ts b/src/identity/engine.ts
+index f459e50..e885693 100644
+--- a/src/identity/engine.ts
++++ b/src/identity/engine.ts
+@@ -17,7 +17,7 @@
+  *
+  * @module
+  */
+-import type { Actor } from '@strutvane/contracts'
++import type { Actor } from '@strutvane/framework/contracts'
+ 
+ /** Stable error codes. Messages are rendered from catalogs by the host, never taken from the engine. */
+ export type IdentityErrorCode =
+diff --git a/src/identity/limiter.ts b/src/identity/limiter.ts
+index 31c27b9..1495a5e 100644
+--- a/src/identity/limiter.ts
++++ b/src/identity/limiter.ts
+@@ -12,7 +12,7 @@
+  *
+  * @module
+  */
+-import type { Logger } from '@strutvane/contracts'
++import type { Logger } from '@strutvane/framework/contracts'
+ import { rateLimitSubject, resolveClientIp, type TrustedProxies } from '../http/client-ip.ts'
+ import {
+   accountKey,
+diff --git a/src/identity/native.ts b/src/identity/native.ts
+index fb1c515..61d0ad1 100644
+--- a/src/identity/native.ts
++++ b/src/identity/native.ts
+@@ -24,8 +24,8 @@
+  * @module
+  */
+ import { createHash, randomBytes, scrypt as scryptCallback, timingSafeEqual } from 'node:crypto'
+-import type { Actor, Logger } from '@strutvane/contracts'
+-import { uuidv7 } from '@strutvane/core'
++import type { Actor, Logger } from '@strutvane/framework/contracts'
++import { uuidv7 } from '@strutvane/framework/core'
+ import { type TrustedProxies, trustedProxies } from '../http/client-ip.ts'
+ import { isUuid } from '../policy/schema.ts'
+ import {
+diff --git a/src/middleware/core.ts b/src/middleware/core.ts
+index 1e71ebd..3dffc54 100644
+--- a/src/middleware/core.ts
++++ b/src/middleware/core.ts
+@@ -21,14 +21,14 @@
+  *
+  * @module
+  */
+-import type { Actor, TenantContext, TenantStrategy } from '@strutvane/contracts'
++import type { Actor, TenantContext, TenantStrategy } from '@strutvane/framework/contracts'
+ import {
+   ForbiddenError,
+   runWithContext,
+   StrutvaneError,
+   toProblem,
+   UnauthenticatedError,
+-} from '@strutvane/core'
++} from '@strutvane/framework/core'
+ import type { IdentityEngine } from '../identity/engine.ts'
+ import { resolveTenant, type TenantResolver } from '../tenancy/resolver.ts'
+ 
+diff --git a/src/middleware/hono.ts b/src/middleware/hono.ts
+index 4716dd3..a2dfeb7 100644
+--- a/src/middleware/hono.ts
++++ b/src/middleware/hono.ts
+@@ -13,7 +13,7 @@
+  *
+  * @module
+  */
+-import type { Actor, TenantContext } from '@strutvane/contracts'
++import type { Actor, TenantContext } from '@strutvane/framework/contracts'
+ import type { Context, MiddlewareHandler } from 'hono'
+ import { attachRequestMeta } from '../http/request-meta.ts'
+ import { type AuthMiddlewareOptions, authenticateRequest, runWithAuth } from './core.ts'
+diff --git a/src/policy/bind.ts b/src/policy/bind.ts
+index 944f5c4..418a37b 100644
+--- a/src/policy/bind.ts
++++ b/src/policy/bind.ts
+@@ -30,7 +30,7 @@ import type {
+   FilterOperand,
+   FilterScalar,
+   QueryFilter,
+-} from '@strutvane/contracts'
++} from '@strutvane/framework/contracts'
+ import { FALSE, TRUE } from './filter.ts'
+ 
+ /** An actor attribute a policy references is missing, or has a value a policy cannot use. A server-side bug (500), never a client error. */
+diff --git a/src/policy/builder.ts b/src/policy/builder.ts
+index cb630cd..9acfd1c 100644
+--- a/src/policy/builder.ts
++++ b/src/policy/builder.ts
+@@ -18,7 +18,12 @@
+  *
+  * @module
+  */
+-import type { ActorRef, FilterOperand, FilterScalar, QueryFilter } from '@strutvane/contracts'
++import type {
++  ActorRef,
++  FilterOperand,
++  FilterScalar,
++  QueryFilter,
++} from '@strutvane/framework/contracts'
+ import { PolicyDefinitionError } from '../errors.ts'
+ import type { ColumnDef, ColumnType, ModelSchema } from './schema.ts'
+ 
+diff --git a/src/policy/evaluate.ts b/src/policy/evaluate.ts
+index 80e2876..2aa0774 100644
+--- a/src/policy/evaluate.ts
++++ b/src/policy/evaluate.ts
+@@ -8,7 +8,7 @@
+  *
+  * @module
+  */
+-import type { FilterScalar, QueryFilter } from '@strutvane/contracts'
++import type { FilterScalar, QueryFilter } from '@strutvane/framework/contracts'
+ import { FieldNotLoadedError } from '../errors.ts'
+ import { type ColumnType, fitsType, type ModelSchema, resolveField } from './schema.ts'
+ import { type FilterLimits, foldAscii, validateFilter } from './validate.ts'
+diff --git a/src/policy/filter.ts b/src/policy/filter.ts
+index 3a1c16d..6f526ba 100644
+--- a/src/policy/filter.ts
++++ b/src/policy/filter.ts
+@@ -7,7 +7,7 @@
+  *
+  * @module
+  */
+-import type { QueryFilter } from '@strutvane/contracts'
++import type { QueryFilter } from '@strutvane/framework/contracts'
+ 
+ /** Always true. */
+ export const TRUE: QueryFilter = Object.freeze({ op: 'true' })
+diff --git a/src/policy/policy.ts b/src/policy/policy.ts
+index 89eecf2..bf9e711 100644
+--- a/src/policy/policy.ts
++++ b/src/policy/policy.ts
+@@ -42,7 +42,7 @@
+  *
+  * @module
+  */
+-import type { Actor, Decision, QueryFilter } from '@strutvane/contracts'
++import type { Actor, Decision, QueryFilter } from '@strutvane/framework/contracts'
+ import { InvalidFilterError, NotListFilterableError, PolicyDefinitionError } from '../errors.ts'
+ import { ActorAttributeError, bindActor, resolveActorRef } from './bind.ts'
+ import {
+diff --git a/src/policy/provider.ts b/src/policy/provider.ts
+index b133733..df55262 100644
+--- a/src/policy/provider.ts
++++ b/src/policy/provider.ts
+@@ -23,7 +23,7 @@ import type {
+   PermissionProvider,
+   QueryFilter,
+   ResourceRef,
+-} from '@strutvane/contracts'
++} from '@strutvane/framework/contracts'
+ import { PolicyDefinitionError } from '../errors.ts'
+ import { FALSE } from './filter.ts'
+ import { definePolicy, type Explanation, type ExtraGrant, type Policy } from './policy.ts'
+diff --git a/src/policy/roles.ts b/src/policy/roles.ts
+index 6b2fc61..a3a1efb 100644
+--- a/src/policy/roles.ts
++++ b/src/policy/roles.ts
+@@ -46,7 +46,7 @@
+  *
+  * @module
+  */
+-import type { Actor, QueryFilter } from '@strutvane/contracts'
++import type { Actor, QueryFilter } from '@strutvane/framework/contracts'
+ import { PolicyDefinitionError } from '../errors.ts'
+ import { FALSE } from './filter.ts'
+ import type { ExtraGrant, RoleScope } from './policy.ts'
+diff --git a/src/policy/validate.ts b/src/policy/validate.ts
+index 4d3c8d3..0eed105 100644
+--- a/src/policy/validate.ts
++++ b/src/policy/validate.ts
+@@ -12,7 +12,7 @@
+  *
+  * @module
+  */
+-import type { ActorRef, QueryFilter } from '@strutvane/contracts'
++import type { ActorRef, QueryFilter } from '@strutvane/framework/contracts'
+ import { InvalidFilterError } from '../errors.ts'
+ import { isActorRef } from './bind.ts'
+ import { type ColumnType, fitsType, isNumeric, type ModelSchema, resolveField } from './schema.ts'
+diff --git a/src/provider.ts b/src/provider.ts
+index fc71298..40c1684 100644
+--- a/src/provider.ts
++++ b/src/provider.ts
+@@ -40,7 +40,7 @@
+ import { existsSync, readdirSync } from 'node:fs'
+ import { join } from 'node:path'
+ import { pathToFileURL } from 'node:url'
+-import { type Actor, HTTP_HOOKS, type HttpRequestHookPayload } from '@strutvane/contracts'
++import { type Actor, HTTP_HOOKS, type HttpRequestHookPayload } from '@strutvane/framework/contracts'
+ import {
+   type Application,
+   defineProvider,
+@@ -51,7 +51,7 @@ import {
+   type Provider,
+   StrutvaneError,
+   UnauthenticatedError,
+-} from '@strutvane/core'
++} from '@strutvane/framework/core'
+ import type { AuthConfig } from './config.ts'
+ import { AUTH_ERRORS } from './errors.ts'
+ import { registerFieldRules } from './field-rules.ts'
+diff --git a/src/sql/compile.ts b/src/sql/compile.ts
+index 5491c0e..71ffb83 100644
+--- a/src/sql/compile.ts
++++ b/src/sql/compile.ts
+@@ -24,7 +24,7 @@
+  *
+  * @module
+  */
+-import type { FilterScalar, QueryFilter } from '@strutvane/contracts'
++import type { FilterScalar, QueryFilter } from '@strutvane/framework/contracts'
+ import {
+   type ColumnType,
+   type ModelSchema,
+diff --git a/src/tenancy/resolver.ts b/src/tenancy/resolver.ts
+index 02ad967..4e26e9a 100644
+--- a/src/tenancy/resolver.ts
++++ b/src/tenancy/resolver.ts
+@@ -15,7 +15,7 @@
+  *
+  * @module
+  */
+-import type { Actor, TenantContext, TenantStrategy } from '@strutvane/contracts'
++import type { Actor, TenantContext, TenantStrategy } from '@strutvane/framework/contracts'
+ import { isUuid } from '../policy/schema.ts'
+ 
+ /** What a resolver receives. */
+diff --git a/src/testing/helpers.ts b/src/testing/helpers.ts
+index 7681b6d..13c89a7 100644
+--- a/src/testing/helpers.ts
++++ b/src/testing/helpers.ts
+@@ -5,8 +5,8 @@
+  * @module
+  */
+ import { randomBytes } from 'node:crypto'
+-import type { Actor, TenantContext } from '@strutvane/contracts'
+-import { runWithContext } from '@strutvane/core'
++import type { Actor, TenantContext } from '@strutvane/framework/contracts'
++import { runWithContext } from '@strutvane/framework/core'
+ import { attachRequestMeta } from '../http/request-meta.ts'
+ import type { PasswordResetDelivery } from '../identity/engine.ts'
+ 
+diff --git a/test/app-identity.test.ts b/test/app-identity.test.ts
+index e817761..05e7ecf 100644
+--- a/test/app-identity.test.ts
++++ b/test/app-identity.test.ts
+@@ -4,8 +4,8 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+ import { type AddressInfo, createServer, type Socket } from 'node:net'
+ import { tmpdir } from 'node:os'
+ import { join } from 'node:path'
+-import type { Actor } from '@strutvane/contracts'
+-import { createApp, HooksToken } from '@strutvane/core'
++import type { Actor } from '@strutvane/framework/contracts'
++import { createApp, HooksToken } from '@strutvane/framework/core'
+ import { afterEach, describe, expect, test } from 'vitest'
+ import { IdentityAdminError, loadAuthProject, openIdentityAdmin } from '../src/admin.ts'
+ import commands, {
+diff --git a/test/app-provider.test.ts b/test/app-provider.test.ts
+index 79ad0fa..1b00a62 100644
+--- a/test/app-provider.test.ts
++++ b/test/app-provider.test.ts
+@@ -4,8 +4,8 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+ import { tmpdir } from 'node:os'
+ import { join, resolve } from 'node:path'
+ import { pathToFileURL } from 'node:url'
+-import type { Actor } from '@strutvane/contracts'
+-import { createApp, HooksToken, PermissionProviderToken } from '@strutvane/core'
++import type { Actor } from '@strutvane/framework/contracts'
++import { createApp, HooksToken, PermissionProviderToken } from '@strutvane/framework/core'
+ import { afterEach, describe, expect, test } from 'vitest'
+ import { createNativeEngine } from '../src/identity/native.ts'
+ import provider, { apiBase, createAuthProvider, loadPolicies } from '../src/provider.ts'
+diff --git a/test/audit.test.ts b/test/audit.test.ts
+index 042df00..e7779a6 100644
+--- a/test/audit.test.ts
++++ b/test/audit.test.ts
+@@ -1,4 +1,4 @@
+-import { runWithContext } from '@strutvane/core'
++import { runWithContext } from '@strutvane/framework/core'
+ import { describe, expect, it } from 'vitest'
+ import { diffChanges, memoryAuditSink, recordAudit } from '../src/audit/audit.ts'
+ import { actor, TENANT_A, TENANT_B } from './fixtures.ts'
+diff --git a/test/builder.test.ts b/test/builder.test.ts
+index 27d2ea3..4e9913f 100644
+--- a/test/builder.test.ts
++++ b/test/builder.test.ts
+@@ -1,4 +1,4 @@
+-import { currentContext } from '@strutvane/core'
++import { currentContext } from '@strutvane/framework/core'
+ import { describe, expect, it } from 'vitest'
+ import { PolicyDefinitionError } from '../src/errors.ts'
+ import { createActorRefs, createRow } from '../src/policy/builder.ts'
+diff --git a/test/equivalence.test.ts b/test/equivalence.test.ts
+index a304486..ea393e4 100644
+--- a/test/equivalence.test.ts
++++ b/test/equivalence.test.ts
+@@ -7,7 +7,7 @@
+  * the design exists to prevent) must be caught.
+  */
+ import { PGlite } from '@electric-sql/pglite'
+-import type { Actor, QueryFilter } from '@strutvane/contracts'
++import type { Actor, QueryFilter } from '@strutvane/framework/contracts'
+ import fc from 'fast-check'
+ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+ import { evaluateFilter } from '../src/policy/evaluate.ts'
+diff --git a/test/field-rules.test.ts b/test/field-rules.test.ts
+index fb9b776..26a069b 100644
+--- a/test/field-rules.test.ts
++++ b/test/field-rules.test.ts
+@@ -5,8 +5,8 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+ import { tmpdir } from 'node:os'
+ import { join, resolve } from 'node:path'
+ import { pathToFileURL } from 'node:url'
+-import type { Actor } from '@strutvane/contracts'
+-import { createApp, HooksToken } from '@strutvane/core'
++import type { Actor } from '@strutvane/framework/contracts'
++import { createApp, HooksToken } from '@strutvane/framework/core'
+ import { afterEach, describe, expect, test } from 'vitest'
+ import { forbiddenWrites, unreadableFields } from '../src/field-rules.ts'
+ import { createAuthProvider } from '../src/provider.ts'
+diff --git a/test/filter-semantics.test.ts b/test/filter-semantics.test.ts
+index abce8f8..c4066cd 100644
+--- a/test/filter-semantics.test.ts
++++ b/test/filter-semantics.test.ts
+@@ -1,5 +1,5 @@
+ /** Binding, the validation gate and in-memory evaluation: the normative semantics of ADR-0008. */
+-import type { QueryFilter } from '@strutvane/contracts'
++import type { QueryFilter } from '@strutvane/framework/contracts'
+ import { describe, expect, it } from 'vitest'
+ import { FieldNotLoadedError, InvalidFilterError } from '../src/errors.ts'
+ import { ActorAttributeError, bindActor, isActorRef, resolveActorRef } from '../src/policy/bind.ts'
+diff --git a/test/fixtures.ts b/test/fixtures.ts
+index 76c56c0..7809d96 100644
+--- a/test/fixtures.ts
++++ b/test/fixtures.ts
+@@ -1,5 +1,5 @@
+ /** Shared test fixtures: an invoice model with a to-one customer relation, and actors. */
+-import type { Actor } from '@strutvane/contracts'
++import type { Actor } from '@strutvane/framework/contracts'
+ import { definePolicy, type Policy } from '../src/policy/policy.ts'
+ import { defineSchema } from '../src/policy/schema.ts'
+ 
+diff --git a/test/integration/app-identity.test.ts b/test/integration/app-identity.test.ts
+index 02b2a30..23f81c0 100644
+--- a/test/integration/app-identity.test.ts
++++ b/test/integration/app-identity.test.ts
+@@ -8,8 +8,8 @@ import { randomBytes } from 'node:crypto'
+ import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises'
+ import { tmpdir } from 'node:os'
+ import { join } from 'node:path'
+-import type { Actor } from '@strutvane/contracts'
+-import { createApp, HooksToken } from '@strutvane/core'
++import type { Actor } from '@strutvane/framework/contracts'
++import { createApp, HooksToken } from '@strutvane/framework/core'
+ import { afterAll, beforeAll, describe, expect, test } from 'vitest'
+ import { IdentitySetupError, openIdentityAdmin } from '../../src/admin.ts'
+ import commands, { type AuthCommandContext } from '../../src/commands.ts'
+diff --git a/test/middleware.test.ts b/test/middleware.test.ts
+index e887472..6c3058b 100644
+--- a/test/middleware.test.ts
++++ b/test/middleware.test.ts
+@@ -1,8 +1,8 @@
+ /** The framework-agnostic core plus the Hono and node:http adapters, over real HTTP where it matters. */
+ import { createServer, request, type Server } from 'node:http'
+ import type { AddressInfo } from 'node:net'
+-import type { Actor } from '@strutvane/contracts'
+-import { currentContext } from '@strutvane/core'
++import type { Actor } from '@strutvane/framework/contracts'
++import { currentContext } from '@strutvane/framework/core'
+ import { Hono } from 'hono'
+ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+ import { requestMeta } from '../src/http/request-meta.ts'
+@@ -109,7 +109,7 @@ describe('authenticateRequest', () => {
+ 
+   it('problem responses are no-store and carry headers', async () => {
+     const r = problemResponse(
+-      new (await import('@strutvane/core')).UnauthenticatedError(),
++      new (await import('@strutvane/framework/core')).UnauthenticatedError(),
+       new Headers({ 'set-cookie': 'a=; Max-Age=0' }),
+     )
+     expect(r.headers.get('cache-control')).toBe('no-store')
+diff --git a/test/packaging.test.ts b/test/packaging.test.ts
+new file mode 100644
+index 0000000..771f3e6
+--- /dev/null
++++ b/test/packaging.test.ts
+@@ -0,0 +1,71 @@
++/**
++ * Packaging guard: this package must share the app's single kernel, `@strutvane/framework`.
++ *
++ * Why: contracts, core, devkit and cli were folded into `@strutvane/framework` (framework
++ * CONSOLIDATION.md). A package that still depends on `@strutvane/core` or `@strutvane/contracts`
++ * installs a second kernel next to the framework's own. Container tokens are `Symbol()`s and
++ * error checks use `instanceof`, so across two kernels the logger token is not found and a
++ * `NotFoundError` renders as a 500. The framework must be a **peer** (the app owns the one copy),
++ * on a range that excludes `0.1.0-next.0`, which was published before the merge and has no
++ * `./core` or `./contracts` subpath.
++ */
++import { readdirSync, readFileSync, statSync } from 'node:fs'
++import { join } from 'node:path'
++import { fileURLToPath } from 'node:url'
++import { describe, expect, it } from 'vitest'
++
++type Deps = Readonly<Record<string, string>>
++interface Manifest {
++  readonly dependencies?: Deps
++  readonly devDependencies?: Deps
++  readonly peerDependencies?: Deps
++  readonly engines?: { readonly node?: string }
++}
++
++const root = fileURLToPath(new URL('..', import.meta.url))
++const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')) as Manifest
++const FRAMEWORK = '@strutvane/framework'
++const ABSORBED = /^@strutvane\/(core|contracts|devkit|cli)$/
++const PRODUCT = /^@strutvane\/(auth|ui|logs|log-viewer|files)$/
++const ABSORBED_IMPORT =
++  /(?:from|import)\s*\(?\s*['"]@strutvane\/(?:core|contracts|devkit|cli)(?:\/[^'"]*)?['"]/
++
++function sourceFiles(dir: string): string[] {
++  return readdirSync(dir).flatMap((name) => {
++    const path = join(dir, name)
++    if (statSync(path).isDirectory()) return sourceFiles(path)
++    return /\.(m?ts|tsx)$/.test(name) ? [path] : []
++  })
++}
++
++const fields = ['dependencies', 'devDependencies', 'peerDependencies'] as const
++
++describe('packaging: one kernel', () => {
++  it('declares no absorbed package (@strutvane/core, contracts, devkit, cli)', () => {
++    const found = fields.flatMap((f) => Object.keys(pkg[f] ?? {}).filter((n) => ABSORBED.test(n)))
++    expect(found).toEqual([])
++  })
++
++  it('peer-depends on the merged framework and never bundles or pins its own copy', () => {
++    expect(pkg.dependencies?.[FRAMEWORK]).toBeUndefined()
++    const range = pkg.peerDependencies?.[FRAMEWORK]
++    expect(range).toMatch(/^\^0\.\d+\.\d+(-next\.\d+)?$/)
++    expect(range).not.toBe('^0.1.0-next.0')
++  })
++
++  it('depends on no other product package', () => {
++    const found = fields.flatMap((f) => Object.keys(pkg[f] ?? {}).filter((n) => PRODUCT.test(n)))
++    expect(found).toEqual([])
++  })
++
++  it('requires Node >=24.3 (earlier 24.x break arguments in PowerShell)', () => {
++    expect(pkg.engines?.node).toBe('>=24.3')
++  })
++
++  it('imports the kernel only through @strutvane/framework subpaths', () => {
++    const offenders = sourceFiles(join(root, 'src')).filter((file) =>
++      ABSORBED_IMPORT.test(readFileSync(file, 'utf8')),
++    )
++    expect(offenders).toEqual([])
++  })
++})
+diff --git a/test/policy.test.ts b/test/policy.test.ts
+index 4ad8ff4..74b8302 100644
+--- a/test/policy.test.ts
++++ b/test/policy.test.ts
+@@ -1,4 +1,4 @@
+-import type { QueryFilter } from '@strutvane/contracts'
++import type { QueryFilter } from '@strutvane/framework/contracts'
+ import { describe, expect, it } from 'vitest'
+ import {
+   FieldNotLoadedError,
+diff --git a/test/provider.test.ts b/test/provider.test.ts
+index 0c8439d..429c50d 100644
+--- a/test/provider.test.ts
++++ b/test/provider.test.ts
+@@ -1,4 +1,4 @@
+-import type { PermissionProvider } from '@strutvane/contracts'
++import type { PermissionProvider } from '@strutvane/framework/contracts'
+ import { describe, expect, expectTypeOf, it } from 'vitest'
+ import { PolicyDefinitionError } from '../src/errors.ts'
+ import { definePolicy } from '../src/policy/policy.ts'
+diff --git a/test/roles.test.ts b/test/roles.test.ts
+index 6e5fc5b..3ec6177 100644
+--- a/test/roles.test.ts
++++ b/test/roles.test.ts
+@@ -5,7 +5,7 @@
+  * lists filtered in the database exactly as single-record checks decide.
+  */
+ import { PGlite } from '@electric-sql/pglite'
+-import type { Actor, Permission } from '@strutvane/contracts'
++import type { Actor, Permission } from '@strutvane/framework/contracts'
+ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+ import { defineAuthConfig } from '../src/config.ts'
+ import { PolicyDefinitionError } from '../src/errors.ts'
+diff --git a/test/security-regressions.test.ts b/test/security-regressions.test.ts
+index ebfab96..5a96523 100644
+--- a/test/security-regressions.test.ts
++++ b/test/security-regressions.test.ts
+@@ -6,7 +6,7 @@
+  */
+ 
+ import { isIP } from 'node:net'
+-import type { Actor, QueryFilter } from '@strutvane/contracts'
++import type { Actor, QueryFilter } from '@strutvane/framework/contracts'
+ import fc from 'fast-check'
+ import { describe, expect, it } from 'vitest'
+ import { diffChanges } from '../src/audit/audit.ts'
+diff --git a/test/sql.test.ts b/test/sql.test.ts
+index 58cc708..284b4cb 100644
+--- a/test/sql.test.ts
++++ b/test/sql.test.ts
+@@ -1,5 +1,5 @@
+ /** The SQL compiler's output shape, parameterisation and injection resistance. */
+-import type { QueryFilter } from '@strutvane/contracts'
++import type { QueryFilter } from '@strutvane/framework/contracts'
+ import { describe, expect, it } from 'vitest'
+ import { InvalidFilterError, PolicyDefinitionError } from '../src/errors.ts'
+ import { compileToSql, compileToTokens, renderPostgres } from '../src/sql/index.ts'
+diff --git a/test/types.test-d.ts b/test/types.test-d.ts
+index 51718c1..2ca9b3b 100644
+--- a/test/types.test-d.ts
++++ b/test/types.test-d.ts
+@@ -1,5 +1,5 @@
+ /** Type-level tests: misuse of the typed predicate builder must not compile. */
+-import type { PermissionProvider, QueryFilter } from '@strutvane/contracts'
++import type { PermissionProvider, QueryFilter } from '@strutvane/framework/contracts'
+ import { describe, expectTypeOf, it } from 'vitest'
+ import {
+   createPermissionProvider,
+diff --git a/test/vapt.test.ts b/test/vapt.test.ts
+index 364134b..b458b43 100644
+--- a/test/vapt.test.ts
++++ b/test/vapt.test.ts
+@@ -6,8 +6,8 @@
+  * (cross-tenant CRUD under RLS) and sql.test.ts (injection into the compiler).
+  */
+ import { PGlite } from '@electric-sql/pglite'
+-import type { QueryFilter } from '@strutvane/contracts'
+-import { currentContext } from '@strutvane/core'
++import type { QueryFilter } from '@strutvane/framework/contracts'
++import { currentContext } from '@strutvane/framework/core'
+ import { Hono } from 'hono'
+ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+ import { InvalidFilterError } from '../src/errors.ts'
+-- 
+2.56.0.windows.2
+

@@ -1,0 +1,502 @@
+From 924740ef2a1a802dc5b5e37c89db496828fbbc13 Mon Sep 17 00:00:00 2001
+From: vishwajitvm <vishwajitmall50@gmail.com>
+Date: Sun, 15 Nov 2026 02:30:16 +0530
+Subject: [PATCH] fix(deps): peer-depend on the merged @strutvane/framework
+ (one kernel)
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+contracts, core, devkit and cli now ship inside @strutvane/framework
+(framework CONSOLIDATION.md). This package still depended on the
+published @strutvane/core and @strutvane/contracts, so installing it
+next to the framework gave the app two kernels: container tokens are
+Symbol()s and errors are checked with instanceof, so across the copies
+LoggerToken did not match and a NotFoundError rendered as a 500
+(verified in a test app: tokens differ, toProblem(...).status = 500).
+
+- imports use @strutvane/framework/{core,contracts} (codemod of real
+  specifiers only; comments untouched)
+- @strutvane/framework is a peer (^0.1.0-next.1, which excludes the
+  pre-merge 0.1.0-next.0 that has no ./core or ./contracts subpath) and
+  a devDependency; the absorbed packages are gone
+- tsdown never bundles the framework (/^@strutvane\/framework(\/|$)/)
+- engines.node >=24.3 (blueprint §5)
+- test/packaging.test.ts guards all of the above
+
+Apply after @strutvane/framework 0.1.0-next.1 is published, then
+regenerate the lockfile (npm install; dry run §6 step 8).
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Signed-off-by: vishwajitvm <vishwajitmall50@gmail.com>
+---
+ .changeset/one-kernel-peer.md                 |  5 ++
+ package.json                                  |  8 +--
+ src/azure/disk.ts                             |  4 +-
+ src/disk.ts                                   |  7 +-
+ src/errors.ts                                 |  2 +-
+ src/fields.ts                                 |  4 +-
+ src/images/variants.ts                        |  2 +-
+ src/keys.ts                                   |  2 +-
+ src/manager.ts                                | 10 ++-
+ src/messages.ts                               |  2 +-
+ src/records.ts                                |  2 +-
+ src/s3/disk.ts                                |  4 +-
+ src/spool.ts                                  |  2 +-
+ src/storage-metadata.ts                       |  2 +-
+ test/azure.test.ts                            |  2 +-
+ test/helpers/memory-disk.ts                   |  4 +-
+ test/images.test.ts                           |  2 +-
+ .../azure-azurite.integration.test.ts         |  2 +-
+ .../s3-seaweedfs.integration.test.ts          |  2 +-
+ test/manager.test.ts                          |  4 +-
+ test/packaging.test.ts                        | 71 +++++++++++++++++++
+ test/rules-fields.test.ts                     |  4 +-
+ test/s3.test.ts                               |  2 +-
+ test/size-keys.test.ts                        |  2 +-
+ test/types.test-d.ts                          |  2 +-
+ tsdown.config.ts                              |  3 +-
+ 26 files changed, 120 insertions(+), 36 deletions(-)
+ create mode 100644 .changeset/one-kernel-peer.md
+ create mode 100644 test/packaging.test.ts
+
+diff --git a/.changeset/one-kernel-peer.md b/.changeset/one-kernel-peer.md
+new file mode 100644
+index 0000000..b10dc43
+--- /dev/null
++++ b/.changeset/one-kernel-peer.md
+@@ -0,0 +1,5 @@
++---
++"@strutvane/files": minor
++---
++
++Depend on the merged `@strutvane/framework` as a **peer** (`^0.1.0-next.1`) instead of `@strutvane/core` and `@strutvane/contracts`. Imports now use `@strutvane/framework/core` and `@strutvane/framework/contracts`, so an app has exactly one kernel: before, installing this package next to the framework added a second copy of core, and its container tokens and error classes did not match the framework's (the logger binding was not found and errors rendered as 500). Requires Node.js 24.3 or newer.
+diff --git a/package.json b/package.json
+index cb42b8b..7c016f1 100644
+--- a/package.json
++++ b/package.json
+@@ -59,7 +59,7 @@
+     "LICENSE"
+   ],
+   "engines": {
+-    "node": ">=24"
++    "node": ">=24.3"
+   },
+   "packageManager": "pnpm@12.18.0",
+   "publishConfig": {
+@@ -80,15 +80,12 @@
+     "version-packages": "changeset version",
+     "release": "changeset publish"
+   },
+-  "dependencies": {
+-    "@strutvane/contracts": "0.1.0-next.0",
+-    "@strutvane/core": "0.1.0-next.0"
+-  },
+   "peerDependencies": {
+     "@aws-sdk/client-s3": "^3.1100.0",
+     "@aws-sdk/s3-request-presigner": "^3.1100.0",
+     "@azure/identity": "^4.10.0",
+     "@azure/storage-blob": "^12.28.0",
++    "@strutvane/framework": "^0.1.0-next.1",
+     "sharp": "^0.35.0"
+   },
+   "peerDependenciesMeta": {
+@@ -115,6 +112,7 @@
+     "@azure/storage-blob": "12.34.0",
+     "@biomejs/biome": "2.6.7",
+     "@changesets/cli": "3.0.3",
++    "@strutvane/framework": "0.1.0-next.1",
+     "@types/node": "24.19.2",
+     "@types/pg": "8.23.1",
+     "@vitest/coverage-v8": "5.1.0",
+diff --git a/src/azure/disk.ts b/src/azure/disk.ts
+index 7f064c0..1b03b09 100644
+--- a/src/azure/disk.ts
++++ b/src/azure/disk.ts
+@@ -24,8 +24,8 @@ import {
+   StorageSharedKeyCredential,
+   type UserDelegationKey,
+ } from '@azure/storage-blob'
+-import type { FileBody, FileListPage, StoredFile } from '@strutvane/contracts'
+-import { NotFoundError } from '@strutvane/core'
++import type { FileBody, FileListPage, StoredFile } from '@strutvane/framework/contracts'
++import { NotFoundError } from '@strutvane/framework/core'
+ import {
+   clampExpiry,
+   type DirectUploadTarget,
+diff --git a/src/disk.ts b/src/disk.ts
+index aa4a22a..5b2fa0e 100644
+--- a/src/disk.ts
++++ b/src/disk.ts
+@@ -5,7 +5,12 @@
+  *
+  * @module
+  */
+-import type { FileVisibility, PutOptions, StorageDisk, StoredFile } from '@strutvane/contracts'
++import type {
++  FileVisibility,
++  PutOptions,
++  StorageDisk,
++  StoredFile,
++} from '@strutvane/framework/contracts'
+ import type { SpooledFile } from './spool.ts'
+ 
+ /** Extra put options understood by this package's disks (ignored by others). */
+diff --git a/src/errors.ts b/src/errors.ts
+index 45933b8..d28e689 100644
+--- a/src/errors.ts
++++ b/src/errors.ts
+@@ -20,7 +20,7 @@ import {
+   StrutvaneError,
+   type StrutvaneErrorOptions,
+   ValidationError,
+-} from '@strutvane/core'
++} from '@strutvane/framework/core'
+ 
+ /** Issue codes for per-file validation problems (keys under `validation.` in the catalog). */
+ export const FILE_ISSUE_CODES: readonly FileIssueCode[] = [
+diff --git a/src/fields.ts b/src/fields.ts
+index 5ccbfcd..a4745dd 100644
+--- a/src/fields.ts
++++ b/src/fields.ts
+@@ -22,8 +22,8 @@ import type {
+   SqlDialect,
+   StandardSchemaV1,
+   StandardSchemaV1Issue,
+-} from '@strutvane/contracts'
+-import { createMessages, isUuidV7 } from '@strutvane/core'
++} from '@strutvane/framework/contracts'
++import { createMessages, isUuidV7 } from '@strutvane/framework/core'
+ import { type FileIssue, fileIssue } from './errors.ts'
+ import { FILES_MESSAGES_EN } from './messages.ts'
+ import {
+diff --git a/src/images/variants.ts b/src/images/variants.ts
+index 4c2858e..bba7361 100644
+--- a/src/images/variants.ts
++++ b/src/images/variants.ts
+@@ -10,7 +10,7 @@
+ import { mkdtemp, rm } from 'node:fs/promises'
+ import { tmpdir } from 'node:os'
+ import { join } from 'node:path'
+-import type { StorageDisk, StoredFile } from '@strutvane/contracts'
++import type { StorageDisk, StoredFile } from '@strutvane/framework/contracts'
+ import sharp from 'sharp'
+ import { putSpooled } from '../disk.ts'
+ import { DEFAULT_RULES } from '../rules.ts'
+diff --git a/src/keys.ts b/src/keys.ts
+index 84776d0..1a2bf7a 100644
+--- a/src/keys.ts
++++ b/src/keys.ts
+@@ -11,7 +11,7 @@
+  *
+  * @module
+  */
+-import { NotFoundError, uuidv7 } from '@strutvane/core'
++import { NotFoundError, uuidv7 } from '@strutvane/framework/core'
+ import { UnsafeKeyError } from './errors.ts'
+ import { extensionFor } from './mime.ts'
+ 
+diff --git a/src/manager.ts b/src/manager.ts
+index d18a8ad..ce7c226 100644
+--- a/src/manager.ts
++++ b/src/manager.ts
+@@ -23,8 +23,14 @@ import type {
+   FileVisibility,
+   Logger,
+   StorageDisk,
+-} from '@strutvane/contracts'
+-import { type Clock, NotFoundError, systemClock, uuidv7, ValidationError } from '@strutvane/core'
++} from '@strutvane/framework/contracts'
++import {
++  type Clock,
++  NotFoundError,
++  systemClock,
++  uuidv7,
++  ValidationError,
++} from '@strutvane/framework/core'
+ import {
+   type DirectUploadTarget,
+   type FilesTemporaryUrlOptions,
+diff --git a/src/messages.ts b/src/messages.ts
+index 2df0be3..205b9d8 100644
+--- a/src/messages.ts
++++ b/src/messages.ts
+@@ -6,7 +6,7 @@
+  *
+  * @module
+  */
+-import { defineMessages, type MessageCatalog } from '@strutvane/core'
++import { defineMessages, type MessageCatalog } from '@strutvane/framework/core'
+ 
+ /** The package catalog for `en`. */
+ export const FILES_MESSAGES_EN: MessageCatalog = defineMessages('en', {
+diff --git a/src/records.ts b/src/records.ts
+index 8693708..e5eba3e 100644
+--- a/src/records.ts
++++ b/src/records.ts
+@@ -22,7 +22,7 @@
+  *
+  * @module
+  */
+-import type { FileVisibility } from '@strutvane/contracts'
++import type { FileVisibility } from '@strutvane/framework/contracts'
+ import type { ScanStatus } from './scan.ts'
+ 
+ /** Where a file is in its lifecycle. See the module docs. */
+diff --git a/src/s3/disk.ts b/src/s3/disk.ts
+index 97c8669..c0547f5 100644
+--- a/src/s3/disk.ts
++++ b/src/s3/disk.ts
+@@ -32,8 +32,8 @@ import {
+   UploadPartCommand,
+ } from '@aws-sdk/client-s3'
+ import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
+-import type { FileBody, FileListPage, StoredFile } from '@strutvane/contracts'
+-import { NotFoundError } from '@strutvane/core'
++import type { FileBody, FileListPage, StoredFile } from '@strutvane/framework/contracts'
++import { NotFoundError } from '@strutvane/framework/core'
+ import {
+   clampExpiry,
+   type DirectUploadTarget,
+diff --git a/src/spool.ts b/src/spool.ts
+index ab7d993..66061d9 100644
+--- a/src/spool.ts
++++ b/src/spool.ts
+@@ -22,7 +22,7 @@ import { mkdtemp, open, rm, stat } from 'node:fs/promises'
+ import { tmpdir } from 'node:os'
+ import { join } from 'node:path'
+ import { Readable } from 'node:stream'
+-import type { FileBody } from '@strutvane/contracts'
++import type { FileBody } from '@strutvane/framework/contracts'
+ import { SNIFF_BYTES } from './mime.ts'
+ 
+ /** A body copied to a temp file. Dispose it (`await using`) to delete the file. */
+diff --git a/src/storage-metadata.ts b/src/storage-metadata.ts
+index 622da75..3df6096 100644
+--- a/src/storage-metadata.ts
++++ b/src/storage-metadata.ts
+@@ -10,7 +10,7 @@
+  *
+  * @module
+  */
+-import type { FileVisibility } from '@strutvane/contracts'
++import type { FileVisibility } from '@strutvane/framework/contracts'
+ 
+ /** The total metadata budget in bytes (S3's limit). */
+ export const METADATA_LIMIT = 2048
+diff --git a/test/azure.test.ts b/test/azure.test.ts
+index e35526f..315ef34 100644
+--- a/test/azure.test.ts
++++ b/test/azure.test.ts
+@@ -7,7 +7,7 @@ import {
+   StorageSharedKeyCredential,
+   type UserDelegationKey,
+ } from '@azure/storage-blob'
+-import { NotFoundError } from '@strutvane/core'
++import { NotFoundError } from '@strutvane/framework/core'
+ import { describe, expect, test, vi } from 'vitest'
+ import { AzureBlobDisk } from '../src/azure/disk.ts'
+ import { createAzureBlobDisk } from '../src/azure/factory.ts'
+diff --git a/test/helpers/memory-disk.ts b/test/helpers/memory-disk.ts
+index 824f09b..afcb290 100644
+--- a/test/helpers/memory-disk.ts
++++ b/test/helpers/memory-disk.ts
+@@ -7,8 +7,8 @@ import type {
+   PutOptions,
+   StorageDisk,
+   StoredFile,
+-} from '@strutvane/contracts'
+-import { NotFoundError } from '@strutvane/core'
++} from '@strutvane/framework/contracts'
++import { NotFoundError } from '@strutvane/framework/core'
+ import type { DirectUploadTarget, PresignUploadOptions } from '../../src/disk.ts'
+ import { assertSafeKey, assertSafePrefix } from '../../src/keys.ts'
+ import { toWebStream } from '../../src/spool.ts'
+diff --git a/test/images.test.ts b/test/images.test.ts
+index cd07421..006c0d0 100644
+--- a/test/images.test.ts
++++ b/test/images.test.ts
+@@ -1,5 +1,5 @@
+ import { readFile } from 'node:fs/promises'
+-import { ValidationError } from '@strutvane/core'
++import { ValidationError } from '@strutvane/framework/core'
+ import sharp from 'sharp'
+ import { describe, expect, test } from 'vitest'
+ import { ImageProcessingError, type ImageProcessor } from '../src/image-processor.ts'
+diff --git a/test/integration/azure-azurite.integration.test.ts b/test/integration/azure-azurite.integration.test.ts
+index 44d2da4..00b8a2e 100644
+--- a/test/integration/azure-azurite.integration.test.ts
++++ b/test/integration/azure-azurite.integration.test.ts
+@@ -1,6 +1,6 @@
+ // AzureBlobDisk against Azurite (the official Azure Storage emulator).
+ import { BlobServiceClient } from '@azure/storage-blob'
+-import { NotFoundError } from '@strutvane/core'
++import { NotFoundError } from '@strutvane/framework/core'
+ import { afterAll, beforeAll, describe, expect, test } from 'vitest'
+ import type { AzureBlobDisk } from '../../src/azure/disk.ts'
+ import { createAzureBlobDisk } from '../../src/azure/factory.ts'
+diff --git a/test/integration/s3-seaweedfs.integration.test.ts b/test/integration/s3-seaweedfs.integration.test.ts
+index a9411e0..0554c8e 100644
+--- a/test/integration/s3-seaweedfs.integration.test.ts
++++ b/test/integration/s3-seaweedfs.integration.test.ts
+@@ -5,7 +5,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+ import { tmpdir } from 'node:os'
+ import { join } from 'node:path'
+ import { CreateBucketCommand } from '@aws-sdk/client-s3'
+-import { NotFoundError } from '@strutvane/core'
++import { NotFoundError } from '@strutvane/framework/core'
+ import { afterAll, beforeAll, describe, expect, test } from 'vitest'
+ import { createFileManager } from '../../src/manager.ts'
+ import { MemoryFileStore } from '../../src/records.ts'
+diff --git a/test/manager.test.ts b/test/manager.test.ts
+index 12a0930..9376bb4 100644
+--- a/test/manager.test.ts
++++ b/test/manager.test.ts
+@@ -1,8 +1,8 @@
+ import { mkdtemp, readdir, rm } from 'node:fs/promises'
+ import { tmpdir } from 'node:os'
+ import { join } from 'node:path'
+-import type { Logger } from '@strutvane/contracts'
+-import { createTestClock, NotFoundError, ValidationError } from '@strutvane/core'
++import type { Logger } from '@strutvane/framework/contracts'
++import { createTestClock, NotFoundError, ValidationError } from '@strutvane/framework/core'
+ import sharp from 'sharp'
+ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
+ import {
+diff --git a/test/packaging.test.ts b/test/packaging.test.ts
+new file mode 100644
+index 0000000..771f3e6
+--- /dev/null
++++ b/test/packaging.test.ts
+@@ -0,0 +1,71 @@
++/**
++ * Packaging guard: this package must share the app's single kernel, `@strutvane/framework`.
++ *
++ * Why: contracts, core, devkit and cli were folded into `@strutvane/framework` (framework
++ * CONSOLIDATION.md). A package that still depends on `@strutvane/core` or `@strutvane/contracts`
++ * installs a second kernel next to the framework's own. Container tokens are `Symbol()`s and
++ * error checks use `instanceof`, so across two kernels the logger token is not found and a
++ * `NotFoundError` renders as a 500. The framework must be a **peer** (the app owns the one copy),
++ * on a range that excludes `0.1.0-next.0`, which was published before the merge and has no
++ * `./core` or `./contracts` subpath.
++ */
++import { readdirSync, readFileSync, statSync } from 'node:fs'
++import { join } from 'node:path'
++import { fileURLToPath } from 'node:url'
++import { describe, expect, it } from 'vitest'
++
++type Deps = Readonly<Record<string, string>>
++interface Manifest {
++  readonly dependencies?: Deps
++  readonly devDependencies?: Deps
++  readonly peerDependencies?: Deps
++  readonly engines?: { readonly node?: string }
++}
++
++const root = fileURLToPath(new URL('..', import.meta.url))
++const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')) as Manifest
++const FRAMEWORK = '@strutvane/framework'
++const ABSORBED = /^@strutvane\/(core|contracts|devkit|cli)$/
++const PRODUCT = /^@strutvane\/(auth|ui|logs|log-viewer|files)$/
++const ABSORBED_IMPORT =
++  /(?:from|import)\s*\(?\s*['"]@strutvane\/(?:core|contracts|devkit|cli)(?:\/[^'"]*)?['"]/
++
++function sourceFiles(dir: string): string[] {
++  return readdirSync(dir).flatMap((name) => {
++    const path = join(dir, name)
++    if (statSync(path).isDirectory()) return sourceFiles(path)
++    return /\.(m?ts|tsx)$/.test(name) ? [path] : []
++  })
++}
++
++const fields = ['dependencies', 'devDependencies', 'peerDependencies'] as const
++
++describe('packaging: one kernel', () => {
++  it('declares no absorbed package (@strutvane/core, contracts, devkit, cli)', () => {
++    const found = fields.flatMap((f) => Object.keys(pkg[f] ?? {}).filter((n) => ABSORBED.test(n)))
++    expect(found).toEqual([])
++  })
++
++  it('peer-depends on the merged framework and never bundles or pins its own copy', () => {
++    expect(pkg.dependencies?.[FRAMEWORK]).toBeUndefined()
++    const range = pkg.peerDependencies?.[FRAMEWORK]
++    expect(range).toMatch(/^\^0\.\d+\.\d+(-next\.\d+)?$/)
++    expect(range).not.toBe('^0.1.0-next.0')
++  })
++
++  it('depends on no other product package', () => {
++    const found = fields.flatMap((f) => Object.keys(pkg[f] ?? {}).filter((n) => PRODUCT.test(n)))
++    expect(found).toEqual([])
++  })
++
++  it('requires Node >=24.3 (earlier 24.x break arguments in PowerShell)', () => {
++    expect(pkg.engines?.node).toBe('>=24.3')
++  })
++
++  it('imports the kernel only through @strutvane/framework subpaths', () => {
++    const offenders = sourceFiles(join(root, 'src')).filter((file) =>
++      ABSORBED_IMPORT.test(readFileSync(file, 'utf8')),
++    )
++    expect(offenders).toEqual([])
++  })
++})
+diff --git a/test/rules-fields.test.ts b/test/rules-fields.test.ts
+index b8d9e35..97757fb 100644
+--- a/test/rules-fields.test.ts
++++ b/test/rules-fields.test.ts
+@@ -1,5 +1,5 @@
+-import type { StandardSchemaV1FailureResult } from '@strutvane/contracts'
+-import { createMessages, ValidationError } from '@strutvane/core'
++import type { StandardSchemaV1FailureResult } from '@strutvane/framework/contracts'
++import { createMessages, ValidationError } from '@strutvane/framework/core'
+ import { describe, expect, test } from 'vitest'
+ import {
+   FileInfectedError,
+diff --git a/test/s3.test.ts b/test/s3.test.ts
+index a11077f..3647c4f 100644
+--- a/test/s3.test.ts
++++ b/test/s3.test.ts
+@@ -1,4 +1,4 @@
+-import { NotFoundError } from '@strutvane/core'
++import { NotFoundError } from '@strutvane/framework/core'
+ import { describe, expect, test } from 'vitest'
+ import { StorageUnavailableError, UnsafeKeyError } from '../src/errors.ts'
+ import { createFileManager } from '../src/manager.ts'
+diff --git a/test/size-keys.test.ts b/test/size-keys.test.ts
+index 566eb8e..56a5794 100644
+--- a/test/size-keys.test.ts
++++ b/test/size-keys.test.ts
+@@ -1,4 +1,4 @@
+-import { NotFoundError } from '@strutvane/core'
++import { NotFoundError } from '@strutvane/framework/core'
+ import fc from 'fast-check'
+ import { describe, expect, test } from 'vitest'
+ import { UnsafeKeyError } from '../src/errors.ts'
+diff --git a/test/types.test-d.ts b/test/types.test-d.ts
+index 82bd03b..adefdfa 100644
+--- a/test/types.test-d.ts
++++ b/test/types.test-d.ts
+@@ -1,5 +1,5 @@
+ // Type-level tests: the public API satisfies the contracts, and misuse fails to compile.
+-import type { FieldType, StorageDisk } from '@strutvane/contracts'
++import type { FieldType, StorageDisk } from '@strutvane/framework/contracts'
+ import { describe, expectTypeOf, test } from 'vitest'
+ import type { AzureBlobDisk } from '../src/azure/disk.ts'
+ import type { PresigningDisk, SpoolAwareDisk } from '../src/disk.ts'
+diff --git a/tsdown.config.ts b/tsdown.config.ts
+index 6b598bf..c6d38d1 100644
+--- a/tsdown.config.ts
++++ b/tsdown.config.ts
+@@ -19,8 +19,7 @@ export default defineConfig({
+   clean: true,
+   deps: {
+     neverBundle: [
+-      '@strutvane/contracts',
+-      '@strutvane/core',
++      /^@strutvane\/framework(\/|$)/,
+       '@aws-sdk/client-s3',
+       '@aws-sdk/s3-request-presigner',
+       '@azure/storage-blob',
+-- 
+2.56.0.windows.2
+

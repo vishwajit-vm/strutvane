@@ -1,0 +1,680 @@
+From 17faf5019386bfda2485c2b201c8b5bc3a0591b3 Mon Sep 17 00:00:00 2001
+From: vishwajitvm <vishwajitmall50@gmail.com>
+Date: Sun, 15 Nov 2026 11:49:22 +0530
+Subject: [PATCH] fix(deps): peer-depend on the merged @strutvane/framework
+ (one kernel)
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+contracts, core, devkit and cli now ship inside @strutvane/framework
+(framework CONSOLIDATION.md). This package still depended on the
+published @strutvane/core and @strutvane/contracts, so installing it
+next to the framework gave the app two kernels: container tokens are
+Symbol()s and errors are checked with instanceof, so across the copies
+LoggerToken did not match and a NotFoundError rendered as a 500
+(verified in a test app: tokens differ, toProblem(...).status = 500).
+
+- imports use @strutvane/framework/{core,contracts} (codemod of real
+  specifiers only; comments untouched)
+- @strutvane/framework is a peer (^0.1.0-next.1, which excludes the
+  pre-merge 0.1.0-next.0 that has no ./core or ./contracts subpath) and
+  a devDependency; the absorbed packages are gone
+- @strutvane/framework is a required peer, not optional: the built UI imports
+  runtime values (LIST_QUERY_LIMITS, MANIFEST_PATH...) from
+  @strutvane/framework/contracts, which is node-free (checked)
+- engines.node >=24.3 (blueprint §5)
+- test/packaging.test.ts guards all of the above
+
+Apply after @strutvane/framework 0.1.0-next.1 is published, then
+regenerate the lockfile (npm install; dry run §6 step 8).
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Signed-off-by: vishwajitvm <vishwajitmall50@gmail.com>
+---
+ .changeset/one-kernel-peer.md    |  5 +++
+ package.json                     |  7 ++--
+ src/core/filter-builder.ts       |  2 +-
+ src/core/http-client.ts          |  2 +-
+ src/core/issues.ts               |  2 +-
+ src/core/list-query-url.ts       |  2 +-
+ src/core/list-state.ts           |  6 ++-
+ src/core/manifest-client.ts      |  2 +-
+ src/core/messages.ts             |  2 +-
+ src/core/problems.ts             |  2 +-
+ src/core/record-batcher.ts       |  2 +-
+ src/core/registry.ts             |  2 +-
+ src/core/session-client.ts       |  2 +-
+ src/core/types.ts                |  2 +-
+ src/core/validation.ts           |  7 +++-
+ src/react/FieldShell.tsx         |  2 +-
+ src/react/FilterBar.tsx          |  6 ++-
+ src/react/ResourceDetail.tsx     |  2 +-
+ src/react/ResourceForm.tsx       |  2 +-
+ src/react/ResourceList.tsx       |  6 ++-
+ src/react/StrutvaneApp.tsx       |  2 +-
+ src/react/StrutvaneProvider.tsx  |  2 +-
+ src/react/context.ts             |  2 +-
+ src/react/relations.ts           |  4 +-
+ src/react/types.ts               |  2 +-
+ src/react/useListQuery.ts        |  2 +-
+ test/RelationPicker.test.tsx     |  2 +-
+ test/core/filter-builder.test.ts |  2 +-
+ test/core/http-client.test.ts    |  2 +-
+ test/core/list-query-url.test.ts |  2 +-
+ test/core/record-batcher.test.ts |  2 +-
+ test/decimal-strings.test.tsx    |  2 +-
+ test/fixtures/fake-api.ts        |  2 +-
+ test/fixtures/manifest.ts        |  2 +-
+ test/helpers.tsx                 |  2 +-
+ test/packaging.test.ts           | 71 ++++++++++++++++++++++++++++++++
+ test/perf.test.tsx               |  2 +-
+ test/react-parts.test.tsx        |  2 +-
+ test/types.test-d.ts             |  2 +-
+ 39 files changed, 133 insertions(+), 41 deletions(-)
+ create mode 100644 .changeset/one-kernel-peer.md
+ create mode 100644 test/packaging.test.ts
+
+diff --git a/.changeset/one-kernel-peer.md b/.changeset/one-kernel-peer.md
+new file mode 100644
+index 0000000..f69d668
+--- /dev/null
++++ b/.changeset/one-kernel-peer.md
+@@ -0,0 +1,5 @@
++---
++"@strutvane/ui": minor
++---
++
++Depend on the merged `@strutvane/framework` as a **peer** (`^0.1.0-next.1`) instead of `@strutvane/core` and `@strutvane/contracts`. Imports now use `@strutvane/framework/core` and `@strutvane/framework/contracts`, so an app has exactly one kernel: before, installing this package next to the framework added a second copy of core, and its container tokens and error classes did not match the framework's (the logger binding was not found and errors rendered as 500). Requires Node.js 24.3 or newer.
+diff --git a/package.json b/package.json
+index 587e009..911d33c 100644
+--- a/package.json
++++ b/package.json
+@@ -46,7 +46,7 @@
+     "LICENSE"
+   ],
+   "engines": {
+-    "node": ">=24"
++    "node": ">=24.3"
+   },
+   "packageManager": "pnpm@12.18.0",
+   "publishConfig": {
+@@ -65,10 +65,8 @@
+     "version-packages": "changeset version",
+     "release": "changeset publish"
+   },
+-  "dependencies": {
+-    "@strutvane/contracts": "0.1.0-next.0"
+-  },
+   "peerDependencies": {
++    "@strutvane/framework": "^0.1.0-next.1",
+     "@tanstack/react-form": "^1.33.5",
+     "@tanstack/react-query": "^5.107.1",
+     "@tanstack/react-table": "^9.3.1",
+@@ -99,6 +97,7 @@
+   "devDependencies": {
+     "@biomejs/biome": "2.6.7",
+     "@changesets/cli": "3.0.3",
++    "@strutvane/framework": "0.1.0-next.1",
+     "@tanstack/react-form": "1.33.5",
+     "@tanstack/react-query": "5.107.1",
+     "@tanstack/react-table": "9.3.1",
+diff --git a/src/core/filter-builder.ts b/src/core/filter-builder.ts
+index 9ab5180..7aa73a3 100644
+--- a/src/core/filter-builder.ts
++++ b/src/core/filter-builder.ts
+@@ -20,7 +20,7 @@ import {
+   type FieldDescriptor,
+   type FilterOperator,
+   type QueryFilter,
+-} from '@strutvane/contracts'
++} from '@strutvane/framework/contracts'
+ import { isIsoDate, NUMERIC_TYPES, TEMPORAL_TYPES } from './validation.ts'
+ 
+ /** A scalar filter value. */
+diff --git a/src/core/http-client.ts b/src/core/http-client.ts
+index 7a9a5fa..1c7fe58 100644
+--- a/src/core/http-client.ts
++++ b/src/core/http-client.ts
+@@ -19,7 +19,7 @@
+  *
+  * @module
+  */
+-import type { ListQuery, ListResult, PageInfo, Problem } from '@strutvane/contracts'
++import type { ListQuery, ListResult, PageInfo, Problem } from '@strutvane/framework/contracts'
+ import { createIdempotencyKey } from './ids.ts'
+ import { listQueryToSearchString } from './list-query-url.ts'
+ import { ApiProblemError, networkProblem, problemFromResponse } from './problems.ts'
+diff --git a/src/core/issues.ts b/src/core/issues.ts
+index 97c7fce..d95ca32 100644
+--- a/src/core/issues.ts
++++ b/src/core/issues.ts
+@@ -8,7 +8,7 @@
+  *
+  * @module
+  */
+-import type { ValidationIssue } from '@strutvane/contracts'
++import type { ValidationIssue } from '@strutvane/framework/contracts'
+ 
+ /** `['lines', 1, 'amount']` → `'lines[1].amount'`; `[]` → `''` (form level). */
+ export function issuePathToFieldName(path: readonly (string | number)[]): string {
+diff --git a/src/core/list-query-url.ts b/src/core/list-query-url.ts
+index 04366a4..6b56df9 100644
+--- a/src/core/list-query-url.ts
++++ b/src/core/list-query-url.ts
+@@ -22,7 +22,7 @@ import {
+   type QueryFilter,
+   type ResourceDescriptor,
+   type SortDirective,
+-} from '@strutvane/contracts'
++} from '@strutvane/framework/contracts'
+ import {
+   buildFilter,
+   FIELD_NAME_PATTERN,
+diff --git a/src/core/list-state.ts b/src/core/list-state.ts
+index d1e483f..96109a5 100644
+--- a/src/core/list-state.ts
++++ b/src/core/list-state.ts
+@@ -8,7 +8,11 @@
+  *
+  * @module
+  */
+-import { LIST_QUERY_LIMITS, type ListQuery, type SortDirective } from '@strutvane/contracts'
++import {
++  LIST_QUERY_LIMITS,
++  type ListQuery,
++  type SortDirective,
++} from '@strutvane/framework/contracts'
+ import { filtersToQueryFilter, type SimpleFilter } from './filter-builder.ts'
+ 
+ /** What the list page shows. */
+diff --git a/src/core/manifest-client.ts b/src/core/manifest-client.ts
+index 1d0c535..fa55cd1 100644
+--- a/src/core/manifest-client.ts
++++ b/src/core/manifest-client.ts
+@@ -25,7 +25,7 @@ import {
+   type ResourceCapabilities,
+   type ResourceDescriptor,
+   type ResourceManifest,
+-} from '@strutvane/contracts'
++} from '@strutvane/framework/contracts'
+ import { FIELD_NAME_PATTERN, isFilterOperator } from './filter-builder.ts'
+ import { ApiProblemError, networkProblem, problemFromResponse } from './problems.ts'
+ 
+diff --git a/src/core/messages.ts b/src/core/messages.ts
+index 1aed49a..abb3142 100644
+--- a/src/core/messages.ts
++++ b/src/core/messages.ts
+@@ -17,7 +17,7 @@
+  *
+  * @module
+  */
+-import type { IssueParam } from '@strutvane/contracts'
++import type { IssueParam } from '@strutvane/framework/contracts'
+ 
+ /** Messages keyed by stable code (`too_small`) or UI key (`ui.list.showing`). */
+ export type MessageCatalog = Readonly<Record<string, string>>
+diff --git a/src/core/problems.ts b/src/core/problems.ts
+index 201deff..2551e27 100644
+--- a/src/core/problems.ts
++++ b/src/core/problems.ts
+@@ -15,7 +15,7 @@
+  *
+  * @module
+  */
+-import type { IssueParam, Problem, ValidationIssue } from '@strutvane/contracts'
++import type { IssueParam, Problem, ValidationIssue } from '@strutvane/framework/contracts'
+ import { formatMessage, type MessageCatalog } from './messages.ts'
+ 
+ /** Code used for transport failures (no HTTP response at all). UI-only; never sent by servers. */
+diff --git a/src/core/record-batcher.ts b/src/core/record-batcher.ts
+index 113cd39..9c2075e 100644
+--- a/src/core/record-batcher.ts
++++ b/src/core/record-batcher.ts
+@@ -13,7 +13,7 @@
+  *
+  * @module
+  */
+-import { LIST_QUERY_LIMITS, type ResourceDescriptor } from '@strutvane/contracts'
++import { LIST_QUERY_LIMITS, type ResourceDescriptor } from '@strutvane/framework/contracts'
+ import { isApiProblemError } from './problems.ts'
+ import type { ApiRecord, ResourceApi } from './types.ts'
+ 
+diff --git a/src/core/registry.ts b/src/core/registry.ts
+index 87a639b..d01ac4a 100644
+--- a/src/core/registry.ts
++++ b/src/core/registry.ts
+@@ -12,7 +12,7 @@
+  *
+  * @module
+  */
+-import type { FieldDescriptor, ResourceDescriptor } from '@strutvane/contracts'
++import type { FieldDescriptor, ResourceDescriptor } from '@strutvane/framework/contracts'
+ import { defaultMessages, type MessageCatalog } from './messages.ts'
+ 
+ /** A component lookup table. */
+diff --git a/src/core/session-client.ts b/src/core/session-client.ts
+index b12adf3..cb9bf49 100644
+--- a/src/core/session-client.ts
++++ b/src/core/session-client.ts
+@@ -9,7 +9,7 @@
+  *
+  * @module
+  */
+-import type { Actor } from '@strutvane/contracts'
++import type { Actor } from '@strutvane/framework/contracts'
+ import { ApiProblemError, networkProblem, problemFromResponse } from './problems.ts'
+ 
+ /** The signed-in actor as the API reports it (`GET /auth/me`). */
+diff --git a/src/core/types.ts b/src/core/types.ts
+index 6abbf80..9431572 100644
+--- a/src/core/types.ts
++++ b/src/core/types.ts
+@@ -8,7 +8,7 @@
+  *
+  * @module
+  */
+-import type { ListQuery, ListResult } from '@strutvane/contracts'
++import type { ListQuery, ListResult } from '@strutvane/framework/contracts'
+ 
+ /** A record as returned by a Strutvane API: an `id` plus the resource's fields. */
+ export interface ApiRecord {
+diff --git a/src/core/validation.ts b/src/core/validation.ts
+index 67738af..dd84bb1 100644
+--- a/src/core/validation.ts
++++ b/src/core/validation.ts
+@@ -11,7 +11,12 @@
+  *
+  * @module
+  */
+-import type { FieldDescriptor, IssueParam, JsonSchema, ValidationIssue } from '@strutvane/contracts'
++import type {
++  FieldDescriptor,
++  IssueParam,
++  JsonSchema,
++  ValidationIssue,
++} from '@strutvane/framework/contracts'
+ import { formatMessage, type MessageCatalog } from './messages.ts'
+ 
+ /** Field types whose values are numbers. */
+diff --git a/src/react/FieldShell.tsx b/src/react/FieldShell.tsx
+index 4706b3d..a644720 100644
+--- a/src/react/FieldShell.tsx
++++ b/src/react/FieldShell.tsx
+@@ -8,7 +8,7 @@
+  *
+  * @module
+  */
+-import type { FieldDescriptor } from '@strutvane/contracts'
++import type { FieldDescriptor } from '@strutvane/framework/contracts'
+ import type { ReactElement } from 'react'
+ import { fieldDomId, uniqueMessages } from '../core/issues.ts'
+ import type { Widget } from './types.ts'
+diff --git a/src/react/FilterBar.tsx b/src/react/FilterBar.tsx
+index 111b080..75c75df 100644
+--- a/src/react/FilterBar.tsx
++++ b/src/react/FilterBar.tsx
+@@ -7,7 +7,11 @@
+  *
+  * @module
+  */
+-import type { FieldDescriptor, FilterOperator, ResourceDescriptor } from '@strutvane/contracts'
++import type {
++  FieldDescriptor,
++  FilterOperator,
++  ResourceDescriptor,
++} from '@strutvane/framework/contracts'
+ import { type FormEvent, type ReactElement, useId, useState } from 'react'
+ import { buildFilter, type SimpleFilter } from '../core/filter-builder.ts'
+ import type { MessageParams } from '../core/messages.ts'
+diff --git a/src/react/ResourceDetail.tsx b/src/react/ResourceDetail.tsx
+index bc9a526..2c3bf45 100644
+--- a/src/react/ResourceDetail.tsx
++++ b/src/react/ResourceDetail.tsx
+@@ -12,7 +12,7 @@
+  *
+  * @module
+  */
+-import type { FieldDescriptor, ResourceDescriptor } from '@strutvane/contracts'
++import type { FieldDescriptor, ResourceDescriptor } from '@strutvane/framework/contracts'
+ import { useQuery, useQueryClient } from '@tanstack/react-query'
+ import { type ReactElement, useId, useState } from 'react'
+ import { isApiProblemError, problemBannerText } from '../core/problems.ts'
+diff --git a/src/react/ResourceForm.tsx b/src/react/ResourceForm.tsx
+index 3a7252b..bf3a70e 100644
+--- a/src/react/ResourceForm.tsx
++++ b/src/react/ResourceForm.tsx
+@@ -26,7 +26,7 @@ import type {
+   Problem,
+   ResourceDescriptor,
+   ValidationIssue,
+-} from '@strutvane/contracts'
++} from '@strutvane/framework/contracts'
+ import { useForm } from '@tanstack/react-form'
+ import { useQuery, useQueryClient } from '@tanstack/react-query'
+ import {
+diff --git a/src/react/ResourceList.tsx b/src/react/ResourceList.tsx
+index 5281916..2186b7c 100644
+--- a/src/react/ResourceList.tsx
++++ b/src/react/ResourceList.tsx
+@@ -17,7 +17,11 @@
+  *
+  * @module
+  */
+-import type { FieldDescriptor, ResourceDescriptor, SortDirective } from '@strutvane/contracts'
++import type {
++  FieldDescriptor,
++  ResourceDescriptor,
++  SortDirective,
++} from '@strutvane/framework/contracts'
+ import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
+ import {
+   type ColumnDef,
+diff --git a/src/react/StrutvaneApp.tsx b/src/react/StrutvaneApp.tsx
+index 6082cc5..6b99e86 100644
+--- a/src/react/StrutvaneApp.tsx
++++ b/src/react/StrutvaneApp.tsx
+@@ -24,7 +24,7 @@
+  *
+  * @module
+  */
+-import type { ResourceDescriptor, ResourceManifest } from '@strutvane/contracts'
++import type { ResourceDescriptor, ResourceManifest } from '@strutvane/framework/contracts'
+ import { QueryCache, QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query'
+ import {
+   type ReactElement,
+diff --git a/src/react/StrutvaneProvider.tsx b/src/react/StrutvaneProvider.tsx
+index 3a3aca6..f009a9e 100644
+--- a/src/react/StrutvaneProvider.tsx
++++ b/src/react/StrutvaneProvider.tsx
+@@ -10,7 +10,7 @@
+  *
+  * @module
+  */
+-import type { ResourceManifest } from '@strutvane/contracts'
++import type { ResourceManifest } from '@strutvane/framework/contracts'
+ import { type QueryClient, QueryClientProvider } from '@tanstack/react-query'
+ import { type ReactElement, type ReactNode, useMemo } from 'react'
+ import { mergeRegistry } from '../core/registry.ts'
+diff --git a/src/react/context.ts b/src/react/context.ts
+index 7b2a5e5..343c90b 100644
+--- a/src/react/context.ts
++++ b/src/react/context.ts
+@@ -6,7 +6,7 @@
+  *
+  * @module
+  */
+-import type { ResourceDescriptor, ResourceManifest } from '@strutvane/contracts'
++import type { ResourceDescriptor, ResourceManifest } from '@strutvane/framework/contracts'
+ import { type Context, createContext, useContext } from 'react'
+ import { formatMessage, type MessageParams } from '../core/messages.ts'
+ import type { ResourceApi } from '../core/types.ts'
+diff --git a/src/react/relations.ts b/src/react/relations.ts
+index e023c2e..66aec3e 100644
+--- a/src/react/relations.ts
++++ b/src/react/relations.ts
+@@ -9,8 +9,8 @@
+  *
+  * @module
+  */
+-import type { FieldDescriptor, ListQuery, ResourceDescriptor } from '@strutvane/contracts'
+-import { LIST_QUERY_LIMITS } from '@strutvane/contracts'
++import type { FieldDescriptor, ListQuery, ResourceDescriptor } from '@strutvane/framework/contracts'
++import { LIST_QUERY_LIMITS } from '@strutvane/framework/contracts'
+ import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
+ import { useEffect, useMemo, useState } from 'react'
+ import { createRecordBatcher, type RecordBatcher } from '../core/record-batcher.ts'
+diff --git a/src/react/types.ts b/src/react/types.ts
+index 4ac8562..1ae8ee5 100644
+--- a/src/react/types.ts
++++ b/src/react/types.ts
+@@ -3,7 +3,7 @@
+  *
+  * @module
+  */
+-import type { FieldDescriptor, ResourceDescriptor } from '@strutvane/contracts'
++import type { FieldDescriptor, ResourceDescriptor } from '@strutvane/framework/contracts'
+ import type { ComponentType } from 'react'
+ import type { Registry, RegistryOverrides } from '../core/registry.ts'
+ import type { ApiRecord } from '../core/types.ts'
+diff --git a/src/react/useListQuery.ts b/src/react/useListQuery.ts
+index 6411a74..0ea14a9 100644
+--- a/src/react/useListQuery.ts
++++ b/src/react/useListQuery.ts
+@@ -7,7 +7,7 @@
+  *
+  * @module
+  */
+-import type { ListQuery, ResourceDescriptor, SortDirective } from '@strutvane/contracts'
++import type { ListQuery, ResourceDescriptor, SortDirective } from '@strutvane/framework/contracts'
+ import { useCallback, useMemo, useReducer } from 'react'
+ import type { SimpleFilter } from '../core/filter-builder.ts'
+ import { parseSearchString, type RejectedParam, toSearchString } from '../core/list-query-url.ts'
+diff --git a/test/RelationPicker.test.tsx b/test/RelationPicker.test.tsx
+index 118afb4..557d007 100644
+--- a/test/RelationPicker.test.tsx
++++ b/test/RelationPicker.test.tsx
+@@ -1,7 +1,7 @@
+ // @vitest-environment jsdom
+ // The belongsTo picker beyond the first 100 records (ADR-0014 follow-up): paginated, searchable,
+ // and the selected record always visible. Plus the relation cell with embedded records.
+-import type { FieldDescriptor } from '@strutvane/contracts'
++import type { FieldDescriptor } from '@strutvane/framework/contracts'
+ import { screen, waitFor, within } from '@testing-library/react'
+ import { userEvent } from '@testing-library/user-event'
+ import { describe, expect, test } from 'vitest'
+diff --git a/test/core/filter-builder.test.ts b/test/core/filter-builder.test.ts
+index 0cff3e0..1273da9 100644
+--- a/test/core/filter-builder.test.ts
++++ b/test/core/filter-builder.test.ts
+@@ -1,6 +1,6 @@
+ // The ONE filter builder: rejects fields and operators the descriptor does not allow, and values
+ // that do not fit the field's type. URL parsing and the filter bar both depend on these rules.
+-import type { FieldDescriptor } from '@strutvane/contracts'
++import type { FieldDescriptor } from '@strutvane/framework/contracts'
+ import { describe, expect, test } from 'vitest'
+ import {
+   buildFilter,
+diff --git a/test/core/http-client.test.ts b/test/core/http-client.test.ts
+index 3c72f94..9cdb7d4 100644
+--- a/test/core/http-client.test.ts
++++ b/test/core/http-client.test.ts
+@@ -1,6 +1,6 @@
+ // The fetch wrapper: routes, query vs POST /query, idempotency keys, problem mapping, malformed
+ // responses and path safety. `fetch` is stubbed; requests are asserted as the server would see them.
+-import type { ListQuery } from '@strutvane/contracts'
++import type { ListQuery } from '@strutvane/framework/contracts'
+ import { describe, expect, test, vi } from 'vitest'
+ import { createHttpClient } from '../../src/core/http-client.ts'
+ import { ApiProblemError } from '../../src/core/problems.ts'
+diff --git a/test/core/list-query-url.test.ts b/test/core/list-query-url.test.ts
+index 38fe246..7138da0 100644
+--- a/test/core/list-query-url.test.ts
++++ b/test/core/list-query-url.test.ts
+@@ -1,6 +1,6 @@
+ // List state ⇄ URL (ADR-0011 wire format) and ListQuery → wire. Includes the spike 08 acceptance
+ // tests, adapted to repeated keys, and a property test over hostile values.
+-import type { ListQuery } from '@strutvane/contracts'
++import type { ListQuery } from '@strutvane/framework/contracts'
+ import fc from 'fast-check'
+ import { describe, expect, test } from 'vitest'
+ import type { SimpleFilter } from '../../src/core/filter-builder.ts'
+diff --git a/test/core/record-batcher.test.ts b/test/core/record-batcher.test.ts
+index 21d1cce..f08bdac 100644
+--- a/test/core/record-batcher.test.ts
++++ b/test/core/record-batcher.test.ts
+@@ -1,5 +1,5 @@
+ // Batched relation lookups: one request per tick, chunked, failures isolated per chunk.
+-import type { ListQuery, ListResult } from '@strutvane/contracts'
++import type { ListQuery, ListResult } from '@strutvane/framework/contracts'
+ import { describe, expect, test, vi } from 'vitest'
+ import { ApiProblemError } from '../../src/core/problems.ts'
+ import { createRecordBatcher } from '../../src/core/record-batcher.ts'
+diff --git a/test/decimal-strings.test.tsx b/test/decimal-strings.test.tsx
+index 2fc7e2e..fcf0cd3 100644
+--- a/test/decimal-strings.test.tsx
++++ b/test/decimal-strings.test.tsx
+@@ -1,7 +1,7 @@
+ // @vitest-environment jsdom
+ // Exact numbers travel as strings (a Strutvane decimal is `"1250.50"`, schema `type: "string"`).
+ // The list showed "—" for every such value and the form sent numbers the API refuses.
+-import type { FieldDescriptor } from '@strutvane/contracts'
++import type { FieldDescriptor } from '@strutvane/framework/contracts'
+ import { fireEvent, screen } from '@testing-library/react'
+ import { useState } from 'react'
+ import { describe, expect, test, vi } from 'vitest'
+diff --git a/test/fixtures/fake-api.ts b/test/fixtures/fake-api.ts
+index 606f05c..926a695 100644
+--- a/test/fixtures/fake-api.ts
++++ b/test/fixtures/fake-api.ts
+@@ -16,7 +16,7 @@ import {
+   type ResourceDescriptor,
+   type ResourceManifest,
+   type ValidationIssue,
+-} from '@strutvane/contracts'
++} from '@strutvane/framework/contracts'
+ import { defaultMessages, formatMessage } from '../../src/core/messages.ts'
+ import { ApiProblemError } from '../../src/core/problems.ts'
+ import type { ApiRecord, MutationOptions, ResourceApi } from '../../src/core/types.ts'
+diff --git a/test/fixtures/manifest.ts b/test/fixtures/manifest.ts
+index 7e10ea0..df4f0b8 100644
+--- a/test/fixtures/manifest.ts
++++ b/test/fixtures/manifest.ts
+@@ -8,7 +8,7 @@ import type {
+   ResourceCapabilities,
+   ResourceDescriptor,
+   ResourceManifest,
+-} from '@strutvane/contracts'
++} from '@strutvane/framework/contracts'
+ 
+ export const ALL: ResourceCapabilities = {
+   list: true,
+diff --git a/test/helpers.tsx b/test/helpers.tsx
+index 1876bf8..1d5e2fb 100644
+--- a/test/helpers.tsx
++++ b/test/helpers.tsx
+@@ -3,7 +3,7 @@
+  * Imported only by jsdom test files (they declare `// @vitest-environment jsdom`).
+  */
+ import '@testing-library/jest-dom/vitest'
+-import type { ResourceManifest } from '@strutvane/contracts'
++import type { ResourceManifest } from '@strutvane/framework/contracts'
+ import { QueryClient } from '@tanstack/react-query'
+ import { cleanup, type RenderResult, render } from '@testing-library/react'
+ import axe from 'axe-core'
+diff --git a/test/packaging.test.ts b/test/packaging.test.ts
+new file mode 100644
+index 0000000..771f3e6
+--- /dev/null
++++ b/test/packaging.test.ts
+@@ -0,0 +1,71 @@
++/**
++ * Packaging guard: this package must share the app's single kernel, `@strutvane/framework`.
++ *
++ * Why: contracts, core, devkit and cli were folded into `@strutvane/framework` (framework
++ * CONSOLIDATION.md). A package that still depends on `@strutvane/core` or `@strutvane/contracts`
++ * installs a second kernel next to the framework's own. Container tokens are `Symbol()`s and
++ * error checks use `instanceof`, so across two kernels the logger token is not found and a
++ * `NotFoundError` renders as a 500. The framework must be a **peer** (the app owns the one copy),
++ * on a range that excludes `0.1.0-next.0`, which was published before the merge and has no
++ * `./core` or `./contracts` subpath.
++ */
++import { readdirSync, readFileSync, statSync } from 'node:fs'
++import { join } from 'node:path'
++import { fileURLToPath } from 'node:url'
++import { describe, expect, it } from 'vitest'
++
++type Deps = Readonly<Record<string, string>>
++interface Manifest {
++  readonly dependencies?: Deps
++  readonly devDependencies?: Deps
++  readonly peerDependencies?: Deps
++  readonly engines?: { readonly node?: string }
++}
++
++const root = fileURLToPath(new URL('..', import.meta.url))
++const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')) as Manifest
++const FRAMEWORK = '@strutvane/framework'
++const ABSORBED = /^@strutvane\/(core|contracts|devkit|cli)$/
++const PRODUCT = /^@strutvane\/(auth|ui|logs|log-viewer|files)$/
++const ABSORBED_IMPORT =
++  /(?:from|import)\s*\(?\s*['"]@strutvane\/(?:core|contracts|devkit|cli)(?:\/[^'"]*)?['"]/
++
++function sourceFiles(dir: string): string[] {
++  return readdirSync(dir).flatMap((name) => {
++    const path = join(dir, name)
++    if (statSync(path).isDirectory()) return sourceFiles(path)
++    return /\.(m?ts|tsx)$/.test(name) ? [path] : []
++  })
++}
++
++const fields = ['dependencies', 'devDependencies', 'peerDependencies'] as const
++
++describe('packaging: one kernel', () => {
++  it('declares no absorbed package (@strutvane/core, contracts, devkit, cli)', () => {
++    const found = fields.flatMap((f) => Object.keys(pkg[f] ?? {}).filter((n) => ABSORBED.test(n)))
++    expect(found).toEqual([])
++  })
++
++  it('peer-depends on the merged framework and never bundles or pins its own copy', () => {
++    expect(pkg.dependencies?.[FRAMEWORK]).toBeUndefined()
++    const range = pkg.peerDependencies?.[FRAMEWORK]
++    expect(range).toMatch(/^\^0\.\d+\.\d+(-next\.\d+)?$/)
++    expect(range).not.toBe('^0.1.0-next.0')
++  })
++
++  it('depends on no other product package', () => {
++    const found = fields.flatMap((f) => Object.keys(pkg[f] ?? {}).filter((n) => PRODUCT.test(n)))
++    expect(found).toEqual([])
++  })
++
++  it('requires Node >=24.3 (earlier 24.x break arguments in PowerShell)', () => {
++    expect(pkg.engines?.node).toBe('>=24.3')
++  })
++
++  it('imports the kernel only through @strutvane/framework subpaths', () => {
++    const offenders = sourceFiles(join(root, 'src')).filter((file) =>
++      ABSORBED_IMPORT.test(readFileSync(file, 'utf8')),
++    )
++    expect(offenders).toEqual([])
++  })
++})
+diff --git a/test/perf.test.tsx b/test/perf.test.tsx
+index f75fe16..2734bca 100644
+--- a/test/perf.test.tsx
++++ b/test/perf.test.tsx
+@@ -2,7 +2,7 @@
+ // Render cost for 500 rows: full render vs virtualized. jsdom has no layout or paint, so absolute
+ // numbers are a proxy (DOM work + React reconciliation), useful for comparing the two strategies and
+ // catching regressions, not a browser frame-time guarantee (that needs Playwright).
+-import type { ListResult } from '@strutvane/contracts'
++import type { ListResult } from '@strutvane/framework/contracts'
+ import { screen } from '@testing-library/react'
+ import { afterEach, describe, expect, test, vi } from 'vitest'
+ import type { ApiRecord, ResourceApi } from '../src/core/types.ts'
+diff --git a/test/react-parts.test.tsx b/test/react-parts.test.tsx
+index dec2c2f..66c020b 100644
+--- a/test/react-parts.test.tsx
++++ b/test/react-parts.test.tsx
+@@ -1,6 +1,6 @@
+ // @vitest-environment jsdom
+ // Smaller React pieces: provider, widgets, cells, FieldShell, FilterBar helpers, useListQuery.
+-import type { FieldDescriptor } from '@strutvane/contracts'
++import type { FieldDescriptor } from '@strutvane/framework/contracts'
+ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+ import { render, renderHook, screen } from '@testing-library/react'
+ import { userEvent } from '@testing-library/user-event'
+diff --git a/test/types.test-d.ts b/test/types.test-d.ts
+index b06b43c..42fb43b 100644
+--- a/test/types.test-d.ts
++++ b/test/types.test-d.ts
+@@ -1,5 +1,5 @@
+ // Type-level tests: the public API accepts correct use and rejects misuse at compile time.
+-import type { FieldDescriptor, ListQuery, ResourceManifest } from '@strutvane/contracts'
++import type { FieldDescriptor, ListQuery, ResourceManifest } from '@strutvane/framework/contracts'
+ import { describe, expectTypeOf, test } from 'vitest'
+ import {
+   type ApiRecord,
+-- 
+2.56.0.windows.2
+

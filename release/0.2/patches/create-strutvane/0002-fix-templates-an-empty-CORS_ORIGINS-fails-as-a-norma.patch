@@ -1,0 +1,289 @@
+From 1f313504377b253bbd395173c610a8816043bd11 Mon Sep 17 00:00:00 2001
+From: vishwajitvm <vishwajitmall50@gmail.com>
+Date: Sun, 15 Nov 2026 16:42:32 +0530
+Subject: [PATCH 2/2] fix(templates): an empty CORS_ORIGINS fails as a normal
+ env issue, not a crash
+
+With CORS_ORIGINS= (empty), a generated app refused to boot with
+"Unexpected error: defineEnv(schema): asynchronous validators are not
+supported for env" (exit 1) instead of naming the key. Zod 4 still runs
+the object's superRefine when a field failed its own check, so the
+refinement got the raw string '' and called .some() on it; the throw
+made Zod's Standard Schema validate() fall back to its async path, which
+defineEnv rightly refuses.
+
+The generated refinement now checks only a real list. Found by a boot
+matrix (every .env.example key missing / empty / malformed) on a fresh
+app with every package installed. Regression test runs the generated
+schema with the real Zod, through the same Standard Schema validate()
+that defineEnv uses.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Signed-off-by: vishwajitvm <vishwajitmall50@gmail.com>
+---
+ .changeset/empty-cors-origins.md              |  5 ++++
+ src/templates/env.ts                          | 10 ++++++--
+ .../__golden__/api-azure-mysql-queue-mail.txt |  6 +++--
+ ...l-social-tenancy-all-extras-npm-commit.txt |  6 +++--
+ test/__golden__/api-sqlite-noauth-bun.txt     |  6 +++--
+ ...ll-azure-postgres-microsoft-magic-link.txt |  6 +++--
+ test/__golden__/full-default.txt              |  6 +++--
+ .../full-postgres-tenancy-cache-npm.txt       |  6 +++--
+ test/__golden__/full-sqlite-noauth.txt        |  6 +++--
+ test/security-defaults.test.ts                | 24 ++++++++++++++++++-
+ 10 files changed, 64 insertions(+), 17 deletions(-)
+ create mode 100644 .changeset/empty-cors-origins.md
+
+diff --git a/.changeset/empty-cors-origins.md b/.changeset/empty-cors-origins.md
+new file mode 100644
+index 0000000..9db7692
+--- /dev/null
++++ b/.changeset/empty-cors-origins.md
+@@ -0,0 +1,5 @@
++---
++"create-strutvane": patch
++---
++
++Generated apps report an empty `CORS_ORIGINS` as a normal `.env` problem naming the key, instead of refusing to boot with "asynchronous validators are not supported for env".
+diff --git a/src/templates/env.ts b/src/templates/env.ts
+index 00b82b6..6064e70 100644
+--- a/src/templates/env.ts
++++ b/src/templates/env.ts
+@@ -108,8 +108,14 @@ export function envRefinements(keys: ReadonlySet<string>): readonly string[] {
+   }
+   if (keys.has('CORS_ORIGINS')) {
+     checks.push(
++      // Zod 4 still runs object refinements when a field failed its own check, so an empty
++      // CORS_ORIGINS arrives here as the raw string ''. Calling .some() on it would throw, Zod's
++      // Standard Schema validate() then retries asynchronously, and defineEnv reports
++      // "asynchronous validators are not supported" instead of the real problem.
++      '    // A field that failed its own check reaches this point unparsed: only check real lists.',
++      '    const origins: readonly string[] = Array.isArray(env.CORS_ORIGINS) ? env.CORS_ORIGINS : []',
+       '    // config/cors.ts allows credentials (cookies), so a wildcard origin is never safe.',
+-      "    if (env.CORS_ORIGINS.some((origin) => origin.includes('*'))) {",
++      "    if (origins.some((origin) => origin.includes('*'))) {",
+       '      ctx.addIssue({',
+       "        code: 'custom',",
+       "        path: ['CORS_ORIGINS'],",
+@@ -119,7 +125,7 @@ export function envRefinements(keys: ReadonlySet<string>): readonly string[] {
+     )
+     if (keys.has('APP_ENV')) {
+       checks.push(
+-        "    const insecure = env.CORS_ORIGINS.some((origin) => !origin.startsWith('https://'))",
++        "    const insecure = origins.some((origin) => !origin.startsWith('https://'))",
+         "    if (env.APP_ENV === 'production' && insecure) {",
+         '      ctx.addIssue({',
+         "        code: 'custom',",
+diff --git a/test/__golden__/api-azure-mysql-queue-mail.txt b/test/__golden__/api-azure-mysql-queue-mail.txt
+index fe6b35d..c2e2f55 100644
+--- a/test/__golden__/api-azure-mysql-queue-mail.txt
++++ b/test/__golden__/api-azure-mysql-queue-mail.txt
+@@ -882,15 +882,17 @@ export const envSchema = z
+         message: 'APP_DEBUG may only be true when APP_ENV=local (it would expose error details)',
+       })
+     }
++    // A field that failed its own check reaches this point unparsed: only check real lists.
++    const origins: readonly string[] = Array.isArray(env.CORS_ORIGINS) ? env.CORS_ORIGINS : []
+     // config/cors.ts allows credentials (cookies), so a wildcard origin is never safe.
+-    if (env.CORS_ORIGINS.some((origin) => origin.includes('*'))) {
++    if (origins.some((origin) => origin.includes('*'))) {
+       ctx.addIssue({
+         code: 'custom',
+         path: ['CORS_ORIGINS'],
+         message: 'CORS_ORIGINS cannot contain * while credentials are allowed: list each origin',
+       })
+     }
+-    const insecure = env.CORS_ORIGINS.some((origin) => !origin.startsWith('https://'))
++    const insecure = origins.some((origin) => !origin.startsWith('https://'))
+     if (env.APP_ENV === 'production' && insecure) {
+       ctx.addIssue({
+         code: 'custom',
+diff --git a/test/__golden__/api-mysql-social-tenancy-all-extras-npm-commit.txt b/test/__golden__/api-mysql-social-tenancy-all-extras-npm-commit.txt
+index cb9a636..793db83 100644
+--- a/test/__golden__/api-mysql-social-tenancy-all-extras-npm-commit.txt
++++ b/test/__golden__/api-mysql-social-tenancy-all-extras-npm-commit.txt
+@@ -1030,15 +1030,17 @@ export const envSchema = z
+         message: 'APP_DEBUG may only be true when APP_ENV=local (it would expose error details)',
+       })
+     }
++    // A field that failed its own check reaches this point unparsed: only check real lists.
++    const origins: readonly string[] = Array.isArray(env.CORS_ORIGINS) ? env.CORS_ORIGINS : []
+     // config/cors.ts allows credentials (cookies), so a wildcard origin is never safe.
+-    if (env.CORS_ORIGINS.some((origin) => origin.includes('*'))) {
++    if (origins.some((origin) => origin.includes('*'))) {
+       ctx.addIssue({
+         code: 'custom',
+         path: ['CORS_ORIGINS'],
+         message: 'CORS_ORIGINS cannot contain * while credentials are allowed: list each origin',
+       })
+     }
+-    const insecure = env.CORS_ORIGINS.some((origin) => !origin.startsWith('https://'))
++    const insecure = origins.some((origin) => !origin.startsWith('https://'))
+     if (env.APP_ENV === 'production' && insecure) {
+       ctx.addIssue({
+         code: 'custom',
+diff --git a/test/__golden__/api-sqlite-noauth-bun.txt b/test/__golden__/api-sqlite-noauth-bun.txt
+index 1392ddd..dfae946 100644
+--- a/test/__golden__/api-sqlite-noauth-bun.txt
++++ b/test/__golden__/api-sqlite-noauth-bun.txt
+@@ -584,15 +584,17 @@ export const envSchema = z
+         message: 'APP_DEBUG may only be true when APP_ENV=local (it would expose error details)',
+       })
+     }
++    // A field that failed its own check reaches this point unparsed: only check real lists.
++    const origins: readonly string[] = Array.isArray(env.CORS_ORIGINS) ? env.CORS_ORIGINS : []
+     // config/cors.ts allows credentials (cookies), so a wildcard origin is never safe.
+-    if (env.CORS_ORIGINS.some((origin) => origin.includes('*'))) {
++    if (origins.some((origin) => origin.includes('*'))) {
+       ctx.addIssue({
+         code: 'custom',
+         path: ['CORS_ORIGINS'],
+         message: 'CORS_ORIGINS cannot contain * while credentials are allowed: list each origin',
+       })
+     }
+-    const insecure = env.CORS_ORIGINS.some((origin) => !origin.startsWith('https://'))
++    const insecure = origins.some((origin) => !origin.startsWith('https://'))
+     if (env.APP_ENV === 'production' && insecure) {
+       ctx.addIssue({
+         code: 'custom',
+diff --git a/test/__golden__/full-azure-postgres-microsoft-magic-link.txt b/test/__golden__/full-azure-postgres-microsoft-magic-link.txt
+index 94c585b..e20d7ba 100644
+--- a/test/__golden__/full-azure-postgres-microsoft-magic-link.txt
++++ b/test/__golden__/full-azure-postgres-microsoft-magic-link.txt
+@@ -875,15 +875,17 @@ export const envSchema = z
+         message: 'APP_DEBUG may only be true when APP_ENV=local (it would expose error details)',
+       })
+     }
++    // A field that failed its own check reaches this point unparsed: only check real lists.
++    const origins: readonly string[] = Array.isArray(env.CORS_ORIGINS) ? env.CORS_ORIGINS : []
+     // config/cors.ts allows credentials (cookies), so a wildcard origin is never safe.
+-    if (env.CORS_ORIGINS.some((origin) => origin.includes('*'))) {
++    if (origins.some((origin) => origin.includes('*'))) {
+       ctx.addIssue({
+         code: 'custom',
+         path: ['CORS_ORIGINS'],
+         message: 'CORS_ORIGINS cannot contain * while credentials are allowed: list each origin',
+       })
+     }
+-    const insecure = env.CORS_ORIGINS.some((origin) => !origin.startsWith('https://'))
++    const insecure = origins.some((origin) => !origin.startsWith('https://'))
+     if (env.APP_ENV === 'production' && insecure) {
+       ctx.addIssue({
+         code: 'custom',
+diff --git a/test/__golden__/full-default.txt b/test/__golden__/full-default.txt
+index cfdd5a0..32a332c 100644
+--- a/test/__golden__/full-default.txt
++++ b/test/__golden__/full-default.txt
+@@ -878,15 +878,17 @@ export const envSchema = z
+         message: 'APP_DEBUG may only be true when APP_ENV=local (it would expose error details)',
+       })
+     }
++    // A field that failed its own check reaches this point unparsed: only check real lists.
++    const origins: readonly string[] = Array.isArray(env.CORS_ORIGINS) ? env.CORS_ORIGINS : []
+     // config/cors.ts allows credentials (cookies), so a wildcard origin is never safe.
+-    if (env.CORS_ORIGINS.some((origin) => origin.includes('*'))) {
++    if (origins.some((origin) => origin.includes('*'))) {
+       ctx.addIssue({
+         code: 'custom',
+         path: ['CORS_ORIGINS'],
+         message: 'CORS_ORIGINS cannot contain * while credentials are allowed: list each origin',
+       })
+     }
+-    const insecure = env.CORS_ORIGINS.some((origin) => !origin.startsWith('https://'))
++    const insecure = origins.some((origin) => !origin.startsWith('https://'))
+     if (env.APP_ENV === 'production' && insecure) {
+       ctx.addIssue({
+         code: 'custom',
+diff --git a/test/__golden__/full-postgres-tenancy-cache-npm.txt b/test/__golden__/full-postgres-tenancy-cache-npm.txt
+index 41cc806..6355805 100644
+--- a/test/__golden__/full-postgres-tenancy-cache-npm.txt
++++ b/test/__golden__/full-postgres-tenancy-cache-npm.txt
+@@ -944,15 +944,17 @@ export const envSchema = z
+         message: 'APP_DEBUG may only be true when APP_ENV=local (it would expose error details)',
+       })
+     }
++    // A field that failed its own check reaches this point unparsed: only check real lists.
++    const origins: readonly string[] = Array.isArray(env.CORS_ORIGINS) ? env.CORS_ORIGINS : []
+     // config/cors.ts allows credentials (cookies), so a wildcard origin is never safe.
+-    if (env.CORS_ORIGINS.some((origin) => origin.includes('*'))) {
++    if (origins.some((origin) => origin.includes('*'))) {
+       ctx.addIssue({
+         code: 'custom',
+         path: ['CORS_ORIGINS'],
+         message: 'CORS_ORIGINS cannot contain * while credentials are allowed: list each origin',
+       })
+     }
+-    const insecure = env.CORS_ORIGINS.some((origin) => !origin.startsWith('https://'))
++    const insecure = origins.some((origin) => !origin.startsWith('https://'))
+     if (env.APP_ENV === 'production' && insecure) {
+       ctx.addIssue({
+         code: 'custom',
+diff --git a/test/__golden__/full-sqlite-noauth.txt b/test/__golden__/full-sqlite-noauth.txt
+index 5c063fb..77e07f5 100644
+--- a/test/__golden__/full-sqlite-noauth.txt
++++ b/test/__golden__/full-sqlite-noauth.txt
+@@ -619,15 +619,17 @@ export const envSchema = z
+         message: 'APP_DEBUG may only be true when APP_ENV=local (it would expose error details)',
+       })
+     }
++    // A field that failed its own check reaches this point unparsed: only check real lists.
++    const origins: readonly string[] = Array.isArray(env.CORS_ORIGINS) ? env.CORS_ORIGINS : []
+     // config/cors.ts allows credentials (cookies), so a wildcard origin is never safe.
+-    if (env.CORS_ORIGINS.some((origin) => origin.includes('*'))) {
++    if (origins.some((origin) => origin.includes('*'))) {
+       ctx.addIssue({
+         code: 'custom',
+         path: ['CORS_ORIGINS'],
+         message: 'CORS_ORIGINS cannot contain * while credentials are allowed: list each origin',
+       })
+     }
+-    const insecure = env.CORS_ORIGINS.some((origin) => !origin.startsWith('https://'))
++    const insecure = origins.some((origin) => !origin.startsWith('https://'))
+     if (env.APP_ENV === 'production' && insecure) {
+       ctx.addIssue({
+         code: 'custom',
+diff --git a/test/security-defaults.test.ts b/test/security-defaults.test.ts
+index ce42858..feab928 100644
+--- a/test/security-defaults.test.ts
++++ b/test/security-defaults.test.ts
+@@ -241,7 +241,10 @@ describe('reverse proxies are not trusted by default', () => {
+ })
+ 
+ describe('env.schema.ts refusals (executed with the real Zod)', () => {
+-  type Schema = { safeParse(v: unknown): { success: boolean } }
++  type Schema = {
++    safeParse(v: unknown): { success: boolean }
++    '~standard': { validate(v: unknown): unknown }
++  }
+   let schema: Schema
+   let dir: string
+   const valid: Record<string, string> = {}
+@@ -314,6 +317,25 @@ describe('env.schema.ts refusals (executed with the real Zod)', () => {
+     ).toBe(true)
+   })
+ 
++  // Regression: an empty CORS_ORIGINS crashed the refinement (.some on a string), and the app
++  // refused to boot with "asynchronous validators are not supported for env" instead of naming
++  // the key. defineEnv uses the Standard Schema validate(), which must stay synchronous.
++  test.each(['', undefined])(
++    'CORS_ORIGINS=%s is a normal, synchronous issue (never a crash)',
++    (value) => {
++      const input: Record<string, string | undefined> = { ...valid, CORS_ORIGINS: value }
++      if (value === undefined) delete input['CORS_ORIGINS']
++      for (const env of ['local', 'production']) {
++        const source = { ...input, APP_ENV: env, APP_DEBUG: 'false' }
++        expect(() => schema.safeParse(source)).not.toThrow()
++        expect(schema.safeParse(source).success).toBe(false)
++        const result = schema['~standard'].validate(source)
++        expect(result).not.toBeInstanceOf(Promise)
++        expect(JSON.stringify(result)).toContain('CORS_ORIGINS')
++      }
++    },
++  )
++
+   test('each check is emitted only when its keys exist', () => {
+     expect(envRefinements(new Set())).toEqual([])
+     expect(envRefinements(new Set(['APP_DEBUG'])).join('\n')).toBe('')
+-- 
+2.56.0.windows.2
+

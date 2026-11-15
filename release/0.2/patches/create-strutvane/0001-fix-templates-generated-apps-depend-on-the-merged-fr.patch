@@ -1,0 +1,1449 @@
+From 847793929684e7d70694abfcaab6fd82025c1cf3 Mon Sep 17 00:00:00 2001
+From: vishwajitvm <vishwajitmall50@gmail.com>
+Date: Sun, 15 Nov 2026 11:49:03 +0530
+Subject: [PATCH 1/2] fix(templates): generated apps depend on the merged
+ framework only (B7)
+
+The templates still wrote @strutvane/core, @strutvane/cli and the
+strutvane launcher into every new app, next to @strutvane/framework,
+which now contains core and the CLI (framework CONSOLIDATION.md). A new
+app therefore had two kernels (container tokens and error classes from
+two copies) and three packages declaring the strutvane / strutvane-cli
+bins, so which CLI `npm run dev` or `npm run sv` ran depended on npm's
+link order.
+
+- dependencies: @strutvane/framework for every preset (ui peer-depends
+  on it too); no @strutvane/core
+- devDependencies: no @strutvane/cli, no strutvane launcher
+- `sv` runs `strutvane` (the framework bin); README text updated
+- generated code imports @strutvane/framework/core
+- generated engines.node and this package's engines: >=24.3
+- the bin drift check resolves the framework through node_modules
+  instead of a sibling ../cli checkout, so it no longer skips silently
+  in per-repo CI (B5)
+- new test: per preset, no absorbed package and no launcher
+- goldens regenerated (vitest -u)
+
+The generated-project type-check needs @strutvane/framework 0.1.0-next.1
+(devDependency); apply after it is published and regenerate the lockfile.
+B8 (the installer itself still depends on @strutvane/devkit) is a
+separate decision and is not changed here.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Signed-off-by: vishwajitvm <vishwajitmall50@gmail.com>
+---
+ .changeset/one-kernel-templates.md            |  5 ++
+ package.json                                  |  4 +-
+ src/templates/app.ts                          |  9 ++-
+ src/templates/config.ts                       |  9 ++-
+ src/templates/docs.ts                         |  5 +-
+ src/templates/env.ts                          |  2 +-
+ src/templates/root.ts                         | 27 +++++----
+ .../__golden__/api-azure-mysql-queue-mail.txt | 34 +++++------
+ ...l-social-tenancy-all-extras-npm-commit.txt | 38 ++++++------
+ test/__golden__/api-sqlite-noauth-bun.txt     | 30 ++++------
+ ...ll-azure-postgres-microsoft-magic-link.txt | 30 ++++------
+ test/__golden__/full-default.txt              | 30 ++++------
+ .../full-postgres-tenancy-cache-npm.txt       | 34 +++++------
+ test/__golden__/full-sqlite-noauth.txt        | 32 +++++-----
+ test/__golden__/ui-yarn.txt                   | 23 ++++----
+ test/generated-project.test.ts                |  2 +-
+ test/templates.test.ts                        | 59 +++++++++++++------
+ 17 files changed, 189 insertions(+), 184 deletions(-)
+ create mode 100644 .changeset/one-kernel-templates.md
+
+diff --git a/.changeset/one-kernel-templates.md b/.changeset/one-kernel-templates.md
+new file mode 100644
+index 0000000..47eebd5
+--- /dev/null
++++ b/.changeset/one-kernel-templates.md
+@@ -0,0 +1,5 @@
++---
++"create-strutvane": minor
++---
++
++Generated apps depend on `@strutvane/framework` only: no `@strutvane/core`, no `@strutvane/cli` and no `strutvane` launcher. Generated code imports `@strutvane/framework/core`, `sv` runs the framework's `strutvane` bin, and `engines.node` is `>=24.3`. Before, a new app installed the framework next to the absorbed packages: two kernels, and two packages declaring each of the `strutvane` and `strutvane-cli` bins.
+diff --git a/package.json b/package.json
+index 860e751..7ea34f0 100644
+--- a/package.json
++++ b/package.json
+@@ -39,7 +39,7 @@
+     "LICENSE"
+   ],
+   "engines": {
+-    "node": ">=24"
++    "node": ">=24.3"
+   },
+   "packageManager": "pnpm@12.18.0",
+   "publishConfig": {
+@@ -66,7 +66,7 @@
+   "devDependencies": {
+     "@biomejs/biome": "2.6.7",
+     "@changesets/cli": "3.0.3",
+-    "@strutvane/core": "0.1.0-next.0",
++    "@strutvane/framework": "0.1.0-next.1",
+     "@types/node": "24.19.2",
+     "@vitest/coverage-v8": "5.1.0",
+     "tsdown": "0.23.7",
+diff --git a/src/templates/app.ts b/src/templates/app.ts
+index 4e2c886..8dbd32f 100644
+--- a/src/templates/app.ts
++++ b/src/templates/app.ts
+@@ -28,7 +28,10 @@ export function strutvaneConfigFile(o: ProjectOptions): GeneratedFile {
+   // Sorted the way Biome's organizeImports sorts (packages, then relative paths), so a fresh
+   // project passes `lint`.
+   const imports = [
+-    { from: '@strutvane/core', line: "import { defineConfig } from '@strutvane/core'" },
++    {
++      from: '@strutvane/framework/core',
++      line: "import { defineConfig } from '@strutvane/framework/core'",
++    },
+     ...specifiers.map((s, i) => ({ from: s, line: `import ${names[i]} from '${s}'` })),
+   ].sort((x, y) => {
+     const relX = x.from.startsWith('.')
+@@ -153,7 +156,7 @@ function appFiles(o: ProjectOptions): GeneratedFile[] {
+         ' * - register(): bind your services in the container (synchronous).',
+         ' * - boot(): start things after every package is registered.',
+         ' */',
+-        "import { defineProvider } from '@strutvane/core'",
++        "import { defineProvider } from '@strutvane/framework/core'",
+         '',
+         'export default defineProvider({',
+         "  name: 'app',",
+@@ -206,7 +209,7 @@ function databaseFiles(o: ProjectOptions): GeneratedFile[] {
+ /**
+  * `database/seeders/database.seeder.ts`: the only file `sv db:seed` runs (without `--class`).
+  *
+- * The exact shape matters: `sv make:model` in `@strutvane/cli` edits this file, inserting
++ * The exact shape matters: `sv make:model` (the CLI in `@strutvane/framework`) edits this file, inserting
+  * `await call(…)` lines after the comment line and adding `call` to the callback's parameters, in
+  * dependency order (a model's parents first); when the file is missing, it recreates it with this
+  * content. `test/templates.test.ts` pins the content; change it only together with the CLI.
+diff --git a/src/templates/config.ts b/src/templates/config.ts
+index 7014cfd..274c267 100644
+--- a/src/templates/config.ts
++++ b/src/templates/config.ts
+@@ -1,6 +1,6 @@
+ /**
+  * `config/*.ts`: typed, documented settings that read the validated env (docs/05 §3.3).
+- * Each file uses `@strutvane/core`'s `defineConfig` (deep-frozen, typed paths), except
++ * Each file uses `@strutvane/framework/core`'s `defineConfig` (deep-frozen, typed paths), except
+  * `config/auth.ts`, which uses `@strutvane/auth`'s `defineAuthConfig` (the same, plus a typed shape
+  * that rejects unknown keys). Only files relevant to the chosen options are generated.
+  *
+@@ -67,7 +67,10 @@ function roleMap(o: ProjectOptions): string[] {
+   ]
+ }
+ 
+-const header = (what: string, define = "import { defineConfig } from '@strutvane/core'") => [
++const header = (
++  what: string,
++  define = "import { defineConfig } from '@strutvane/framework/core'",
++) => [
+   '/**',
+   ` * ${what}`,
+   ' * Values come from the validated environment (env.ts); defaults live in .env.example.',
+@@ -255,7 +258,7 @@ function serverConfigs(o: ProjectOptions): GeneratedFile[] {
+         ...header(
+           hasExtra(o, 'logs')
+             ? 'Logging (@strutvane/logs): files with retention, request logging, and the viewer.'
+-            : 'Logging (structured logs to stdout from @strutvane/core).',
++            : 'Logging (structured logs to stdout from @strutvane/framework).',
+         ),
+         'export default defineConfig({',
+         '  level: env.LOG_LEVEL,',
+diff --git a/src/templates/docs.ts b/src/templates/docs.ts
+index e16af89..cfbde8f 100644
+--- a/src/templates/docs.ts
++++ b/src/templates/docs.ts
+@@ -168,9 +168,8 @@ export function readmeFile(o: ProjectOptions, sections: readonly EnvSection[]):
+       '',
+       ...commands(o),
+       '',
+-      `\`${svCommand(o.packageManager, '<command>')}\` runs the Strutvane CLI pinned in this project (\`@strutvane/cli\` in`,
+-      "devDependencies), so its help lists your own and your packages' commands. A global `strutvane`",
+-      'command runs the same CLI for everything except `help`, which describes the launcher itself.',
++      `\`${svCommand(o.packageManager, '<command>')}\` runs the Strutvane CLI pinned in this project (the \`strutvane\` bin of`,
++      "`@strutvane/framework`), so its help lists your own and your packages' commands.",
+       '',
+       '## Project layout',
+       '',
+diff --git a/src/templates/env.ts b/src/templates/env.ts
+index b263a7b..00b82b6 100644
+--- a/src/templates/env.ts
++++ b/src/templates/env.ts
+@@ -187,7 +187,7 @@ export function envFile(): GeneratedFile {
+       ' * A missing or invalid key stops the app with ONE message listing every problem and how to fix',
+       ' * it (secret values are never printed). Read config through `config/*.ts`, not `process.env`.',
+       ' */',
+-      "import { defineEnv } from '@strutvane/core'",
++      "import { defineEnv } from '@strutvane/framework/core'",
+       "import { envSchema } from './env.schema.ts'",
+       '',
+       'export const env = defineEnv(envSchema)',
+diff --git a/src/templates/root.ts b/src/templates/root.ts
+index eb40e58..9728e9d 100644
+--- a/src/templates/root.ts
++++ b/src/templates/root.ts
+@@ -30,9 +30,15 @@ const DRIVERS: Readonly<Record<string, readonly Dep[]>> = {
+ 
+ /** Runtime dependencies for the chosen options. */
+ export function dependencies(o: ProjectOptions): Record<string, string> {
+-  const entries: [string, string][] = [['@strutvane/core', STRUTVANE_VERSION], ...pinned('zod')]
++  // The framework holds the kernel (`@strutvane/framework/core`) and the CLI, so every preset
++  // depends on it; @strutvane/ui peer-depends on it too. Never add `@strutvane/core` or
++  // `@strutvane/cli` back: next to the framework they are a second kernel and a second owner of
++  // the `strutvane` / `strutvane-cli` bins.
++  const entries: [string, string][] = [
++    ['@strutvane/framework', STRUTVANE_VERSION],
++    ...pinned('zod'),
++  ]
+   if (hasServer(o)) {
+-    entries.push(['@strutvane/framework', STRUTVANE_VERSION])
+     if (hasExtra(o, 'logs')) entries.push(['@strutvane/logs', STRUTVANE_VERSION])
+     if (o.auth.length > 0) entries.push(['@strutvane/auth', STRUTVANE_VERSION])
+     entries.push(...pinned(...(DRIVERS[o.database ?? ''] ?? [])))
+@@ -62,10 +68,8 @@ export function dependencies(o: ProjectOptions): Record<string, string> {
+ 
+ /** Development dependencies for the chosen options. */
+ export function devDependencies(o: ProjectOptions): Record<string, string> {
++  // No CLI package: the `strutvane` bin ships in @strutvane/framework (a runtime dependency).
+   const entries: [string, string][] = [
+-    ['strutvane', STRUTVANE_VERSION],
+-    // The launcher (`strutvane`) runs the project-local CLI; without it every command falls back to npx.
+-    ['@strutvane/cli', STRUTVANE_VERSION],
+     ...pinned('@biomejs/biome', '@types/node', 'typescript', 'vitest'),
+   ]
+   if (hasWeb(o)) {
+@@ -83,9 +87,8 @@ export function devDependencies(o: ProjectOptions): Record<string, string> {
+ }
+ 
+ /**
+- * package.json scripts. Server apps run through the `strutvane` launcher (which runs the CLI pinned
+- * in the project); `sv` calls that project-local CLI (`strutvane-cli`) directly. The ui preset uses
+- * Vite.
++ * package.json scripts. Server apps run through the `strutvane` bin of the project's own
++ * `@strutvane/framework`, and so does `sv`. The ui preset uses Vite.
+  */
+ export function scripts(o: ProjectOptions): Record<string, string> {
+   const web = hasWeb(o)
+@@ -101,9 +104,9 @@ export function scripts(o: ProjectOptions): Record<string, string> {
+     ['typecheck', web ? 'tsc --noEmit && tsc --noEmit -p web' : 'tsc --noEmit'],
+     ['services:up', o.docker !== 'off' && `${COMPOSE} up -d --wait`],
+     ['services:down', o.docker !== 'off' && `${COMPOSE} down`],
+-    // The project-local CLI (bin of @strutvane/cli), so `sv help` lists this project's commands.
+-    // The global `strutvane` launcher keeps its own help and never delegates it.
+-    ['sv', 'strutvane-cli'],
++    // The project-local CLI (the `strutvane` bin of @strutvane/framework), so `sv help` lists this
++    // project's commands.
++    ['sv', 'strutvane'],
+   ]
+   return Object.fromEntries(entries.filter((e): e is [string, string] => e[1] !== false))
+ }
+@@ -116,7 +119,7 @@ function packageJson(o: ProjectOptions): GeneratedFile {
+       version: '0.1.0',
+       private: true,
+       type: 'module',
+-      engines: { node: '>=24' },
++      engines: { node: '>=24.3' },
+       ...(o.packageManager === 'pnpm' ? { packageManager: `pnpm@${VERSIONS.pnpm}` } : {}),
+       scripts: scripts(o),
+       dependencies: dependencies(o),
+diff --git a/test/__golden__/api-azure-mysql-queue-mail.txt b/test/__golden__/api-azure-mysql-queue-mail.txt
+index 8d1700b..fe6b35d 100644
+--- a/test/__golden__/api-azure-mysql-queue-mail.txt
++++ b/test/__golden__/api-azure-mysql-queue-mail.txt
+@@ -274,9 +274,8 @@ The API runs on http://localhost:3000 (interactive API docs at http://localhost:
+ | `pnpm sv env:check` | Compare .env with .env.example |
+ | `pnpm sv help` | Every command of this project (built in and from installed packages) |
+ 
+-`pnpm sv <command>` runs the Strutvane CLI pinned in this project (`@strutvane/cli` in
+-devDependencies), so its help lists your own and your packages' commands. A global `strutvane`
+-command runs the same CLI for everything except `help`, which describes the launcher itself.
++`pnpm sv <command>` runs the Strutvane CLI pinned in this project (the `strutvane` bin of
++`@strutvane/framework`), so its help lists your own and your packages' commands.
+ 
+ ## Project layout
+ 
+@@ -434,7 +433,7 @@ Create one with `pnpm sv make:policy Invoice`.
+  * - register(): bind your services in the container (synchronous).
+  * - boot(): start things after every package is registered.
+  */
+-import { defineProvider } from '@strutvane/core'
++import { defineProvider } from '@strutvane/framework/core'
+ 
+ export default defineProvider({
+   name: 'app',
+@@ -511,7 +510,7 @@ is easy to test and reuse.
+  * The automatic REST API: every model gets CRUD endpoints under this prefix.
+  * Values come from the validated environment (env.ts); defaults live in .env.example.
+  */
+-import { defineConfig } from '@strutvane/core'
++import { defineConfig } from '@strutvane/framework/core'
+ import { env } from '../env.ts'
+ 
+ export default defineConfig({
+@@ -527,7 +526,7 @@ export default defineConfig({
+  * Application settings.
+  * Values come from the validated environment (env.ts); defaults live in .env.example.
+  */
+-import { defineConfig } from '@strutvane/core'
++import { defineConfig } from '@strutvane/framework/core'
+ import { env } from '../env.ts'
+ 
+ export default defineConfig({
+@@ -646,7 +645,7 @@ export default defineAuthConfig({
+  * Which browser origins may call the API.
+  * Values come from the validated environment (env.ts); defaults live in .env.example.
+  */
+-import { defineConfig } from '@strutvane/core'
++import { defineConfig } from '@strutvane/framework/core'
+ import { env } from '../env.ts'
+ 
+ export default defineConfig({
+@@ -659,7 +658,7 @@ export default defineConfig({
+  * Database connection. With DB_AUTH=entra the app signs in passwordless with its Entra ID identity.
+  * Values come from the validated environment (env.ts); defaults live in .env.example.
+  */
+-import { defineConfig } from '@strutvane/core'
++import { defineConfig } from '@strutvane/framework/core'
+ import { env } from '../env.ts'
+ 
+ export default defineConfig({
+@@ -682,10 +681,10 @@ export default defineConfig({
+ 
+ ===== config/logging.ts =====
+ /**
+- * Logging (structured logs to stdout from @strutvane/core).
++ * Logging (structured logs to stdout from @strutvane/framework).
+  * Values come from the validated environment (env.ts); defaults live in .env.example.
+  */
+-import { defineConfig } from '@strutvane/core'
++import { defineConfig } from '@strutvane/framework/core'
+ import { env } from '../env.ts'
+ 
+ export default defineConfig({
+@@ -698,7 +697,7 @@ export default defineConfig({
+  * Outgoing email.
+  * Values come from the validated environment (env.ts); defaults live in .env.example.
+  */
+-import { defineConfig } from '@strutvane/core'
++import { defineConfig } from '@strutvane/framework/core'
+ import { env } from '../env.ts'
+ 
+ export default defineConfig({
+@@ -712,7 +711,7 @@ export default defineConfig({
+  * Background jobs.
+  * Values come from the validated environment (env.ts); defaults live in .env.example.
+  */
+-import { defineConfig } from '@strutvane/core'
++import { defineConfig } from '@strutvane/framework/core'
+ import { env } from '../env.ts'
+ 
+ export default defineConfig({
+@@ -911,7 +910,7 @@ export type Env = z.infer<typeof envSchema>
+  * A missing or invalid key stops the app with ONE message listing every problem and how to fix
+  * it (secret values are never printed). Read config through `config/*.ts`, not `process.env`.
+  */
+-import { defineEnv } from '@strutvane/core'
++import { defineEnv } from '@strutvane/framework/core'
+ import { envSchema } from './env.schema.ts'
+ 
+ export const env = defineEnv(envSchema)
+@@ -923,7 +922,7 @@ export const env = defineEnv(envSchema)
+   "private": true,
+   "type": "module",
+   "engines": {
+-    "node": ">=24"
++    "node": ">=24.3"
+   },
+   "packageManager": "pnpm@12.18.0",
+   "scripts": {
+@@ -936,12 +935,11 @@ export const env = defineEnv(envSchema)
+     "typecheck": "tsc --noEmit",
+     "services:up": "docker compose --env-file .env -f docker/compose.yaml up -d --wait",
+     "services:down": "docker compose --env-file .env -f docker/compose.yaml down",
+-    "sv": "strutvane-cli"
++    "sv": "strutvane"
+   },
+   "dependencies": {
+     "@azure/identity": "4.14.1",
+     "@strutvane/auth": "0.1.0-next.0",
+-    "@strutvane/core": "0.1.0-next.0",
+     "@strutvane/framework": "0.1.0-next.0",
+     "bullmq": "6.7.6",
+     "iovalkey": "0.4.0",
+@@ -951,9 +949,7 @@ export const env = defineEnv(envSchema)
+   },
+   "devDependencies": {
+     "@biomejs/biome": "2.6.7",
+-    "@strutvane/cli": "0.1.0-next.0",
+     "@types/node": "24.19.2",
+-    "strutvane": "0.1.0-next.0",
+     "typescript": "6.0.3",
+     "vitest": "5.1.0"
+   }
+@@ -986,7 +982,7 @@ minimumReleaseAgeExclude:
+  */
+ 
+ import authProvider from '@strutvane/auth/provider'
+-import { defineConfig } from '@strutvane/core'
++import { defineConfig } from '@strutvane/framework/core'
+ import frameworkProvider from '@strutvane/framework/provider'
+ import appProvider from './app/providers/app.provider.ts'
+ 
+diff --git a/test/__golden__/api-mysql-social-tenancy-all-extras-npm-commit.txt b/test/__golden__/api-mysql-social-tenancy-all-extras-npm-commit.txt
+index ad0665a..cb9a636 100644
+--- a/test/__golden__/api-mysql-social-tenancy-all-extras-npm-commit.txt
++++ b/test/__golden__/api-mysql-social-tenancy-all-extras-npm-commit.txt
+@@ -308,9 +308,8 @@ The API runs on http://localhost:3000 (interactive API docs at http://localhost:
+ | `npm run sv -- env:check` | Compare .env with .env.example |
+ | `npm run sv -- help` | Every command of this project (built in and from installed packages) |
+ 
+-`npm run sv -- <command>` runs the Strutvane CLI pinned in this project (`@strutvane/cli` in
+-devDependencies), so its help lists your own and your packages' commands. A global `strutvane`
+-command runs the same CLI for everything except `help`, which describes the launcher itself.
++`npm run sv -- <command>` runs the Strutvane CLI pinned in this project (the `strutvane` bin of
++`@strutvane/framework`), so its help lists your own and your packages' commands.
+ 
+ ## Project layout
+ 
+@@ -487,7 +486,7 @@ Create one with `npm run sv -- make:policy Invoice`.
+  * - register(): bind your services in the container (synchronous).
+  * - boot(): start things after every package is registered.
+  */
+-import { defineProvider } from '@strutvane/core'
++import { defineProvider } from '@strutvane/framework/core'
+ 
+ export default defineProvider({
+   name: 'app',
+@@ -564,7 +563,7 @@ is easy to test and reuse.
+  * The automatic REST API: every model gets CRUD endpoints under this prefix.
+  * Values come from the validated environment (env.ts); defaults live in .env.example.
+  */
+-import { defineConfig } from '@strutvane/core'
++import { defineConfig } from '@strutvane/framework/core'
+ import { env } from '../env.ts'
+ 
+ export default defineConfig({
+@@ -580,7 +579,7 @@ export default defineConfig({
+  * Application settings.
+  * Values come from the validated environment (env.ts); defaults live in .env.example.
+  */
+-import { defineConfig } from '@strutvane/core'
++import { defineConfig } from '@strutvane/framework/core'
+ import { env } from '../env.ts'
+ 
+ export default defineConfig({
+@@ -707,7 +706,7 @@ export default defineAuthConfig({
+  * Cache store.
+  * Values come from the validated environment (env.ts); defaults live in .env.example.
+  */
+-import { defineConfig } from '@strutvane/core'
++import { defineConfig } from '@strutvane/framework/core'
+ import { env } from '../env.ts'
+ 
+ export default defineConfig({
+@@ -721,7 +720,7 @@ export default defineConfig({
+  * Which browser origins may call the API.
+  * Values come from the validated environment (env.ts); defaults live in .env.example.
+  */
+-import { defineConfig } from '@strutvane/core'
++import { defineConfig } from '@strutvane/framework/core'
+ import { env } from '../env.ts'
+ 
+ export default defineConfig({
+@@ -734,7 +733,7 @@ export default defineConfig({
+  * Database connection.
+  * Values come from the validated environment (env.ts); defaults live in .env.example.
+  */
+-import { defineConfig } from '@strutvane/core'
++import { defineConfig } from '@strutvane/framework/core'
+ import { env } from '../env.ts'
+ 
+ export default defineConfig({
+@@ -757,7 +756,7 @@ export default defineConfig({
+  * Logging (@strutvane/logs): files with retention, request logging, and the viewer.
+  * Values come from the validated environment (env.ts); defaults live in .env.example.
+  */
+-import { defineConfig } from '@strutvane/core'
++import { defineConfig } from '@strutvane/framework/core'
+ import { env } from '../env.ts'
+ 
+ export default defineConfig({
+@@ -780,7 +779,7 @@ export default defineConfig({
+  * Outgoing email.
+  * Values come from the validated environment (env.ts); defaults live in .env.example.
+  */
+-import { defineConfig } from '@strutvane/core'
++import { defineConfig } from '@strutvane/framework/core'
+ import { env } from '../env.ts'
+ 
+ export default defineConfig({
+@@ -794,7 +793,7 @@ export default defineConfig({
+  * OpenTelemetry traces, metrics and logs.
+  * Values come from the validated environment (env.ts); defaults live in .env.example.
+  */
+-import { defineConfig } from '@strutvane/core'
++import { defineConfig } from '@strutvane/framework/core'
+ import { env } from '../env.ts'
+ 
+ export default defineConfig({
+@@ -808,7 +807,7 @@ export default defineConfig({
+  * Background jobs.
+  * Values come from the validated environment (env.ts); defaults live in .env.example.
+  */
+-import { defineConfig } from '@strutvane/core'
++import { defineConfig } from '@strutvane/framework/core'
+ import { env } from '../env.ts'
+ 
+ export default defineConfig({
+@@ -822,7 +821,7 @@ export default defineConfig({
+  * Multi-tenancy: each customer company (tenant) only ever sees its own rows. On PostgreSQL this is enforced by the database itself (row-level security, ADR-0007).
+  * Values come from the validated environment (env.ts); defaults live in .env.example.
+  */
+-import { defineConfig } from '@strutvane/core'
++import { defineConfig } from '@strutvane/framework/core'
+ import { env } from '../env.ts'
+ 
+ export default defineConfig({
+@@ -1059,7 +1058,7 @@ export type Env = z.infer<typeof envSchema>
+  * A missing or invalid key stops the app with ONE message listing every problem and how to fix
+  * it (secret values are never printed). Read config through `config/*.ts`, not `process.env`.
+  */
+-import { defineEnv } from '@strutvane/core'
++import { defineEnv } from '@strutvane/framework/core'
+ import { envSchema } from './env.schema.ts'
+ 
+ export const env = defineEnv(envSchema)
+@@ -1071,7 +1070,7 @@ export const env = defineEnv(envSchema)
+   "private": true,
+   "type": "module",
+   "engines": {
+-    "node": ">=24"
++    "node": ">=24.3"
+   },
+   "scripts": {
+     "dev": "strutvane dev",
+@@ -1083,12 +1082,11 @@ export const env = defineEnv(envSchema)
+     "typecheck": "tsc --noEmit",
+     "services:up": "docker compose --env-file .env -f docker/compose.yaml up -d --wait",
+     "services:down": "docker compose --env-file .env -f docker/compose.yaml down",
+-    "sv": "strutvane-cli"
++    "sv": "strutvane"
+   },
+   "dependencies": {
+     "@opentelemetry/sdk-node": "0.301.2",
+     "@strutvane/auth": "0.1.0-next.0",
+-    "@strutvane/core": "0.1.0-next.0",
+     "@strutvane/framework": "0.1.0-next.0",
+     "@strutvane/logs": "0.1.0-next.0",
+     "bullmq": "6.7.6",
+@@ -1099,9 +1097,7 @@ export const env = defineEnv(envSchema)
+   },
+   "devDependencies": {
+     "@biomejs/biome": "2.6.7",
+-    "@strutvane/cli": "0.1.0-next.0",
+     "@types/node": "24.19.2",
+-    "strutvane": "0.1.0-next.0",
+     "typescript": "6.0.3",
+     "vitest": "5.1.0"
+   }
+@@ -1120,7 +1116,7 @@ export const env = defineEnv(envSchema)
+  */
+ 
+ import authProvider from '@strutvane/auth/provider'
+-import { defineConfig } from '@strutvane/core'
++import { defineConfig } from '@strutvane/framework/core'
+ import frameworkProvider from '@strutvane/framework/provider'
+ import logsProvider from '@strutvane/logs/provider'
+ import appProvider from './app/providers/app.provider.ts'
+diff --git a/test/__golden__/api-sqlite-noauth-bun.txt b/test/__golden__/api-sqlite-noauth-bun.txt
+index 1ae5f55..1392ddd 100644
+--- a/test/__golden__/api-sqlite-noauth-bun.txt
++++ b/test/__golden__/api-sqlite-noauth-bun.txt
+@@ -213,9 +213,8 @@ The API runs on http://localhost:3000 (interactive API docs at http://localhost:
+ | `bun run sv env:check` | Compare .env with .env.example |
+ | `bun run sv help` | Every command of this project (built in and from installed packages) |
+ 
+-`bun run sv <command>` runs the Strutvane CLI pinned in this project (`@strutvane/cli` in
+-devDependencies), so its help lists your own and your packages' commands. A global `strutvane`
+-command runs the same CLI for everything except `help`, which describes the launcher itself.
++`bun run sv <command>` runs the Strutvane CLI pinned in this project (the `strutvane` bin of
++`@strutvane/framework`), so its help lists your own and your packages' commands.
+ 
+ ## Project layout
+ 
+@@ -340,7 +339,7 @@ Create one with `bun run sv make:policy Invoice`.
+  * - register(): bind your services in the container (synchronous).
+  * - boot(): start things after every package is registered.
+  */
+-import { defineProvider } from '@strutvane/core'
++import { defineProvider } from '@strutvane/framework/core'
+ 
+ export default defineProvider({
+   name: 'app',
+@@ -417,7 +416,7 @@ is easy to test and reuse.
+  * The automatic REST API: every model gets CRUD endpoints under this prefix.
+  * Values come from the validated environment (env.ts); defaults live in .env.example.
+  */
+-import { defineConfig } from '@strutvane/core'
++import { defineConfig } from '@strutvane/framework/core'
+ import { env } from '../env.ts'
+ 
+ export default defineConfig({
+@@ -433,7 +432,7 @@ export default defineConfig({
+  * Application settings.
+  * Values come from the validated environment (env.ts); defaults live in .env.example.
+  */
+-import { defineConfig } from '@strutvane/core'
++import { defineConfig } from '@strutvane/framework/core'
+ import { env } from '../env.ts'
+ 
+ export default defineConfig({
+@@ -455,7 +454,7 @@ export default defineConfig({
+  * Which browser origins may call the API.
+  * Values come from the validated environment (env.ts); defaults live in .env.example.
+  */
+-import { defineConfig } from '@strutvane/core'
++import { defineConfig } from '@strutvane/framework/core'
+ import { env } from '../env.ts'
+ 
+ export default defineConfig({
+@@ -468,7 +467,7 @@ export default defineConfig({
+  * Database connection (SQLite: zero setup, ideal for development and tests).
+  * Values come from the validated environment (env.ts); defaults live in .env.example.
+  */
+-import { defineConfig } from '@strutvane/core'
++import { defineConfig } from '@strutvane/framework/core'
+ import { env } from '../env.ts'
+ 
+ export default defineConfig({
+@@ -480,10 +479,10 @@ export default defineConfig({
+ 
+ ===== config/logging.ts =====
+ /**
+- * Logging (structured logs to stdout from @strutvane/core).
++ * Logging (structured logs to stdout from @strutvane/framework).
+  * Values come from the validated environment (env.ts); defaults live in .env.example.
+  */
+-import { defineConfig } from '@strutvane/core'
++import { defineConfig } from '@strutvane/framework/core'
+ import { env } from '../env.ts'
+ 
+ export default defineConfig({
+@@ -613,7 +612,7 @@ export type Env = z.infer<typeof envSchema>
+  * A missing or invalid key stops the app with ONE message listing every problem and how to fix
+  * it (secret values are never printed). Read config through `config/*.ts`, not `process.env`.
+  */
+-import { defineEnv } from '@strutvane/core'
++import { defineEnv } from '@strutvane/framework/core'
+ import { envSchema } from './env.schema.ts'
+ 
+ export const env = defineEnv(envSchema)
+@@ -625,7 +624,7 @@ export const env = defineEnv(envSchema)
+   "private": true,
+   "type": "module",
+   "engines": {
+-    "node": ">=24"
++    "node": ">=24.3"
+   },
+   "scripts": {
+     "dev": "strutvane dev",
+@@ -635,19 +634,16 @@ export const env = defineEnv(envSchema)
+     "lint": "biome check .",
+     "format": "biome check --write .",
+     "typecheck": "tsc --noEmit",
+-    "sv": "strutvane-cli"
++    "sv": "strutvane"
+   },
+   "dependencies": {
+     "@libsql/client": "0.18.0",
+-    "@strutvane/core": "0.1.0-next.0",
+     "@strutvane/framework": "0.1.0-next.0",
+     "zod": "4.6.7"
+   },
+   "devDependencies": {
+     "@biomejs/biome": "2.6.7",
+-    "@strutvane/cli": "0.1.0-next.0",
+     "@types/node": "24.19.2",
+-    "strutvane": "0.1.0-next.0",
+     "typescript": "6.0.3",
+     "vitest": "5.1.0"
+   }
+@@ -665,7 +661,7 @@ export const env = defineEnv(envSchema)
+  * `bun run sv add <package>` and `sv remove` edit the providers list for you.
+  */
+ 
+-import { defineConfig } from '@strutvane/core'
++import { defineConfig } from '@strutvane/framework/core'
+ import frameworkProvider from '@strutvane/framework/provider'
+ import appProvider from './app/providers/app.provider.ts'
+ 
+diff --git a/test/__golden__/full-azure-postgres-microsoft-magic-link.txt b/test/__golden__/full-azure-postgres-microsoft-magic-link.txt
+index 0552116..94c585b 100644
+--- a/test/__golden__/full-azure-postgres-microsoft-magic-link.txt
++++ b/test/__golden__/full-azure-postgres-microsoft-magic-link.txt
+@@ -287,9 +287,8 @@ The API runs on http://localhost:3000 (interactive API docs at http://localhost:
+ | `pnpm sv env:check` | Compare .env with .env.example |
+ | `pnpm sv help` | Every command of this project (built in and from installed packages) |
+ 
+-`pnpm sv <command>` runs the Strutvane CLI pinned in this project (`@strutvane/cli` in
+-devDependencies), so its help lists your own and your packages' commands. A global `strutvane`
+-command runs the same CLI for everything except `help`, which describes the launcher itself.
++`pnpm sv <command>` runs the Strutvane CLI pinned in this project (the `strutvane` bin of
++`@strutvane/framework`), so its help lists your own and your packages' commands.
+ 
+ ## Project layout
+ 
+@@ -453,7 +452,7 @@ Create one with `pnpm sv make:policy Invoice`.
+  * - register(): bind your services in the container (synchronous).
+  * - boot(): start things after every package is registered.
+  */
+-import { defineProvider } from '@strutvane/core'
++import { defineProvider } from '@strutvane/framework/core'
+ 
+ export default defineProvider({
+   name: 'app',
+@@ -530,7 +529,7 @@ is easy to test and reuse.
+  * The automatic REST API: every model gets CRUD endpoints under this prefix.
+  * Values come from the validated environment (env.ts); defaults live in .env.example.
+  */
+-import { defineConfig } from '@strutvane/core'
++import { defineConfig } from '@strutvane/framework/core'
+ import { env } from '../env.ts'
+ 
+ export default defineConfig({
+@@ -546,7 +545,7 @@ export default defineConfig({
+  * Application settings.
+  * Values come from the validated environment (env.ts); defaults live in .env.example.
+  */
+-import { defineConfig } from '@strutvane/core'
++import { defineConfig } from '@strutvane/framework/core'
+ import { env } from '../env.ts'
+ 
+ export default defineConfig({
+@@ -672,7 +671,7 @@ export default defineAuthConfig({
+  * Which browser origins may call the API.
+  * Values come from the validated environment (env.ts); defaults live in .env.example.
+  */
+-import { defineConfig } from '@strutvane/core'
++import { defineConfig } from '@strutvane/framework/core'
+ import { env } from '../env.ts'
+ 
+ export default defineConfig({
+@@ -685,7 +684,7 @@ export default defineConfig({
+  * Database connection. With DB_AUTH=entra the app signs in passwordless with its Entra ID identity.
+  * Values come from the validated environment (env.ts); defaults live in .env.example.
+  */
+-import { defineConfig } from '@strutvane/core'
++import { defineConfig } from '@strutvane/framework/core'
+ import { env } from '../env.ts'
+ 
+ export default defineConfig({
+@@ -711,7 +710,7 @@ export default defineConfig({
+  * Logging (@strutvane/logs): files with retention, request logging, and the viewer.
+  * Values come from the validated environment (env.ts); defaults live in .env.example.
+  */
+-import { defineConfig } from '@strutvane/core'
++import { defineConfig } from '@strutvane/framework/core'
+ import { env } from '../env.ts'
+ 
+ export default defineConfig({
+@@ -734,7 +733,7 @@ export default defineConfig({
+  * The generated UI (@strutvane/ui).
+  * Values come from the validated environment (env.ts); defaults live in .env.example.
+  */
+-import { defineConfig } from '@strutvane/core'
++import { defineConfig } from '@strutvane/framework/core'
+ import { env } from '../env.ts'
+ 
+ export default defineConfig({
+@@ -904,7 +903,7 @@ export type Env = z.infer<typeof envSchema>
+  * A missing or invalid key stops the app with ONE message listing every problem and how to fix
+  * it (secret values are never printed). Read config through `config/*.ts`, not `process.env`.
+  */
+-import { defineEnv } from '@strutvane/core'
++import { defineEnv } from '@strutvane/framework/core'
+ import { envSchema } from './env.schema.ts'
+ 
+ export const env = defineEnv(envSchema)
+@@ -916,7 +915,7 @@ export const env = defineEnv(envSchema)
+   "private": true,
+   "type": "module",
+   "engines": {
+-    "node": ">=24"
++    "node": ">=24.3"
+   },
+   "packageManager": "pnpm@12.18.0",
+   "scripts": {
+@@ -928,13 +927,12 @@ export const env = defineEnv(envSchema)
+     "lint": "biome check .",
+     "format": "biome check --write .",
+     "typecheck": "tsc --noEmit && tsc --noEmit -p web",
+-    "sv": "strutvane-cli"
++    "sv": "strutvane"
+   },
+   "dependencies": {
+     "@azure/identity": "4.14.1",
+     "@azure/postgresql-auth": "1.0.0",
+     "@strutvane/auth": "0.1.0-next.0",
+-    "@strutvane/core": "0.1.0-next.0",
+     "@strutvane/framework": "0.1.0-next.0",
+     "@strutvane/logs": "0.1.0-next.0",
+     "@strutvane/ui": "0.1.0-next.0",
+@@ -951,12 +949,10 @@ export const env = defineEnv(envSchema)
+   "devDependencies": {
+     "@biomejs/biome": "2.6.7",
+     "@playwright/test": "1.65.0",
+-    "@strutvane/cli": "0.1.0-next.0",
+     "@types/node": "24.19.2",
+     "@types/react": "19.3.0",
+     "@types/react-dom": "19.3.0",
+     "@vitejs/plugin-react": "6.3.0",
+-    "strutvane": "0.1.0-next.0",
+     "typescript": "6.0.3",
+     "vite": "8.3.8",
+     "vitest": "5.1.0"
+@@ -1009,7 +1005,7 @@ minimumReleaseAgeExclude:
+  */
+ 
+ import authProvider from '@strutvane/auth/provider'
+-import { defineConfig } from '@strutvane/core'
++import { defineConfig } from '@strutvane/framework/core'
+ import frameworkProvider from '@strutvane/framework/provider'
+ import logsProvider from '@strutvane/logs/provider'
+ import appProvider from './app/providers/app.provider.ts'
+diff --git a/test/__golden__/full-default.txt b/test/__golden__/full-default.txt
+index f9549e9..cfdd5a0 100644
+--- a/test/__golden__/full-default.txt
++++ b/test/__golden__/full-default.txt
+@@ -280,9 +280,8 @@ The API runs on http://localhost:3000 (interactive API docs at http://localhost:
+ | `pnpm sv env:check` | Compare .env with .env.example |
+ | `pnpm sv help` | Every command of this project (built in and from installed packages) |
+ 
+-`pnpm sv <command>` runs the Strutvane CLI pinned in this project (`@strutvane/cli` in
+-devDependencies), so its help lists your own and your packages' commands. A global `strutvane`
+-command runs the same CLI for everything except `help`, which describes the launcher itself.
++`pnpm sv <command>` runs the Strutvane CLI pinned in this project (the `strutvane` bin of
++`@strutvane/framework`), so its help lists your own and your packages' commands.
+ 
+ ## Project layout
+ 
+@@ -442,7 +441,7 @@ Create one with `pnpm sv make:policy Invoice`.
+  * - register(): bind your services in the container (synchronous).
+  * - boot(): start things after every package is registered.
+  */
+-import { defineProvider } from '@strutvane/core'
++import { defineProvider } from '@strutvane/framework/core'
+ 
+ export default defineProvider({
+   name: 'app',
+@@ -519,7 +518,7 @@ is easy to test and reuse.
+  * The automatic REST API: every model gets CRUD endpoints under this prefix.
+  * Values come from the validated environment (env.ts); defaults live in .env.example.
+  */
+-import { defineConfig } from '@strutvane/core'
++import { defineConfig } from '@strutvane/framework/core'
+ import { env } from '../env.ts'
+ 
+ export default defineConfig({
+@@ -535,7 +534,7 @@ export default defineConfig({
+  * Application settings.
+  * Values come from the validated environment (env.ts); defaults live in .env.example.
+  */
+-import { defineConfig } from '@strutvane/core'
++import { defineConfig } from '@strutvane/framework/core'
+ import { env } from '../env.ts'
+ 
+ export default defineConfig({
+@@ -654,7 +653,7 @@ export default defineAuthConfig({
+  * Which browser origins may call the API.
+  * Values come from the validated environment (env.ts); defaults live in .env.example.
+  */
+-import { defineConfig } from '@strutvane/core'
++import { defineConfig } from '@strutvane/framework/core'
+ import { env } from '../env.ts'
+ 
+ export default defineConfig({
+@@ -667,7 +666,7 @@ export default defineConfig({
+  * Database connection.
+  * Values come from the validated environment (env.ts); defaults live in .env.example.
+  */
+-import { defineConfig } from '@strutvane/core'
++import { defineConfig } from '@strutvane/framework/core'
+ import { env } from '../env.ts'
+ 
+ export default defineConfig({
+@@ -690,7 +689,7 @@ export default defineConfig({
+  * Logging (@strutvane/logs): files with retention, request logging, and the viewer.
+  * Values come from the validated environment (env.ts); defaults live in .env.example.
+  */
+-import { defineConfig } from '@strutvane/core'
++import { defineConfig } from '@strutvane/framework/core'
+ import { env } from '../env.ts'
+ 
+ export default defineConfig({
+@@ -713,7 +712,7 @@ export default defineConfig({
+  * The generated UI (@strutvane/ui).
+  * Values come from the validated environment (env.ts); defaults live in .env.example.
+  */
+-import { defineConfig } from '@strutvane/core'
++import { defineConfig } from '@strutvane/framework/core'
+ import { env } from '../env.ts'
+ 
+ export default defineConfig({
+@@ -907,7 +906,7 @@ export type Env = z.infer<typeof envSchema>
+  * A missing or invalid key stops the app with ONE message listing every problem and how to fix
+  * it (secret values are never printed). Read config through `config/*.ts`, not `process.env`.
+  */
+-import { defineEnv } from '@strutvane/core'
++import { defineEnv } from '@strutvane/framework/core'
+ import { envSchema } from './env.schema.ts'
+ 
+ export const env = defineEnv(envSchema)
+@@ -919,7 +918,7 @@ export const env = defineEnv(envSchema)
+   "private": true,
+   "type": "module",
+   "engines": {
+-    "node": ">=24"
++    "node": ">=24.3"
+   },
+   "packageManager": "pnpm@12.18.0",
+   "scripts": {
+@@ -933,11 +932,10 @@ export const env = defineEnv(envSchema)
+     "typecheck": "tsc --noEmit && tsc --noEmit -p web",
+     "services:up": "docker compose --env-file .env -f docker/compose.yaml up -d --wait",
+     "services:down": "docker compose --env-file .env -f docker/compose.yaml down",
+-    "sv": "strutvane-cli"
++    "sv": "strutvane"
+   },
+   "dependencies": {
+     "@strutvane/auth": "0.1.0-next.0",
+-    "@strutvane/core": "0.1.0-next.0",
+     "@strutvane/framework": "0.1.0-next.0",
+     "@strutvane/logs": "0.1.0-next.0",
+     "@strutvane/ui": "0.1.0-next.0",
+@@ -954,12 +952,10 @@ export const env = defineEnv(envSchema)
+   "devDependencies": {
+     "@biomejs/biome": "2.6.7",
+     "@playwright/test": "1.65.0",
+-    "@strutvane/cli": "0.1.0-next.0",
+     "@types/node": "24.19.2",
+     "@types/react": "19.3.0",
+     "@types/react-dom": "19.3.0",
+     "@vitejs/plugin-react": "6.3.0",
+-    "strutvane": "0.1.0-next.0",
+     "typescript": "6.0.3",
+     "vite": "8.3.8",
+     "vitest": "5.1.0"
+@@ -1012,7 +1008,7 @@ minimumReleaseAgeExclude:
+  */
+ 
+ import authProvider from '@strutvane/auth/provider'
+-import { defineConfig } from '@strutvane/core'
++import { defineConfig } from '@strutvane/framework/core'
+ import frameworkProvider from '@strutvane/framework/provider'
+ import logsProvider from '@strutvane/logs/provider'
+ import appProvider from './app/providers/app.provider.ts'
+diff --git a/test/__golden__/full-postgres-tenancy-cache-npm.txt b/test/__golden__/full-postgres-tenancy-cache-npm.txt
+index 3d554b0..41cc806 100644
+--- a/test/__golden__/full-postgres-tenancy-cache-npm.txt
++++ b/test/__golden__/full-postgres-tenancy-cache-npm.txt
+@@ -291,9 +291,8 @@ The API runs on http://localhost:3000 (interactive API docs at http://localhost:
+ | `npm run sv -- env:check` | Compare .env with .env.example |
+ | `npm run sv -- help` | Every command of this project (built in and from installed packages) |
+ 
+-`npm run sv -- <command>` runs the Strutvane CLI pinned in this project (`@strutvane/cli` in
+-devDependencies), so its help lists your own and your packages' commands. A global `strutvane`
+-command runs the same CLI for everything except `help`, which describes the launcher itself.
++`npm run sv -- <command>` runs the Strutvane CLI pinned in this project (the `strutvane` bin of
++`@strutvane/framework`), so its help lists your own and your packages' commands.
+ 
+ ## Project layout
+ 
+@@ -459,7 +458,7 @@ Create one with `npm run sv -- make:policy Invoice`.
+  * - register(): bind your services in the container (synchronous).
+  * - boot(): start things after every package is registered.
+  */
+-import { defineProvider } from '@strutvane/core'
++import { defineProvider } from '@strutvane/framework/core'
+ 
+ export default defineProvider({
+   name: 'app',
+@@ -536,7 +535,7 @@ is easy to test and reuse.
+  * The automatic REST API: every model gets CRUD endpoints under this prefix.
+  * Values come from the validated environment (env.ts); defaults live in .env.example.
+  */
+-import { defineConfig } from '@strutvane/core'
++import { defineConfig } from '@strutvane/framework/core'
+ import { env } from '../env.ts'
+ 
+ export default defineConfig({
+@@ -552,7 +551,7 @@ export default defineConfig({
+  * Application settings.
+  * Values come from the validated environment (env.ts); defaults live in .env.example.
+  */
+-import { defineConfig } from '@strutvane/core'
++import { defineConfig } from '@strutvane/framework/core'
+ import { env } from '../env.ts'
+ 
+ export default defineConfig({
+@@ -672,7 +671,7 @@ export default defineAuthConfig({
+  * Cache store.
+  * Values come from the validated environment (env.ts); defaults live in .env.example.
+  */
+-import { defineConfig } from '@strutvane/core'
++import { defineConfig } from '@strutvane/framework/core'
+ import { env } from '../env.ts'
+ 
+ export default defineConfig({
+@@ -686,7 +685,7 @@ export default defineConfig({
+  * Which browser origins may call the API.
+  * Values come from the validated environment (env.ts); defaults live in .env.example.
+  */
+-import { defineConfig } from '@strutvane/core'
++import { defineConfig } from '@strutvane/framework/core'
+ import { env } from '../env.ts'
+ 
+ export default defineConfig({
+@@ -699,7 +698,7 @@ export default defineConfig({
+  * Database connection.
+  * Values come from the validated environment (env.ts); defaults live in .env.example.
+  */
+-import { defineConfig } from '@strutvane/core'
++import { defineConfig } from '@strutvane/framework/core'
+ import { env } from '../env.ts'
+ 
+ export default defineConfig({
+@@ -722,7 +721,7 @@ export default defineConfig({
+  * Logging (@strutvane/logs): files with retention, request logging, and the viewer.
+  * Values come from the validated environment (env.ts); defaults live in .env.example.
+  */
+-import { defineConfig } from '@strutvane/core'
++import { defineConfig } from '@strutvane/framework/core'
+ import { env } from '../env.ts'
+ 
+ export default defineConfig({
+@@ -745,7 +744,7 @@ export default defineConfig({
+  * Multi-tenancy: each customer company (tenant) only ever sees its own rows. On PostgreSQL this is enforced by the database itself (row-level security, ADR-0007).
+  * Values come from the validated environment (env.ts); defaults live in .env.example.
+  */
+-import { defineConfig } from '@strutvane/core'
++import { defineConfig } from '@strutvane/framework/core'
+ import { env } from '../env.ts'
+ 
+ export default defineConfig({
+@@ -759,7 +758,7 @@ export default defineConfig({
+  * The generated UI (@strutvane/ui).
+  * Values come from the validated environment (env.ts); defaults live in .env.example.
+  */
+-import { defineConfig } from '@strutvane/core'
++import { defineConfig } from '@strutvane/framework/core'
+ import { env } from '../env.ts'
+ 
+ export default defineConfig({
+@@ -973,7 +972,7 @@ export type Env = z.infer<typeof envSchema>
+  * A missing or invalid key stops the app with ONE message listing every problem and how to fix
+  * it (secret values are never printed). Read config through `config/*.ts`, not `process.env`.
+  */
+-import { defineEnv } from '@strutvane/core'
++import { defineEnv } from '@strutvane/framework/core'
+ import { envSchema } from './env.schema.ts'
+ 
+ export const env = defineEnv(envSchema)
+@@ -985,7 +984,7 @@ export const env = defineEnv(envSchema)
+   "private": true,
+   "type": "module",
+   "engines": {
+-    "node": ">=24"
++    "node": ">=24.3"
+   },
+   "scripts": {
+     "dev": "strutvane dev",
+@@ -998,11 +997,10 @@ export const env = defineEnv(envSchema)
+     "typecheck": "tsc --noEmit && tsc --noEmit -p web",
+     "services:up": "docker compose --env-file .env -f docker/compose.yaml up -d --wait",
+     "services:down": "docker compose --env-file .env -f docker/compose.yaml down",
+-    "sv": "strutvane-cli"
++    "sv": "strutvane"
+   },
+   "dependencies": {
+     "@strutvane/auth": "0.1.0-next.0",
+-    "@strutvane/core": "0.1.0-next.0",
+     "@strutvane/framework": "0.1.0-next.0",
+     "@strutvane/logs": "0.1.0-next.0",
+     "@strutvane/ui": "0.1.0-next.0",
+@@ -1020,12 +1018,10 @@ export const env = defineEnv(envSchema)
+   "devDependencies": {
+     "@biomejs/biome": "2.6.7",
+     "@playwright/test": "1.65.0",
+-    "@strutvane/cli": "0.1.0-next.0",
+     "@types/node": "24.19.2",
+     "@types/react": "19.3.0",
+     "@types/react-dom": "19.3.0",
+     "@vitejs/plugin-react": "6.3.0",
+-    "strutvane": "0.1.0-next.0",
+     "typescript": "6.0.3",
+     "vite": "8.3.8",
+     "vitest": "5.1.0"
+@@ -1064,7 +1060,7 @@ export default defineConfig({
+  */
+ 
+ import authProvider from '@strutvane/auth/provider'
+-import { defineConfig } from '@strutvane/core'
++import { defineConfig } from '@strutvane/framework/core'
+ import frameworkProvider from '@strutvane/framework/provider'
+ import logsProvider from '@strutvane/logs/provider'
+ import appProvider from './app/providers/app.provider.ts'
+diff --git a/test/__golden__/full-sqlite-noauth.txt b/test/__golden__/full-sqlite-noauth.txt
+index 29db5d6..5c063fb 100644
+--- a/test/__golden__/full-sqlite-noauth.txt
++++ b/test/__golden__/full-sqlite-noauth.txt
+@@ -226,9 +226,8 @@ The API runs on http://localhost:3000 (interactive API docs at http://localhost:
+ | `pnpm sv env:check` | Compare .env with .env.example |
+ | `pnpm sv help` | Every command of this project (built in and from installed packages) |
+ 
+-`pnpm sv <command>` runs the Strutvane CLI pinned in this project (`@strutvane/cli` in
+-devDependencies), so its help lists your own and your packages' commands. A global `strutvane`
+-command runs the same CLI for everything except `help`, which describes the launcher itself.
++`pnpm sv <command>` runs the Strutvane CLI pinned in this project (the `strutvane` bin of
++`@strutvane/framework`), so its help lists your own and your packages' commands.
+ 
+ ## Project layout
+ 
+@@ -358,7 +357,7 @@ Create one with `pnpm sv make:policy Invoice`.
+  * - register(): bind your services in the container (synchronous).
+  * - boot(): start things after every package is registered.
+  */
+-import { defineProvider } from '@strutvane/core'
++import { defineProvider } from '@strutvane/framework/core'
+ 
+ export default defineProvider({
+   name: 'app',
+@@ -435,7 +434,7 @@ is easy to test and reuse.
+  * The automatic REST API: every model gets CRUD endpoints under this prefix.
+  * Values come from the validated environment (env.ts); defaults live in .env.example.
+  */
+-import { defineConfig } from '@strutvane/core'
++import { defineConfig } from '@strutvane/framework/core'
+ import { env } from '../env.ts'
+ 
+ export default defineConfig({
+@@ -451,7 +450,7 @@ export default defineConfig({
+  * Application settings.
+  * Values come from the validated environment (env.ts); defaults live in .env.example.
+  */
+-import { defineConfig } from '@strutvane/core'
++import { defineConfig } from '@strutvane/framework/core'
+ import { env } from '../env.ts'
+ 
+ export default defineConfig({
+@@ -473,7 +472,7 @@ export default defineConfig({
+  * Which browser origins may call the API.
+  * Values come from the validated environment (env.ts); defaults live in .env.example.
+  */
+-import { defineConfig } from '@strutvane/core'
++import { defineConfig } from '@strutvane/framework/core'
+ import { env } from '../env.ts'
+ 
+ export default defineConfig({
+@@ -486,7 +485,7 @@ export default defineConfig({
+  * Database connection (SQLite: zero setup, ideal for development and tests).
+  * Values come from the validated environment (env.ts); defaults live in .env.example.
+  */
+-import { defineConfig } from '@strutvane/core'
++import { defineConfig } from '@strutvane/framework/core'
+ import { env } from '../env.ts'
+ 
+ export default defineConfig({
+@@ -498,10 +497,10 @@ export default defineConfig({
+ 
+ ===== config/logging.ts =====
+ /**
+- * Logging (structured logs to stdout from @strutvane/core).
++ * Logging (structured logs to stdout from @strutvane/framework).
+  * Values come from the validated environment (env.ts); defaults live in .env.example.
+  */
+-import { defineConfig } from '@strutvane/core'
++import { defineConfig } from '@strutvane/framework/core'
+ import { env } from '../env.ts'
+ 
+ export default defineConfig({
+@@ -514,7 +513,7 @@ export default defineConfig({
+  * The generated UI (@strutvane/ui).
+  * Values come from the validated environment (env.ts); defaults live in .env.example.
+  */
+-import { defineConfig } from '@strutvane/core'
++import { defineConfig } from '@strutvane/framework/core'
+ import { env } from '../env.ts'
+ 
+ export default defineConfig({
+@@ -648,7 +647,7 @@ export type Env = z.infer<typeof envSchema>
+  * A missing or invalid key stops the app with ONE message listing every problem and how to fix
+  * it (secret values are never printed). Read config through `config/*.ts`, not `process.env`.
+  */
+-import { defineEnv } from '@strutvane/core'
++import { defineEnv } from '@strutvane/framework/core'
+ import { envSchema } from './env.schema.ts'
+ 
+ export const env = defineEnv(envSchema)
+@@ -660,7 +659,7 @@ export const env = defineEnv(envSchema)
+   "private": true,
+   "type": "module",
+   "engines": {
+-    "node": ">=24"
++    "node": ">=24.3"
+   },
+   "packageManager": "pnpm@12.18.0",
+   "scripts": {
+@@ -672,11 +671,10 @@ export const env = defineEnv(envSchema)
+     "lint": "biome check .",
+     "format": "biome check --write .",
+     "typecheck": "tsc --noEmit && tsc --noEmit -p web",
+-    "sv": "strutvane-cli"
++    "sv": "strutvane"
+   },
+   "dependencies": {
+     "@libsql/client": "0.18.0",
+-    "@strutvane/core": "0.1.0-next.0",
+     "@strutvane/framework": "0.1.0-next.0",
+     "@strutvane/ui": "0.1.0-next.0",
+     "@tanstack/react-form": "1.33.5",
+@@ -690,12 +688,10 @@ export const env = defineEnv(envSchema)
+   "devDependencies": {
+     "@biomejs/biome": "2.6.7",
+     "@playwright/test": "1.65.0",
+-    "@strutvane/cli": "0.1.0-next.0",
+     "@types/node": "24.19.2",
+     "@types/react": "19.3.0",
+     "@types/react-dom": "19.3.0",
+     "@vitejs/plugin-react": "6.3.0",
+-    "strutvane": "0.1.0-next.0",
+     "typescript": "6.0.3",
+     "vite": "8.3.8",
+     "vitest": "5.1.0"
+@@ -747,7 +743,7 @@ minimumReleaseAgeExclude:
+  * `pnpm sv add <package>` and `sv remove` edit the providers list for you.
+  */
+ 
+-import { defineConfig } from '@strutvane/core'
++import { defineConfig } from '@strutvane/framework/core'
+ import frameworkProvider from '@strutvane/framework/provider'
+ import appProvider from './app/providers/app.provider.ts'
+ 
+diff --git a/test/__golden__/ui-yarn.txt b/test/__golden__/ui-yarn.txt
+index 5819e82..b5bc476 100644
+--- a/test/__golden__/ui-yarn.txt
++++ b/test/__golden__/ui-yarn.txt
+@@ -183,9 +183,8 @@ The UI runs on http://localhost:5173 and talks to the API set in `VITE_API_URL`.
+ | `yarn sv env:check` | Compare .env with .env.example |
+ | `yarn sv help` | Every command of this project (built in and from installed packages) |
+ 
+-`yarn sv <command>` runs the Strutvane CLI pinned in this project (`@strutvane/cli` in
+-devDependencies), so its help lists your own and your packages' commands. A global `strutvane`
+-command runs the same CLI for everything except `help`, which describes the launcher itself.
++`yarn sv <command>` runs the Strutvane CLI pinned in this project (the `strutvane` bin of
++`@strutvane/framework`), so its help lists your own and your packages' commands.
+ 
+ ## Project layout
+ 
+@@ -274,7 +273,7 @@ message if something is missing or invalid.
+  * The existing API this UI connects to. The UI reads its Strutvane manifest (/.well-known/strutvane.json on the API origin); building screens from any OpenAPI 3.x document is planned in @strutvane/ui.
+  * Values come from the validated environment (env.ts); defaults live in .env.example.
+  */
+-import { defineConfig } from '@strutvane/core'
++import { defineConfig } from '@strutvane/framework/core'
+ import { env } from '../env.ts'
+ 
+ export default defineConfig({
+@@ -287,7 +286,7 @@ export default defineConfig({
+  * Application settings.
+  * Values come from the validated environment (env.ts); defaults live in .env.example.
+  */
+-import { defineConfig } from '@strutvane/core'
++import { defineConfig } from '@strutvane/framework/core'
+ import { env } from '../env.ts'
+ 
+ export default defineConfig({
+@@ -302,7 +301,7 @@ export default defineConfig({
+  * The generated UI (@strutvane/ui).
+  * Values come from the validated environment (env.ts); defaults live in .env.example.
+  */
+-import { defineConfig } from '@strutvane/core'
++import { defineConfig } from '@strutvane/framework/core'
+ import { env } from '../env.ts'
+ 
+ export default defineConfig({
+@@ -342,7 +341,7 @@ export type Env = z.infer<typeof envSchema>
+  * A missing or invalid key stops the app with ONE message listing every problem and how to fix
+  * it (secret values are never printed). Read config through `config/*.ts`, not `process.env`.
+  */
+-import { defineEnv } from '@strutvane/core'
++import { defineEnv } from '@strutvane/framework/core'
+ import { envSchema } from './env.schema.ts'
+ 
+ export const env = defineEnv(envSchema)
+@@ -354,7 +353,7 @@ export const env = defineEnv(envSchema)
+   "private": true,
+   "type": "module",
+   "engines": {
+-    "node": ">=24"
++    "node": ">=24.3"
+   },
+   "scripts": {
+     "dev": "vite",
+@@ -365,10 +364,10 @@ export const env = defineEnv(envSchema)
+     "lint": "biome check .",
+     "format": "biome check --write .",
+     "typecheck": "tsc --noEmit && tsc --noEmit -p web",
+-    "sv": "strutvane-cli"
++    "sv": "strutvane"
+   },
+   "dependencies": {
+-    "@strutvane/core": "0.1.0-next.0",
++    "@strutvane/framework": "0.1.0-next.0",
+     "@strutvane/ui": "0.1.0-next.0",
+     "@tanstack/react-form": "1.33.5",
+     "@tanstack/react-query": "5.107.1",
+@@ -381,12 +380,10 @@ export const env = defineEnv(envSchema)
+   "devDependencies": {
+     "@biomejs/biome": "2.6.7",
+     "@playwright/test": "1.65.0",
+-    "@strutvane/cli": "0.1.0-next.0",
+     "@types/node": "24.19.2",
+     "@types/react": "19.3.0",
+     "@types/react-dom": "19.3.0",
+     "@vitejs/plugin-react": "6.3.0",
+-    "strutvane": "0.1.0-next.0",
+     "typescript": "6.0.3",
+     "vite": "8.3.8",
+     "vitest": "5.1.0"
+@@ -418,7 +415,7 @@ export default defineConfig({
+  * `yarn sv add <package>` and `sv remove` edit the providers list for you.
+  */
+ 
+-import { defineConfig } from '@strutvane/core'
++import { defineConfig } from '@strutvane/framework/core'
+ 
+ export default defineConfig({
+   app: { name: 'acme-portal', preset: 'ui' },
+diff --git a/test/generated-project.test.ts b/test/generated-project.test.ts
+index 2dfe1ee..1370c81 100644
+--- a/test/generated-project.test.ts
++++ b/test/generated-project.test.ts
+@@ -89,7 +89,7 @@ describe.each(COMBOS)('$id', ({ id, input }) => {
+     for (const [key, value] of example) if (looksSecret(key)) expect(value, key).toBe('')
+   })
+ 
+-  test('type-checks with the real @strutvane/core and zod', async () => {
++  test('type-checks with the real @strutvane/framework and zod', async () => {
+     await linkNodeModules(dir)
+     const result = await typecheck(dir)
+     expect(result.output).toBe('')
+diff --git a/test/templates.test.ts b/test/templates.test.ts
+index 167229a..4cd6af5 100644
+--- a/test/templates.test.ts
++++ b/test/templates.test.ts
+@@ -156,7 +156,9 @@ describe('strutvane.config.ts', () => {
+       './app/providers/app.provider.ts',
+     ])
+     const text = strutvaneConfigFile(o).content
+-    expect(text.indexOf('@strutvane/auth/provider')).toBeLessThan(text.indexOf('@strutvane/core'))
++    expect(text.indexOf('@strutvane/auth/provider')).toBeLessThan(
++      text.indexOf('@strutvane/framework/core'),
++    )
+     expect(text).toContain(
+       'providers: [frameworkProvider, logsProvider, authProvider, appProvider],',
+     )
+@@ -284,7 +286,6 @@ describe('package.json', () => {
+   test('pins every Strutvane package to the current train and third parties exactly', () => {
+     const deps = dependencies(at({ name: 'a', extras: ['queue', 'mail', 'otel', 'logs'] }))
+     for (const name of [
+-      '@strutvane/core',
+       '@strutvane/framework',
+       '@strutvane/auth',
+       '@strutvane/logs',
+@@ -312,9 +313,8 @@ describe('package.json', () => {
+   test('scripts per preset', () => {
+     expect(scripts(at({ name: 'a' }))).toMatchObject({
+       dev: 'strutvane dev',
+-      // The project-local CLI, so `sv help` lists the project's commands (the launcher never
+-      // delegates help).
+-      sv: 'strutvane-cli',
++      // The framework's bin, so `sv help` lists the project's commands.
++      sv: 'strutvane',
+       'test:e2e': 'playwright test',
+     })
+     expect(scripts(at({ name: 'a', preset: 'ui' }))).toMatchObject({
+@@ -328,22 +328,45 @@ describe('package.json', () => {
+     expect(api).toMatchObject({ typecheck: 'tsc --noEmit' })
+   })
+ 
+-  // Drift check: the bin the sv script calls is the one @strutvane/cli publishes.
+-  const cliManifest = join(PKG_ROOT, '..', 'cli', 'packages', 'cli', 'package.json')
+-  test.skipIf(!existsSync(cliManifest))('sv calls the bin @strutvane/cli publishes', () => {
+-    const manifest = JSON.parse(readFileSync(cliManifest, 'utf8')) as {
+-      name: string
+-      bin: Record<string, string>
+-    }
+-    expect(manifest.name).toBe('@strutvane/cli')
++  // Drift check: the bin the sv script calls is one @strutvane/framework publishes. Resolved
++  // through node_modules (a devDependency), so it runs in per-repo CI instead of silently
++  // skipping when no sibling checkout exists (B5).
++  test('sv calls a bin @strutvane/framework publishes', () => {
++    const manifest = JSON.parse(
++      readFileSync(
++        join(PKG_ROOT, 'node_modules', '@strutvane', 'framework', 'package.json'),
++        'utf8',
++      ),
++    ) as { name: string; bin: Record<string, string> }
++    expect(manifest.name).toBe('@strutvane/framework')
+     expect(Object.keys(manifest.bin)).toContain(scripts(at({ name: 'a' }))['sv'])
+-    expect(devDependencies(at({ name: 'a' }))).toHaveProperty('@strutvane/cli')
++    expect(Object.keys(manifest.bin)).toContain('strutvane')
++  })
++
++  test.each([
++    ['full', {}],
++    ['api', { preset: 'api', database: 'sqlite', auth: [], extras: [] }],
++    ['ui', { preset: 'ui' }],
++  ])('%s: one kernel, one owner per bin (no absorbed package, no launcher)', (_preset, input) => {
++    const o = at({ name: 'a', ...input })
++    const all = { ...dependencies(o), ...devDependencies(o) }
++    for (const absorbed of [
++      '@strutvane/core',
++      '@strutvane/contracts',
++      '@strutvane/devkit',
++      '@strutvane/cli',
++      'strutvane',
++    ])
++      expect(all, absorbed).not.toHaveProperty(absorbed)
++    expect(dependencies(o)['@strutvane/framework']).toBe(STRUTVANE_VERSION)
+   })
+ 
+-  test('the README explains sv and the global launcher', () => {
++  test('the README explains sv as the framework CLI (no launcher, no @strutvane/cli)', () => {
+     const readme = contentOf({ name: 'a' }, 'README.md')
+     expect(readme).toContain('| `pnpm sv help` |')
+-    expect(readme).toContain('everything except `help`, which describes the launcher itself')
++    expect(readme).toContain('(the `strutvane` bin of')
++    expect(readme).not.toContain('@strutvane/cli')
++    expect(readme).not.toContain('launcher')
+   })
+ 
+   test('packageManager field only for pnpm', () => {
+@@ -693,8 +716,8 @@ describe('persistent identity on PostgreSQL', () => {
+ })
+ 
+ describe('integration regressions (local e2e journey)', () => {
+-  test('the project-local CLI is a dev dependency, so the `strutvane` launcher never falls back to npx', () => {
+-    expect(devDependencies(at({ name: 'a' }))['@strutvane/cli']).toBe(STRUTVANE_VERSION)
++  test('the project-local CLI is the framework itself, so `strutvane` never falls back to npx', () => {
++    expect(dependencies(at({ name: 'a' }))['@strutvane/framework']).toBe(STRUTVANE_VERSION)
+   })
+ 
+   test('the starter route is explicitly public (custom routes require sign-in by default)', () => {
+-- 
+2.56.0.windows.2
+
