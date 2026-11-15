@@ -97,8 +97,8 @@ node strut model:show Post
 
 ```json
 [
-  { "method": "GET|HEAD", "uri": "api/posts", "name": "posts.index", "action": "PostController@index", "middleware": "api, auth:optional" },
-  { "method": "POST", "uri": "api/posts", "name": "posts.store", "action": "PostController@store", "middleware": "api, auth" }
+  { "method": "GET|HEAD", "uri": "/api/posts", "name": "posts.index", "action": "PostController@index", "middleware": "api, auth:optional" },
+  { "method": "POST", "uri": "/api/posts", "name": "posts.store", "action": "PostController@store", "middleware": "api, auth" }
 ]
 ```
 
