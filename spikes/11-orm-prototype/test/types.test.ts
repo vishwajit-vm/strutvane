@@ -34,6 +34,22 @@ async function columnsAndValues(): Promise<void> {
   await Project.find('0193a0b2-0000-7000-8000-00000000000a')
 }
 
+async function pivotKeys(): Promise<void> {
+  const project = await Project.findOrFail('0193a0b2-0000-7000-8000-00000000000a')
+  await project.labels().attach([1, 2])
+  await project.labels().detach([1])
+  await project.labels().sync([3])
+  // @ts-expect-error: labels have numeric keys
+  await project.labels().attach(['1'])
+  // @ts-expect-error: an object is not a key
+  await project.labels().detach([{ id: 1 }])
+  // @ts-expect-error: a list of lists is not a list of keys
+  await project.labels().sync([[1]])
+  const post = await Post.findOrFail(1)
+  // @ts-expect-error: tags have numeric keys, not UUIDs
+  await post.tags().attach(['0193a0b2-0000-7000-8000-00000000000a'])
+}
+
 async function massAssignment(): Promise<void> {
   await User.create({ name: 'Ada', email: 'ada@example.test' })
   // @ts-expect-error: is_admin is not fillable
@@ -110,6 +126,7 @@ describe('types', () => {
   test('the checks in this file compiled (tsc runs before vitest in npm test)', () => {
     expectTypeOf(columnsAndValues).toBeFunction()
     expectTypeOf(massAssignment).toBeFunction()
+    expectTypeOf(pivotKeys).toBeFunction()
     expectTypeOf(resultsAndCasts).toBeFunction()
     expectTypeOf(relations).toBeFunction()
     expectTypeOf(serialization).toBeFunction()

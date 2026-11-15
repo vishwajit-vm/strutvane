@@ -9,6 +9,7 @@
  *   loading authors for 1,000 posts is two queries, not 1,001.
  */
 import { tableColumns } from '../schema/registry.ts'
+import { toDatabase } from './casts.ts'
 import type { ColumnRef, SelectAst, SelectItem, WhereNode } from '../sql/ast.ts'
 import { compileDelete, compileInsert } from '../sql/compile.ts'
 import { Builder } from './builder.ts'
@@ -189,7 +190,8 @@ export class BelongsToManyRelation<TRelated extends AnyModelClass> extends Build
    * @example
    * await post.tags().attach([news.id, tech.id])
    */
-  async attach(ids: readonly KeyOf<TRelated>[]): Promise<void> {
+  async attach(rawIds: readonly KeyOf<TRelated>[]): Promise<void> {
+    const ids = this.#keys(rawIds)
     const connection = this.#related.connection()
     await connection.transaction(async () => {
       const parentKey = this.#parentKey()
@@ -209,7 +211,8 @@ export class BelongsToManyRelation<TRelated extends AnyModelClass> extends Build
    * @example
    * await post.tags().detach([news.id])
    */
-  async detach(ids?: readonly KeyOf<TRelated>[]): Promise<number> {
+  async detach(rawIds?: readonly KeyOf<TRelated>[]): Promise<number> {
+    const ids = rawIds === undefined ? undefined : this.#keys(rawIds)
     const parentKey = this.#parentKey()
     const connection = this.#related.connection()
     const where: WhereNode[] = [{ kind: 'compare', conjunction: 'and', column: { alias: this.#pivot, column: this.#foreignPivotKey }, operator: '=', value: parentKey }]
@@ -227,7 +230,8 @@ export class BelongsToManyRelation<TRelated extends AnyModelClass> extends Build
    * @example
    * await post.tags().sync([news.id])
    */
-  async sync(ids: readonly KeyOf<TRelated>[]): Promise<{ readonly attached: number; readonly detached: number }> {
+  async sync(rawIds: readonly KeyOf<TRelated>[]): Promise<{ readonly attached: number; readonly detached: number }> {
+    const ids = this.#keys(rawIds)
     const connection = this.#related.connection()
     return connection.transaction(async () => {
       const wanted = new Set(ids.map(keyText))
@@ -269,6 +273,17 @@ export class BelongsToManyRelation<TRelated extends AnyModelClass> extends Build
     this.#addPivotScope(query, pivotAlias)
     query.applyConstraint(constrain)
     return query.subqueryAst(selectFor(kind, alias))
+  }
+
+  /**
+   * Check and convert ids against the related primary key's type, before any SQL (the same typed
+   * binds as everywhere else, security review F-08). Without it, MySQL compared '7abc' = 7 and
+   * detached the wrong row, and objects and lists reached the driver.
+   */
+  #keys(ids: readonly KeyOf<TRelated>[]): readonly KeyOf<TRelated>[] {
+    const primaryKey = this.#related.info().primaryKey
+    const dialect = this.#related.connection().grammar.dialect
+    return asKeys<TRelated>(ids.map((id) => toDatabase(this.#related.table, { ...primaryKey, nullable: false }, id, dialect)))
   }
 
   /** The tenant condition for the pivot table under `alias` (none for global pivots). */

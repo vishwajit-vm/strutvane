@@ -6,6 +6,7 @@
  */
 import { afterEach, describe, expect, test } from 'vitest'
 import {
+  CastError,
   configureOrm,
   type Connection,
   MassAssignmentError,
@@ -142,6 +143,37 @@ function suite(engine: Engine): void {
       expect(await apollo.labels().count()).toBe(1)
     })
     expect(await asB(() => Label.query().count())).toBe(1)
+  })
+
+  test('attach, detach and sync check every id against the related key type before any SQL', async () => {
+    await seedTwoTenants()
+    await asA(async () => {
+      const apollo = await Project.query().firstOrFail()
+      const [label] = await apollo.labels().get()
+      if (label === undefined) throw new Error('seed: Apollo has a label')
+      // A JS caller (or a decoded body) can pass anything. On MySQL '1abc' = 1, so detaching
+      // ['<id>abc'] used to remove the link to label <id>; objects and lists reached the driver.
+      const hostile: readonly unknown[] = [`${label.id}abc`, { id: label.id }, [label.id], true, 1.5]
+      const db = connection()
+      let statements = 0
+      const stop = db.onQuery(() => {
+        statements += 1
+      })
+      try {
+        for (const id of hostile) {
+          const ids = [id] as unknown as readonly number[]
+          await expect(apollo.labels().detach(ids), JSON.stringify(id)).rejects.toBeInstanceOf(CastError)
+          await expect(apollo.labels().attach(ids), JSON.stringify(id)).rejects.toBeInstanceOf(CastError)
+          await expect(apollo.labels().sync(ids), JSON.stringify(id)).rejects.toBeInstanceOf(CastError)
+        }
+      } finally {
+        stop()
+      }
+      expect(statements).toBe(0)
+      expect((await apollo.labels().get()).map((linked) => linked.id)).toEqual([label.id])
+      // Digits from a URL are a real id, as everywhere else.
+      expect(await apollo.labels().detach([String(label.id)] as unknown as readonly number[])).toBe(1)
+    })
   })
 
   test('the SQL-tree check refuses a tenant join without its tenant condition (planted bug)', async () => {
