@@ -128,6 +128,79 @@ return new Response('id,title\n1,Hello World\n', {
 })
 ```
 
+### Setting a cookie
+
+Use a plain `Response` and a `set-cookie` header. Mark cookies `HttpOnly` (JavaScript can't read them), `Secure` (HTTPS only) and `SameSite=Lax`:
+
+```ts
+const response = ctx.json({ data: { theme: 'dark' } })
+response.headers.append('set-cookie', 'theme=dark; Path=/; Max-Age=31536000; HttpOnly; Secure; SameSite=Lax')
+return response
+```
+
+:::caution[Coming in 0.2]
+Encrypted cookies and session values (with `__Host-` names, ids rotated at sign-in) come with the session layer of `@strutvane/auth`. Never put secrets in a plain cookie.
+:::
+
+## Redirects: `redirect()`
+
+To send the browser to another page, return a redirect. Strutvane's `redirect()` has three methods, so you always say whether you mean "my own page" or "another site":
+
+```ts title="app/http/controllers/session.controller.ts"
+import { Controller, redirect, type HttpContext } from '@strutvane/framework'
+
+export class SessionController extends Controller {
+  afterLogin(ctx: HttpContext): Response {
+    return redirect().intended(ctx, '/dashboard')    // where they were going, or /dashboard
+  }
+
+  toPosts(): Response {
+    return redirect().to('/posts', 303)              // one of your own paths
+  }
+
+  toBilling(): Response {
+    return redirect().away('https://billing.example.com/portal')  // another site, on purpose
+  }
+}
+```
+
+**What you'll see:**
+
+```text
+HTTP/1.1 303 See Other
+location: /posts
+```
+
+`to()` and `intended()` accept only paths on your own site, so a crafted link (`?intended=//evil.com`) can't turn your app into a springboard for phishing. `intended()` quietly falls back; `to()` throws, because an unsafe target there is a bug in your code. The default status is `302`; pass `301`, `303`, `307` or `308` when you need another. See [Helpers](../helpers/).
+
+## Coming in 0.2: downloads and files
+
+:::caution[Coming in 0.2]
+Download and file responses are planned with storage (Laravel's `response()->download()` and `->file()`). Until then, build the `Response` yourself as in "Anything else" above. The preview below may change.
+:::
+
+```ts
+return ctx.download('storage/exports/posts.csv', 'posts.csv')   // "Save as…" in the browser
+return ctx.file('storage/reports/summary.pdf')                  // shown in the browser
+```
+
+Both will set a **safe `Content-Disposition`** header: the file name you give is cleaned, so a name like `../../etc/passwd` or one with quotes and newlines can't break the header or point at another file.
+
+## Coming in 0.3: streaming and server-sent events
+
+:::caution[Coming in 0.3]
+Planned for phase 2 (0.3) in the parity matrix. A preview; names may change.
+:::
+
+- **`stream()`** sends a response in pieces as you produce them: a large CSV export without holding it all in memory.
+- **`eventStream()`** sends **server-sent events** (SSE): a one-way stream of messages to the browser over one long request, for progress bars and live feeds (Laravel's `response()->eventStream()`).
+
+Both will handle **back-pressure** (pausing when the client reads slowly) and **stop when the client disconnects**, so an abandoned tab doesn't keep your server working. A standard `ReadableStream` in a plain `Response` already works today if you need it.
+
+## No views or Blade
+
+Strutvane doesn't render HTML templates on the server. Pages are the React app (see [Frontend](../frontend/)); controllers answer JSON. `ctx.html()` is there for the app shell, small pages and emails' previews, not for building your UI.
+
 ## Errors: throw, don't return
 
 To stop with an error, **throw** an HTTP error. The exception handler turns it into a response, so the same error looks the same from every action, middleware and helper:
@@ -193,6 +266,32 @@ The `hint` appears only when `APP_DEBUG=true` and `APP_ENV` is `local` or `testi
 
 When the client doesn't want JSON (a browser on a web route), the same error is shown as a minimal HTML page with the status, title and detail.
 
+### The quick way: `abort()`
+
+For the three most common stops there's a one-liner:
+
+```ts
+import { abort } from '@strutvane/framework'
+
+abort(404, 'No such post.')    // NotFoundError
+abort(403)                     // ForbiddenError: "You are not allowed to do this."
+abort(401)                     // UnauthenticatedError
+```
+
+### Answering early from deep code: `ResponseError`
+
+Sometimes a check deep in your code has a whole **response** to send, not an error (a redirect, for example). Throw it wrapped in a `ResponseError`, and the handler sends it unchanged:
+
+```ts
+import { ResponseError } from '@strutvane/framework'
+
+throw new ResponseError(new Response(null, { status: 302, headers: { location: '/login' } }))
+```
+
+### Every response gets security headers
+
+Whatever you return (JSON, HTML, a 404, an error page), Strutvane adds the security headers on the way out: a Content-Security-Policy with this request's nonce, `X-Content-Type-Options: nosniff`, a strict `Referrer-Policy`, `Permissions-Policy`, framing protection and, in production, HSTS. You don't need to set them yourself. See [Security Features](../security/).
+
 ## Common mistakes
 
 ### "… returned nothing instead of a Response"
@@ -219,6 +318,20 @@ throw new NotFoundError('No report for that month.')   // not: throw new Error('
 **Why:** you built the JSON by hand (`{ ...post }`) instead of letting the model serialise itself.
 
 **Fix:** return the model (`ctx.json({ data: post })`); its `toJSON()` drops hidden columns.
+
+### "redirect().to() was given …, which is not a same-origin path"
+
+```text
+✖ redirect().to() was given "https://partner.example/page", which is not a same-origin path.
+→ Use redirect().away(url) for a deliberate external redirect.
+```
+
+**Fix:** use `redirect().away(url)` when leaving your site is intended.
+
+### My header disappears or throws "immutable"
+
+**Why:** responses built by `Response.json()`, `Response.redirect()` or `fetch()` have read-only headers.
+**Fix:** copy first, then set: `const copy = new Response(response.body, response)`.
 
 ## Next steps
 

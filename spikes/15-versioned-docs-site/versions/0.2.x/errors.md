@@ -13,7 +13,7 @@ You don't have to set anything up. This page shows what you'll see, and how to c
 :::tip[Coming from Laravel?]
 The developer page is Strutvane's Ignition (with a **"Copy as Markdown for AI"** button), `withExceptions()` in `bootstrap/app.ts` is the same place as Laravel 11's, and `render()`, `dontReport()` and `shouldRenderJson()` are here as `render()`, `dontReport()` and `shouldRenderJsonWhen()`.
 
-One stricter rule: the debug page needs `APP_DEBUG=true` **and** `APP_ENV=local` or `testing`. In production, `APP_DEBUG=true` is ignored (and logged as a warning), so a forgotten flag can't leak your source code.
+One stricter rule: the debug page needs `APP_DEBUG=true` **and** `APP_ENV=local` or `testing`. In production, the app **refuses to start** with `APP_DEBUG=true` (unless you force it), so a forgotten flag can't leak your source code.
 :::
 
 ## The smallest example
@@ -157,11 +157,17 @@ The log records the **route template** (`/posts/{post:slug}`), never the full UR
 
 ### The `APP_DEBUG` safety net
 
-If `APP_DEBUG=true` is left on in production, Strutvane ignores it and logs this warning when the app starts:
+If `APP_DEBUG=true` is left on with `APP_ENV=production`, the app **refuses to boot**: failing closed is safer than a debug page on the internet. To start anyway for a short, deliberate investigation, pass `--force-debug`.
+
+Even then, the debug page itself only ever appears in `local` and `testing`; production errors stay plain.
+
+:::caution[Coming in 0.2]
+Refusing to boot (and `--force-debug`) is the decided behaviour. The prototype (spike 12) still starts, ignores the flag and logs this warning:
 
 ```text
 APP_DEBUG=true is ignored outside local and testing environments; production errors stay plain.
 ```
+:::
 
 ## Developer hints on 4xx errors
 
@@ -223,6 +229,55 @@ The default is `ctx.wantsJson()`. Change it, for example to send JSON only under
 exceptions.shouldRenderJsonWhen((ctx) => ctx.url.pathname.startsWith('/api/'))
 ```
 
+### Several rules together
+
+All three can live in one `withExceptions()` call, and you can call `withExceptions()` more than once (each call adds to the previous):
+
+```ts title="bootstrap/app.ts"
+import { dirname } from 'node:path'
+import { Application } from '@strutvane/framework'
+import { PaymentDeclined } from '../app/errors/payment-declined.ts'
+import { config } from '../config/index.ts'
+import api from '../routes/api.ts'
+
+export default Application.configure({ basePath: dirname(import.meta.dirname) })
+  .withConfig(config)
+  .withRouting({ api, health: '/up' })
+  .withExceptions((exceptions) => {
+    exceptions.dontReport(PaymentDeclined)
+    exceptions.render(PaymentDeclined, (error, ctx) =>
+      ctx.wantsJson() ? ctx.json({ declined: true, reason: error.message }, 402) : undefined,
+    )
+    exceptions.shouldRenderJsonWhen((ctx) => ctx.wantsJson())
+  })
+  .create()
+```
+
+**What you'll see:** an API client gets `402` with your JSON; a browser on a web route falls back to the default page (because the renderer returned `undefined`); nothing is logged.
+
+### Which error should I throw?
+
+| Situation | Throw | Logged? |
+|---|---|---|
+| The record or page doesn't exist | `NotFoundError` (or `abort(404)`) | No |
+| Not signed in | `UnauthenticatedError` (or `abort(401)`) | No |
+| Signed in but not allowed | `ForbiddenError` (or `abort(403)`) | No |
+| Bad input | `ValidationError([{ field, code, message }])` | No |
+| A conflict, a business rule | `new HttpError(409, 'conflict', 'Conflict', '…')` | No |
+| Something that should never happen | let it throw (a plain `Error`) | **Yes**, with a reference id |
+| An expected failure from a partner | your own error class + `dontReport()` + `render()` | Only if you want |
+
+## Coming in 0.2: error pages, codes and quieter logs
+
+:::caution[Coming in 0.2]
+Designed in the blueprint and the Laravel parity matrix, not in the prototype yet.
+:::
+
+- **A docs page for every error code.** Every problem `code` (`validation_failed`, `csrf_token_mismatch`, `untrusted_host`…) gets a one-line fix and a page at `/docs/errors/<code>`, linked from the problem's `type`. CLI errors follow the same "what happened / why / fix / docs" shape.
+- **"Why was this denied?" in development.** A `403` in local debug mode explains which policy rule said no, as in the `hint` above, also for rules that filter lists.
+- **Throttled reports.** Laravel's `throttle()` for reporting: when the same error happens thousands of times a minute, it's logged a limited number of times (with a count), so one broken partner can't flood your logs.
+- **Your own error pages for browsers:** a 404 or 500 page in your design instead of the minimal one.
+
 ## Errors before the app starts
 
 Mistakes in your setup (a bad `.env` value, a typo in a middleware alias, a missing binding) are caught **when the app boots**, so they show up in `npm run dev`, `node strut …` and your tests, before any request. They print a message and a fix, with no stack trace:
@@ -245,6 +300,16 @@ Mistakes in your setup (a bad `.env` value, a typo in a middleware alias, a miss
 APP_ENV=local
 APP_DEBUG=true
 ```
+
+### The app won't start in production: "APP_DEBUG"
+
+**Why:** `APP_DEBUG=true` with `APP_ENV=production`. The app refuses to boot so the debug page can never reach the internet.
+**Fix:** set `APP_DEBUG=false` in the server's environment. (Only for a short, deliberate investigation: start with `--force-debug`.)
+
+### A user reports an error and quotes a reference id
+
+**Why:** in production, a bug answers a plain 500 that names only a reference id; the details are in your log, under the same id.
+**Fix:** search the log for the id (`node strut log:tail --grep=<id>`, or the log viewer) to find the exception, the route template and the stack.
 
 ### My 404 is logged as an error
 

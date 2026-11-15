@@ -123,15 +123,84 @@ The body is typed `unknown` on purpose: it came from outside. Use a [form reques
 | `Content-Type` isn't `application/json` | **415** | `unsupported_media_type` | `Send the body as JSON with "Content-Type: application/json".` |
 | The JSON doesn't parse | **400** | `invalid_json` | `The request body is not valid JSON. Check for trailing commas and unquoted keys.` |
 | Bigger than 1 MiB | **413** | `payload_too_large` | `The body is larger than 1048576 bytes.` |
+| Nested more than 32 levels deep | **413** | `json_too_deep` | `The JSON is nested 40 levels deep; the limit is 32.` |
+| More than 1,000 keys in total | **413** | `json_too_many_keys` | `The JSON has 1500 keys; the limit is 1000.` |
+| A `__proto__` key (a known attack) | **400** | `forbidden_json_key` | `The JSON contains a "__proto__" key, which is never accepted.` |
 
-The size limit holds even when `Content-Length` is missing or lies: bytes are counted as they arrive. Allow a bigger body on one action by passing a limit in bytes:
+The size limit holds even when `Content-Length` is missing or lies: bytes are counted as they arrive, and reading stops at the limit. Allow a bigger body on one action by passing a limit in bytes:
 
 ```ts
 const body = await ctx.body(5 * 1024 * 1024)   // up to 5 MiB here
 ```
 
+Or change the limits for the whole app:
+
+```ts title="bootstrap/app.ts"
+.withMiddleware((middleware) => {
+  middleware.limits({ maxBytes: 5 * 1024 * 1024, maxDepth: 64, maxKeys: 5000 })
+})
+```
+
+**Why such limits?** A huge or deeply nested body can tie up the server for seconds; these limits make that impossible, and the `__proto__` check stops **prototype pollution** (a trick that changes every object in your app through one crafted key).
+
 :::caution[Coming in 0.2]
-Form-encoded bodies and file uploads aren't read by `ctx.body()` yet. Uploads come with `@strutvane/files`.
+Form-encoded bodies (`application/x-www-form-urlencoded`), multipart forms and file uploads aren't read by `ctx.body()` yet. Uploads (checked by their content, not their file name) come with `@strutvane/files`; reading plain HTML forms comes with the session layer.
+:::
+
+## Validating input: form requests
+
+Never use the raw body directly. A **form request** is a small class that says what a valid body looks like, and turns `unknown` into typed, checked values (or a `422` listing every problem):
+
+```ts title="app/http/requests/note.request.ts"
+import { z } from 'zod'
+import { FormRequest, type StandardSchema } from '@strutvane/framework'
+
+const schema = z.object({ text: z.string().trim().min(1).max(500) })
+
+export class StoreNoteRequest extends FormRequest<z.infer<typeof schema>> {
+  rules(): StandardSchema<z.infer<typeof schema>> {
+    return schema
+  }
+}
+```
+
+```ts title="app/http/controllers/note.controller.ts"
+import { Controller, type HttpContext } from '@strutvane/framework'
+import { StoreNoteRequest } from '../requests/note.request.ts'
+
+export class NoteController extends Controller {
+  async store(ctx: HttpContext): Promise<Response> {
+    const input = await new StoreNoteRequest().validate(ctx)   // { text: string }
+    return ctx.json({ data: input }, 201)
+  }
+}
+```
+
+**What you'll see** for `{"text":"","pinned":true}`: a `422` with one issue for `text`; once `text` is valid, `pinned` is refused as an `unknown_field`, because fields the schema doesn't list are rejected (Laravel only does that when you ask). A form request can also say who may send it (`authorize(ctx)`) and tidy input first (`prepareForValidation`). Every option is on [Validation](../validation/).
+
+:::caution[Coming in 0.2]
+Planned in the parity matrix, not in the prototype yet:
+- `node strut make:request StoreNoteRequest` to write the file;
+- `node strut make:rule` for your own reusable rules;
+- async database rules `unique()` and `exists()` ("this email isn't taken", "this author exists"), automatically limited to the current team when teams are on;
+- live validation from the browser with the same rules, without saving: see [Precognition](../precognition/).
+:::
+
+## Cookies, the session and request details
+
+| Read | Gives you |
+|---|---|
+| `ctx.cookie('theme')` | One cookie's value, or `undefined` (a malformed value is returned as-is, never a 500) |
+| `ctx.sessionId()` | The session cookie's id, or `undefined`. Always `undefined` when the request carries a `Bearer` token: a token request is never also a cookie session |
+| `ctx.method` | `'GET'`, `'POST'`… (upper case) |
+| `ctx.url` | The full URL, parsed (`ctx.url.pathname`, `ctx.url.searchParams`) |
+| `ctx.params` | Every path parameter as text, before model binding |
+| `ctx.route` | The matched route: `{ name, method, uri, action }`, for logging |
+| `ctx.nonce` | This response's CSP nonce, for inline `<script nonce="…">` |
+| `ctx.request` | The raw Web-standard `Request`, when you need something else |
+
+:::caution[Coming in 0.2]
+Flash data (a message kept for the next request only), old input (re-filling a form after a validation error) and reading and writing session values come with the session layer of `@strutvane/auth`. The React UI doesn't need them: it keeps form state in the browser.
 :::
 
 ## The signed-in user: `ctx.user` and `ctx.requireUser()`
@@ -187,11 +256,17 @@ return ctx.wantsJson() ? ctx.json({ data: post }) : ctx.html(`<h1>${post.title}<
 
 ## The client address: `ctx.ip`
 
-`ctx.ip` is the address the server saw on the connection. Headers like `X-Forwarded-For` are **not** trusted, because any client can send them.
+`ctx.ip` is the address the server saw on the connection. Headers like `X-Forwarded-For` are **not** trusted by default, because any client can send them.
 
-:::caution[Coming in 0.2]
-A `trustedProxies` setting, for apps behind a load balancer, isn't built yet. Until then `ctx.ip` is the proxy's address there.
-:::
+Behind a load balancer or reverse proxy, the connection comes from the proxy, so every user would share its address (and one rate-limit bucket). Tell Strutvane which proxies to believe:
+
+```ts title="bootstrap/app.ts"
+.withMiddleware((middleware) => {
+  middleware.trustProxies({ at: ['10.0.0.0/8'] })   // your load balancer's network
+})
+```
+
+**What you'll see:** for requests that arrive **from** those addresses, `ctx.ip` becomes the real client from `X-Forwarded-For`, and HTTPS and the host are read from `X-Forwarded-Proto` and `X-Forwarded-Host`. The same header from anyone else is still ignored. See [Security Features](../security/).
 
 ## Common mistakes
 
@@ -226,6 +301,26 @@ Error: No Post is bound on route "/api/posts/{slug}" (bound parameters: none). A
 **Why:** the route has no `auth` (or `auth:optional`) middleware, so nobody signs the user in.
 
 **Fix:** `.middleware('auth')` on the route.
+
+### 413 "json_too_deep" on a big import
+
+**Why:** the body nests deeper than 32 levels or has more than 1,000 keys, the default limits.
+**Fix:** raise them for the app (`middleware.limits({ maxDepth: 64, maxKeys: 20000 })`), or better, send big imports as a file upload or in batches.
+
+### Everyone has the same `ctx.ip` in production
+
+**Why:** the app runs behind a proxy and every connection comes from it.
+**Fix:** `middleware.trustProxies({ at: ['<your proxy network>'] })` in `bootstrap/app.ts`.
+
+### Windows: my JSON body arrives broken
+
+**Why:** in PowerShell and cmd, single quotes don't protect the JSON like they do in bash, so the quotes inside it get lost.
+**Fix:** use `curl.exe` and escape the inner quotes, or put the body in a file:
+
+```powershell
+'{"text":"Buy milk"}' | Out-File -Encoding utf8 body.json
+curl.exe -X POST http://localhost:3000/api/notes -H "Content-Type: application/json" --data-binary "@body.json"
+```
 
 ## Next steps
 

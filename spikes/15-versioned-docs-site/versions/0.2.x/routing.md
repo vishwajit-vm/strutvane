@@ -1,6 +1,6 @@
 ---
 title: Routing
-description: Map URLs to controllers in routes/web.ts and routes/api.ts. Single routes, names and typed URLs, groups, resource routes, slug binding, 405s and the /up health check, each with a complete example.
+description: Map URLs to controllers in routes/web.ts and routes/api.ts. Single routes, names and typed URLs, groups, middleware and opt-outs, signed links, resource routes, slug binding, 405s and the /up health check, plus fallback, singleton, shallow and spoofed-method routes coming in 0.2, each with a complete example.
 ---
 
 A **route** connects a URL and an HTTP method (GET, POST…) to the code that answers it. Your routes live in two files:
@@ -192,6 +192,47 @@ What you'll see in `node strut route:list`:
 
 The name prefix is typed too: `route('admin.stats')` compiles, `route('stats')` doesn't. Groups can be nested; prefixes, names and middleware add up.
 
+### Fluent groups: `Route.middleware(...).group(...)`
+
+When all you share is middleware, the fluent form reads like Laravel's `Route::middleware([...])->group(...)`. The middleware names are separate arguments, and `.group()` takes the routes either from a callback (Laravel's shape) or as an array:
+
+```ts title="routes/api.ts"
+import { defineRoutes, Route } from '@strutvane/framework'
+import { ProfileController } from '../app/http/controllers/profile.controller.ts'
+import { StatsController } from '../app/http/controllers/stats.controller.ts'
+
+export default defineRoutes([
+  // the callback form, as in Laravel
+  Route.middleware('auth').group(() => [
+    Route.get('/me', [ProfileController, 'show']).name('me'),
+    Route.patch('/me', [ProfileController, 'update']).name('me.update'),
+  ]),
+
+  // the array form: the same thing
+  Route.middleware('auth', 'can:view-stats').group([
+    Route.get('/admin/stats', [StatsController, 'show']).name('admin.stats'),
+  ]),
+])
+```
+
+Either way the callback **returns** the routes: nothing is registered as a side effect, because routes are values.
+
+:::caution[Coming in 0.2]
+The callback form is the decided syntax (it matches Laravel); the prototype (spike 12) accepts only the array form so far.
+:::
+
+### Versioned APIs
+
+Everything in `routes/api.ts` is under `/api`. Versioning is **opt-in**: put the routes of each version in a group with a prefix and a name prefix:
+
+```ts title="routes/api.ts"
+Route.group({ prefix: 'v1', name: 'v1.' }, [
+  Route.apiResource('posts', PostController),       // /api/v1/posts, named v1.posts.index …
+]),
+```
+
+A shorter `Route.prefix('v1').group(…)` form is planned for 0.2.
+
 ## Middleware on routes
 
 Add middleware to one route with `.middleware()`:
@@ -201,6 +242,60 @@ Route.get('/me', (ctx) => ctx.json({ data: ctx.requireUser() })).name('me').midd
 ```
 
 Middleware can take parameters after a colon: `'auth:optional'`, `'throttle:5,1'`. See [Middleware](../middleware/).
+
+### Opting a route out: `.withoutMiddleware()`
+
+A route can drop middleware its group added. The classic case is a webhook from another service, which can't carry your CSRF token:
+
+```ts title="routes/api.ts"
+Route.post('/webhooks/stripe', [StripeWebhookController, 'handle']).withoutMiddleware('csrf'),
+```
+
+The same works for whole groups (`Route.withoutMiddleware('csrf').group([...])`, or `Route.group({ withoutMiddleware: ['csrf'] }, [...])`) and resources (`.withoutMiddleware('throttle')`). Every opt-out is listed by `node strut route:list --security`, so a reviewer sees it. A webhook still needs **its own** check, usually a signature from the sender. See [CSRF Protection](../csrf/).
+
+To exempt paths app-wide instead, list them in `bootstrap/app.ts`: `.withMiddleware((m) => m.validateCsrfTokens({ except: ['api/webhooks/*'] }))`. Patterns match the **full path** without the leading slash, `api/` prefix included, so `webhooks/*` alone would never match an API route (a start-up warning for patterns that can never match is coming in 0.2).
+
+### Rate limits on routes
+
+```ts
+Route.post('/login', [LoginController, 'store']).middleware('throttle:5,1'),   // 5 per minute
+Route.get('/search', [SearchController, 'index']).middleware('throttle:search'), // a named limiter
+```
+
+Every `/api` route already has `throttle:api` (60 requests per minute per user, or per IP for guests). See [Rate Limiting](../rate-limiting/).
+
+## Signed routes
+
+A **signed URL** has a signature on the end, made with your `APP_KEY`. Anyone can open it, but nobody can change it. Use it for links you email: unsubscribe, download, confirm.
+
+1. Protect the route with `signed`:
+
+   ```ts title="routes/api.ts"
+   Route.get('/downloads/{file}', [DownloadController, 'show']).name('downloads.show').middleware('signed'),
+   ```
+
+2. Make the link with the typed helpers (same arguments as `route()`):
+
+   ```ts
+   import { signedRoute, temporarySignedRoute } from '@strutvane/framework'
+
+   signedRoute('downloads.show', { file: 'report-2026.pdf' })
+   temporarySignedRoute('downloads.show', new Date(Date.now() + 30 * 60_000), { file: 'report-2026.pdf' }) // 30 minutes
+   ```
+
+**What you'll see:**
+
+| Request | Answer |
+|---|---|
+| The link as made | `200`, your controller runs |
+| The link with anything changed | `403` `invalid_signature`: "This link is not valid. It may have been changed or copied incompletely." |
+| A temporary link after it expired | `403` `signature_expired`: "This link has expired. Ask for a new one." |
+
+`signed` runs before `auth`, so a bad link is refused whoever you are.
+
+:::note[Naming]
+The Laravel parity matrix lists these as `url.signed()` and `url.temporarySigned()`; the prototype (spike 12) names them `signedRoute()` and `temporarySignedRoute()`. These docs use the prototype's names until the final names are settled.
+:::
 
 ## Resource routes
 
@@ -287,14 +382,99 @@ allow: GET
 
 A path that doesn't exist at all is a `404`: `Nothing is at GET /api/helo.`
 
+## Closures or controllers?
+
+| Action | Example | Use it for |
+|---|---|---|
+| A closure `(ctx) => Response` | `Route.get('/ping', (ctx) => ctx.json({ pong: true }))` | One-liners, health checks, prototypes |
+| A controller method `[Controller, 'method']` | `Route.get('/reports', [ReportController, 'index'])` | Everything else: testable, injectable, shows as `ReportController@index` in `route:list` |
+| A resource | `Route.apiResource('posts', PostController)` | A model's standard actions |
+
+A closure can also carry protections, with a wrapper: `withAuth(async (ctx) => …)`. See [Middleware](../middleware/).
+
+## Coming in 0.2: more route types
+
+:::caution[Coming in 0.2]
+These are on the 0.2 plan (Laravel parity matrix) and **not in the prototype yet**. The names are decided; the exact options shown are a preview.
+:::
+
+### Fallback route: `Route.fallback()`
+
+Laravel's `Route::fallback()`: one route that answers when nothing else matches, instead of the default `404` problem. Useful for a custom "not found" page.
+
+```ts title="routes/web.ts"
+Route.fallback([SpaController, 'show']),   // let the React app show its own "not found" screen
+```
+
+It runs only after every other route failed to match, and still goes through the group's middleware.
+
+### Subdomain routing
+
+Laravel's `Route::domain('{account}.example.com')`: routes that match a host name, with the subdomain as a parameter. It's planned together with teams picked by subdomain (`acme.yourapp.com`, installer question 12). Until then, every route answers on every trusted host.
+
+### Singleton resources: `Route.singleton()`
+
+Some resources exist **once** per parent: a user's profile, a team's settings. There's no id in the URL and no list:
+
+```ts
+Route.singleton('profile', ProfileController),
+```
+
+| Method | URI | Name | Action |
+|---|---|---|---|
+| GET | `/profile` | `profile.show` | `show` |
+| GET | `/profile/edit` | `profile.edit` | `edit` |
+| PUT\|PATCH | `/profile` | `profile.update` | `update` |
+
+### Nested and shallow resources: `{ shallow: true }`
+
+A nested resource lives under its parent: the comments of a post. **Shallow** nesting keeps the parent only where it's needed (listing and creating), so a single comment has a short URL:
+
+```ts
+Route.apiResource('posts.comments', CommentController, { shallow: true }),
+```
+
+| Method | URI | Name |
+|---|---|---|
+| GET | `/posts/{post}/comments` | `posts.comments.index` |
+| POST | `/posts/{post}/comments` | `posts.comments.store` |
+| GET | `/comments/{comment}` | `comments.show` |
+| PUT\|PATCH | `/comments/{comment}` | `comments.update` |
+| DELETE | `/comments/{comment}` | `comments.destroy` |
+
+### Form method spoofing: `_method`
+
+HTML forms can only send GET and POST. To send PUT, PATCH or DELETE from a plain HTML form, add a hidden `_method` field to a **POST**:
+
+```html
+<form method="post" action="/posts/hello-world">
+  <input type="hidden" name="_method" value="DELETE">
+  <input type="hidden" name="_token" value="…">
+  <button>Delete</button>
+</form>
+```
+
+Only POST can be turned into PUT, PATCH or DELETE (a GET never becomes a write), and the **CSRF check still applies** to the spoofed request. The React UI doesn't need this: it sends real methods.
+
+## Coming in 0.3: session blocking
+
+:::caution[Coming in 0.3]
+Planned for phase 2 (0.3).
+:::
+
+Laravel's `->block()`: while one request of a user's session runs on this route, a second one waits, so two quick clicks on "Pay" can't run side by side. Planned as `.block()` on a route. For API calls today, use the `idempotent` middleware: a retry with the same `Idempotency-Key` gets the first response instead of running twice. See [Middleware](../middleware/).
+
 ## Checking your routes
 
 ```bash
 node strut route:list                 # every route
 node strut route:list --path posts    # only URIs containing "posts"
 node strut route:list --name admin.   # only names containing "admin."
+node strut route:list --security      # the protections that really apply, opt-outs and warnings
 node strut route:list --json          # machine-readable
 ```
+
+With Docker, type the same commands: `node strut` forwards them into the app container.
 
 What you'll see (the example app, shortened):
 
@@ -362,6 +542,21 @@ What you'll see (the example app, shortened):
 ```
 
 This only happens when the name comes from a variable (otherwise it's a compile error). **Fix:** pass the parameter: `route('posts.show', { post })`.
+
+### "… both adds "csrf" and opts out of it"
+
+```text
+✖ POST /api/import both adds "csrf" and opts out of it (route).
+→ Remove one of the two declarations. An opt-out can only remove middleware the route inherits from a group.
+```
+
+**Why:** the same route says `.middleware('csrf')` and `.withoutMiddleware('csrf')`. Strutvane won't guess which one you meant, because guessing could silently remove a protection.
+**Fix:** keep one of the two.
+
+### A signed link answers 403 "invalid_signature"
+
+**Why:** something changed the URL after it was signed: an email client that re-encoded it, a parameter added by hand, or a different `APP_KEY` on the server that checks it.
+**Fix:** send the link exactly as `signedRoute()` returned it, and make sure every server shares the same `APP_KEY` (after `key:rotate`, the old key stays valid through `APP_PREVIOUS_KEYS`).
 
 ### `Route.resource('Posts', …)` fails
 

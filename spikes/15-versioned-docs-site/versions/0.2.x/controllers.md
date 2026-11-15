@@ -258,6 +258,73 @@ Route.post('/posts/{post:slug}/publish', [PostController, 'publish']).name('post
 In the application-core prototype (spike 12), `ResourceController` runs on a small stand-in data layer. In 0.2 it runs on the [Strutvane ORM](../orm/) (the `post.fill(...).save()` style above). The controller API on this page stays the same.
 :::
 
+## Middleware in a controller
+
+A controller can declare its own protections in `static readonly middleware`, Laravel's `$this->middleware('auth')->only(...)`:
+
+```ts title="app/http/controllers/comment.controller.ts"
+import { auth, Controller, throttle, type HttpContext } from '@strutvane/framework'
+
+export class CommentController extends Controller {
+  static readonly middleware = [
+    auth({ except: ['index'] }),                         // reading is public
+    throttle({ params: ['20', '1'], only: ['store'] }),  // 20 comments a minute
+  ]
+
+  index(ctx: HttpContext): Response { return ctx.json({ data: [] }) }
+  store(ctx: HttpContext): Response { return ctx.json({ data: {} }, 201) }
+}
+```
+
+**What you'll see** in `node strut route:list --security`: `auth` on `store` but not on `index`, and `throttle:20,1` on `store`. Every style (route, group, controller, wrapper) is explained in [Middleware](../middleware/).
+
+## Which kind of controller?
+
+| You want | Use | Write |
+|---|---|---|
+| A few custom endpoints | a plain `Controller` | `make:controller ReportController` |
+| The standard 5 API actions for a model, with every safety check | `ResourceController` | `make:controller PostController --model=Post` |
+| The standard actions, but every line in your file | an owned resource controller | `make:controller PostController --api` (or `--resource` for 7) |
+| Nothing at all | the generated API from `node strut migrate` | — |
+
+The generated API already covers most tables; write a controller only when you need different behaviour. To take over one model's API, write the controller, route it with `Route.apiResource()` in `routes/api.ts`, and opt that model out of the generated routes.
+
+## Coming in 0.2: single-action, singleton and nested controllers
+
+:::caution[Coming in 0.2]
+Not in the prototype yet. Planned in the Laravel parity matrix; the syntax shown is a preview.
+:::
+
+- **Single-action (invokable) controllers.** Laravel's `__invoke` controllers: a class with one action, routed without a method name. Until it lands, route `[ExportController, 'handle']`, or a closure.
+
+  ```ts
+  Route.post('/exports', [ExportController, 'handle']).name('exports.store'),   // works today
+  ```
+
+- **Singleton resource controllers** for things that exist once (a profile, a team's settings): `show`, `edit` and `update` only, routed with `Route.singleton('profile', ProfileController)`.
+- **Nested, shallow resources**: `Route.apiResource('posts.comments', CommentController, { shallow: true })` gives `CommentController` the parent post on `index` and `store`, and short URLs for the rest.
+
+See [Routing](../routing/) for the URLs each one produces.
+
+## Testing a controller
+
+Call the app with a request and check the answer; no server is needed:
+
+```ts title="tests/feature/reports.test.ts"
+import { expect, test } from 'vitest'
+import { client } from '@strutvane/framework/testing'
+import { createApp } from '../../bootstrap/app.ts'
+
+test('reports list is empty at first', async () => {
+  const app = createApp({ APP_ENV: 'testing', APP_KEY: 'test-key', DB_CONNECTION: 'sqlite' })
+  const response = await client(app).getJson('/api/reports')
+  response.assertStatus(200)
+  expect(response.json).toEqual({ data: [] })
+})
+```
+
+**What you'll see** with `npm test`: the test passes. See [HTTP Tests](../http-tests/).
+
 ## Generating controllers
 
 | Command | Writes |

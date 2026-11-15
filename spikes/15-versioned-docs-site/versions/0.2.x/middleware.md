@@ -136,13 +136,16 @@ export class AuditRequests implements Middleware {
 
 ## Built-in middleware
 
-| Alias | What it does |
-|---|---|
-| `auth` | Requires a valid `Authorization: Bearer <token>` header; otherwise `401` |
-| `auth:optional` | Signs the user in if a token is sent, lets guests through otherwise |
-| `throttle:api` | Rate limit with the named limiter `api` |
-| `throttle:60,1` | Rate limit: 60 requests per 1 minute |
-| `csrf` | Checks cookie-authenticated requests come from your own site (see [CSRF Protection](../csrf/)) |
+| Alias | What it does | Fails with |
+|---|---|---|
+| `auth` | Requires a valid `Authorization: Bearer <token>` header | `401 unauthenticated` |
+| `auth:optional` | Signs the user in if a token is sent, lets guests through otherwise | `401` only for a **wrong** token |
+| `throttle:api` | Rate limit with the named limiter `api` | `429 too_many_requests` |
+| `throttle:60,1` | Rate limit: 60 requests per 1 minute | `429` |
+| `csrf` | Checks cookie-authenticated unsafe requests come from your own site (see [CSRF Protection](../csrf/)) | `419 csrf_token_mismatch` |
+| `can:<ability>` | Runs a named ability you defined with `defineAbility()` | `403 forbidden` |
+| `signed` | The URL must carry a valid, unexpired signature | `403 invalid_signature` / `signature_expired` |
+| `idempotent` | A retry with the same `Idempotency-Key` gets the first response instead of running twice | `400`, `409` or `422` (see below) |
 
 ### `auth` and `auth:optional`
 
@@ -165,6 +168,159 @@ On `auth:optional`, a **wrong** token is still a `401` (`That token is not valid
 :::caution[Coming in 0.2]
 Cookie sessions and the login screens come with `@strutvane/auth`. Today's `auth` middleware checks bearer tokens through the `UserProviderToken` binding (see [Service Providers](../providers/)).
 :::
+
+### `can:<ability>`: named permissions
+
+An **ability** is a named yes/no rule about the user, Laravel's `Gate::define()`. Define it once, then use it on any route:
+
+```ts title="bootstrap/app.ts"
+.withMiddleware((middleware) => {
+  middleware.defineAbility('view-stats', (user) => user !== null && hasAdminRole(user))
+})
+```
+
+```ts title="routes/api.ts"
+Route.get('/admin/stats', [StatsController, 'show']).middleware('auth', 'can:view-stats'),
+```
+
+**What you'll see** for a member: `403` with `"detail":"You are not allowed to do this."` (in local debug mode the body also has `"hint":"The \"view-stats\" ability denied this request."`).
+
+Only a literal `true` allows: a rule that returns a string or an object denies (deny by default). A `can:` naming an ability you never defined stops the app at start-up. Rules about **one record** ("may this user edit this post?") belong in a policy, called from the controller, because route model binding runs after middleware. See [Authorization](../authorization/).
+
+### `signed`
+
+```ts
+Route.get('/downloads/{file}', [DownloadController, 'show']).name('downloads.show').middleware('signed'),
+```
+
+Only links made with `signedRoute()` or `temporarySignedRoute()` get through. See [Routing: Signed routes](../routing/).
+
+### `idempotent`: safe retries
+
+Networks drop answers. A client that retries "charge the card" must not charge twice. With `idempotent`, the client sends a unique `Idempotency-Key` header (a UUID); a retry with the same key gets the **first** response replayed, marked with `idempotent-replayed: true`, and your action doesn't run again.
+
+```ts title="routes/api.ts"
+Route.post('/payments', [PaymentController, 'store']).middleware('auth', 'idempotent'),
+```
+
+```bash
+curl -X POST http://localhost:3000/api/payments \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -H "Idempotency-Key: 6f1c2a9e-1b7d-4c1e-9f0a-2b3c4d5e6f70" \
+  -d '{"amount":"19.90"}'
+```
+
+| Situation | Answer |
+|---|---|
+| First request with this key | Your action runs; its response is stored for 24 hours |
+| Retry with the same key and the same body | The stored response, with `idempotent-replayed: true` |
+| No `Idempotency-Key` header | `400 idempotency_key_required` |
+| A key that isn't 1–255 visible ASCII characters | `400 idempotency_key_invalid` |
+| Same key while the first is still running | `409 idempotency_in_progress`, `retry-after: 1` |
+| Same key with a **different** request | `422 idempotency_key_reused` |
+
+Only the status, body, `content-type` and `location` are replayed, never cookies. Stored responses are kept in memory by default; bind `IdempotencyStoreToken` to share them between servers.
+
+## Every way to apply a protection
+
+`auth`, `csrf`, `can`, `throttle`, `signed` and `idempotent` can each be applied in **six styles**. Pick whichever reads best where you are; they all run the same middleware class, so behaviour is identical.
+
+| Style | Code |
+|---|---|
+| Default / app-wide | in the `web` and `api` groups, or `withMiddleware(…)` in `bootstrap/app.ts` |
+| One route | `Route.post('/import', handler).middleware('throttle:10,1')` / `.withoutMiddleware('csrf')` |
+| A group | `Route.middleware('auth').group(() => [...])` (or an array), `Route.withoutMiddleware('csrf').group([...])`, `Route.group({ withoutMiddleware: ['csrf'] }, [...])` |
+| A controller | `static readonly middleware = [auth({ except: ['index', 'show'] })]` |
+| A handler function | `export default withAuth(async (ctx) => …)` |
+| Imperative | `await auth.verify(ctx)` |
+
+### A controller's own middleware
+
+```ts title="app/http/controllers/post.controller.ts"
+import { auth, Controller, throttle, type HttpContext } from '@strutvane/framework'
+
+export class PostController extends Controller {
+  static readonly middleware = [
+    auth({ except: ['index', 'show'] }),                      // guests may read
+    throttle({ params: ['10', '1'], only: ['store'] }),       // throttle:10,1 on store only
+  ]
+
+  index(ctx: HttpContext): Response { return ctx.json({ data: [] }) }
+  show(ctx: HttpContext): Response { return ctx.json({ data: {} }) }
+  store(ctx: HttpContext): Response { return ctx.json({ data: {} }, 201) }
+}
+```
+
+- `only` adds the protection to those actions.
+- `except` adds it everywhere else **and opts those actions out**, even if a group added it. That's how `csrf({ except: ['callback'] })` turns CSRF off for one webhook action.
+- An action name that doesn't exist on the controller stops the app at start-up with "Did you mean …?".
+
+### Wrapping a plain function
+
+For routes with a closure, wrap it:
+
+```ts title="routes/api.ts"
+import { defineRoutes, Route, withAuth, withThrottle } from '@strutvane/framework'
+
+export default defineRoutes([
+  Route.get('/me', withAuth(async (ctx) => ctx.json({ data: ctx.requireUser() }))),
+  Route.post('/contact', withThrottle(async (ctx) => ctx.json({ sent: true }), '5', '1')),
+])
+```
+
+The wrappers are `withAuth`, `withCsrf`, `withCan`, `withThrottle`, `withSigned` and `withIdempotency`. Parameters come after the handler: `withCan(handler, 'view-stats')`. When the route is matched, the router runs the middleware in priority order and the wrapper sees it already ran, so it never runs twice.
+
+### Checking by hand: `.verify(ctx)`
+
+Inside your own code, run a check right now. It resolves when the request passes and throws (an HTTP error) when it doesn't:
+
+```ts
+import { csrf, throttle } from '@strutvane/framework'
+
+await csrf.verify(ctx)
+await throttle.verify(ctx, '3', '1')   // 3 per minute
+```
+
+This style is the only one `route:list --security` can't see, so prefer the others.
+
+### Your own middleware in every style
+
+`defineProtection()` turns any middleware class you registered under an alias into the same six styles:
+
+```ts title="app/http/middleware/protections.ts"
+import { defineProtection } from '@strutvane/framework'
+import { EnsureAdmin } from './ensure-admin.ts'
+
+export const admin = defineProtection('admin', EnsureAdmin)   // the alias you registered
+export const withAdmin = admin.wrap
+```
+
+Now `static middleware = [admin({ only: ['destroy'] })]`, `withAdmin(handler)` and `await admin.verify(ctx)` all work.
+
+### See what really applies: `route:list --security`
+
+```bash
+node strut route:list --security
+```
+
+**What you'll see** (shortened):
+
+```text
+  Method  URI                      Name           Protections                Opt-outs                Warnings
+  ------  -----------------------  -------------  -------------------------  ----------------------  ----------------------------------
+  GET     /api/posts               posts.index    csrf, throttle:api
+  POST    /api/posts               posts.store    csrf, auth, throttle:api
+  POST    /api/webhooks/stripe     webhooks       throttle:api               ! csrf (route)
+  POST    /api/legacy-import                      throttle:api                                       ! unsafe method with no CSRF check
+
+  4 routes, 1 opt-out, 1 warning.
+```
+
+Every opt-out and every unsafe route without a CSRF check is flagged, so a reviewer sees the security surface in one table.
+
+## Global middleware
+
+Some checks run for **every** request, before routing, and aren't in any group: the trusted-host check, maintenance mode and CORS preflights. Security headers are added to every response at the end. You configure them in `bootstrap/app.ts` (`trustHosts`, `trustProxies`, `cors`, `securityHeaders`, `limits`); see [Request Lifecycle](../lifecycle/) and [Security Features](../security/).
 
 ## Groups: `web` and `api`
 
@@ -219,20 +375,61 @@ retry-after: 42
 ```
 
 :::caution[Coming in 0.2]
-Counts are kept in memory, per process. A cluster of servers needs a shared store (database or Redis), which plugs in behind the same `RateLimitStoreToken`.
+In the prototype, counts are kept in memory, per process. In 0.2 the counts live in the **cache** (the database by default, Redis if you chose it), so limits hold across processes and servers. The store still plugs in behind `RateLimitStoreToken`.
 :::
+
+Everything about limits (named limiters, buckets, headers, testing) is on [Rate Limiting](../rate-limiting/).
 
 ## The order middleware runs in
 
-Middleware runs in the order it's listed: group first, then the route's own. **Except** for three, which always run in this order wherever they're listed:
+Middleware runs in the order it's listed: group first, then the route's own, then the controller's and a wrapper's. The same alias with the same parameters is kept once. **Except** for six built-ins, which always run in this order wherever they're listed (Laravel's `$middlewarePriority`):
 
 ```text
-csrf  →  auth  →  throttle
+csrf  →  signed  →  auth  →  can  →  throttle  →  idempotent
 ```
 
-**Why?** The `api` group lists `throttle` before your route's `auth`. If they ran in that order, the rate limiter wouldn't know who's signed in yet, and all users behind one office IP would share one bucket. Fixing the order gives every user their own bucket.
+**Why?**
 
-Your own middleware keeps its position; only those three are reordered among themselves.
+- `csrf` first: a forged request is refused before anything else.
+- `signed` before `auth`: a tampered link is a `403` whoever you are.
+- `can` after `auth`: it needs the user.
+- `throttle` after `auth`: the `api` group lists `throttle` before your route's `auth`. If they ran in that order, the rate limiter wouldn't know who's signed in yet, and all users behind one office IP would share one bucket. This was found by a failing test in the prototype.
+- `idempotent` last: a replayed response is scoped to the user and never skips the checks before it.
+
+Your own middleware keeps its position; only these six are reordered among themselves.
+
+## Coming in 0.2: work after the response
+
+:::caution[Coming in 0.2]
+Planned in the Laravel parity matrix, not in the prototype yet. A preview; names may change.
+:::
+
+Some work shouldn't make the user wait: writing an audit line, sending a metric. Laravel runs it **after** the response with terminable middleware and `defer()`. Strutvane plans both:
+
+```ts title="app/http/middleware/record-timing.ts"
+import type { HttpContext, Middleware, Next } from '@strutvane/framework'
+
+export class RecordTiming implements Middleware {
+  async handle(ctx: HttpContext, next: Next): Promise<Response> {
+    return next()
+  }
+
+  /** Runs after the response was sent to the client. */
+  async terminate(ctx: HttpContext, response: Response): Promise<void> {
+    // store timing for ctx.route?.uri and response.status
+  }
+}
+```
+
+```ts
+import { defer } from '@strutvane/framework'
+
+defer(async () => {
+  await sendWelcomeMetric(user.id)   // runs after the response
+})
+```
+
+Errors inside deferred work are **logged, never lost**, and they can't change a response that was already sent. For longer jobs, use a queue. See [Concurrency](../concurrency/) and [Queues](../queues/).
 
 ## Common mistakes
 
@@ -268,6 +465,39 @@ No rate limiter is called "logins".
 **Why:** your middleware runs on a route without `auth`, so nobody was signed in. (In local debug mode the response also has a `hint`: `Add the "auth" middleware to this route so guests get a 401 before the controller runs.`)
 
 **Fix:** list `auth` on the route: `.middleware('auth', 'admin')`.
+
+### "… uses can:…, but no such ability is defined"
+
+```text
+✖ GET /api/admin/stats uses can:view-stat, but no such ability is defined.
+→ Did you mean "view-stats"?
+```
+
+**Fix:** correct the name, or define it with `middleware.defineAbility('view-stats', (user) => …)`.
+
+### "… middleware must be a list of protections …"
+
+```text
+✖ PostController.middleware must be a list of protections such as [csrf(), auth({ except: ['index'] })].
+→ Build each entry with a protection function (csrf, auth, can, throttle, signed, idempotent, or one made with defineProtection).
+```
+
+**Why:** the controller listed a string (`'auth'`) or a class instead of a protection entry. Strings aren't accepted there, so a typo can't silently drop a check.
+**Fix:** `static readonly middleware = [auth()]`.
+
+### "… names "…", which is not an action of …"
+
+```text
+✖ PostController.middleware names "stor", which is not an action of PostController (POST /api/posts).
+→ Did you mean "store"?
+```
+
+**Fix:** correct the action name in `only` or `except`.
+
+### My POST answers 400 "idempotency_key_required"
+
+**Why:** the route has `idempotent`, and the request didn't send `Idempotency-Key`.
+**Fix:** send a fresh UUID per action: `-H "Idempotency-Key: $(uuidgen)"` (macOS/Linux) or `-H "Idempotency-Key: $([guid]::NewGuid())"` (PowerShell). Reuse it only when retrying the **same** request.
 
 ### Headers I set disappear or throw
 

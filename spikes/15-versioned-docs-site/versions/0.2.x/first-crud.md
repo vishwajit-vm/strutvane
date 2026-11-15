@@ -30,25 +30,25 @@ Leave `npm run dev` running, and open a **second terminal** in the `my-app` fold
 A **migration** is a small file that describes one change to your database, like "create a posts table". Ask Strutvane to write one:
 
 ```bash
-node strut make:migration create_posts_table --seeder --factory
+node strut make:migration create_posts_table --seeder
 ```
 
-**What you'll see:**
+**What you'll see** (something like this):
 
 ```text
   Created database/migrations/2026_11_14_093000_create_posts_table.ts
   Created app/models/post.ts
   Created database/seeders/post.seeder.ts
   Created database/factories/post.factory.ts
+  Registered PostSeeder in database/seeders/database.seeder.ts
 
   Next: add your columns to the migration, then run `node strut migrate`.
-  Then call PostSeeder from database/seeders/database.seeder.ts.
 ```
 
-Strutvane reads the name `create_posts_table` the way Laravel does: it means "create a table called `posts`". Because it creates a table, it **also writes the model**. `--seeder` and `--factory` add a seeder (code that fills the table) and a factory (a recipe for one fake post). The date at the start of the file name is the current time in UTC; it keeps migrations in order.
+Strutvane reads the name `create_posts_table` the way Laravel does: it means "create a table called `posts`". Because it creates a table, it **also writes the model**. `--seeder` adds a seeder (code that fills the table) and the factory it uses (a recipe for one fake post); `--factory` alone adds only the factory. The date at the start of the file name is the current time in UTC; it keeps migrations in order.
 
 :::caution[Coming in 0.2]
-Registering the new seeder in `database/seeders/database.seeder.ts` will happen for you. In the prototype, the command prints the reminder above instead.
+In the prototype (spike 12), `--seeder` writes only the seeder, so pass `--seeder --factory` to get both, and it prints "Then call PostSeeder from database/seeders/database.seeder.ts." instead of registering the seeder for you (see the next step).
 :::
 
 ## Step 2: Describe your columns
@@ -105,6 +105,58 @@ export class Post extends Model('posts', { fillable: ['title', 'body', 'price', 
 :::tip[Columns live only in migrations]
 You never list columns on the command line or repeat them in the model. The migration is the single source of truth, and Strutvane works out everything else from it.
 :::
+
+### Fill the seeder and the factory
+
+A **factory** describes one fake post. Open it and return the columns of one row (`sequence` counts up, so every row is different):
+
+```ts title="database/factories/post.factory.ts"
+/**
+ * Fake `posts` rows for tests and seeders. `sequence` makes each row unique.
+ */
+export function postDefinition(sequence: number): Record<string, unknown> {
+  return {
+    title: `Post number ${sequence}`,
+    body: 'Some text to read.',
+    price: '9.99',
+    status: sequence % 2 === 0 ? 'published' : 'draft',
+    author_id: 1,
+  }
+}
+```
+
+A **seeder** puts rows in the table. This one uses the factory to make ten posts:
+
+```ts title="database/seeders/post.seeder.ts"
+import { Post } from '../../app/models/post.ts'
+import { postDefinition } from '../factories/post.factory.ts'
+
+/** Seeds the `posts` table. Call it from database/seeders/database.seeder.ts. */
+export class PostSeeder {
+  async run(): Promise<void> {
+    for (let sequence = 1; sequence <= 10; sequence += 1) {
+      await Post.forceCreate(postDefinition(sequence))
+    }
+  }
+}
+```
+
+`forceCreate()` is for trusted code like seeders: it may set columns that aren't in `fillable` (such as `author_id`). The main seeder runs it after the users it points at (`make:migration` adds this line for you; in the prototype, add it by hand):
+
+```ts title="database/seeders/database.seeder.ts"
+import { PostSeeder } from './post.seeder.ts'
+import { UserSeeder } from './user.seeder.ts'
+
+/** Runs every seeder, in order. */
+export class DatabaseSeeder {
+  async run(): Promise<void> {
+    await new UserSeeder().run()
+    await new PostSeeder().run()
+  }
+}
+```
+
+(Keep whatever your `database.seeder.ts` already calls; add the `PostSeeder` line at the end.) See [Seeding](../seeding/) and [ORM: Factories](../orm-factories/).
 
 ## Step 3: Migrate
 
@@ -164,6 +216,106 @@ curl "http://localhost:3000/api/posts?search=hello&sort=-created_at&page=1"
 
 Errors come back in one standard shape (RFC 9457 "problem details") with a stable `code`, and validation errors list every problem field at once. See [Validation](../validation/).
 
+## Step 4b: Use the API from a terminal
+
+Scripts, mobile apps and other servers use the API with an **API token** instead of a browser session. Create one as shown in [Authentication: API tokens](../authentication/), then keep it in a variable so the commands below stay short:
+
+| Shell | Set the variable |
+|---|---|
+| macOS / Linux (bash, zsh) | `TOKEN=svp_your_token_here` |
+| Windows PowerShell | `$TOKEN = 'svp_your_token_here'` |
+
+In PowerShell, type `curl.exe` instead of `curl` (plain `curl` is a different PowerShell command), and use `$TOKEN` exactly as below.
+
+### Create a post
+
+```bash
+curl -X POST http://localhost:3000/api/posts \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"title":"Hello World","body":"My first post.","status":"draft"}'
+```
+
+**What you'll see:** status `201 Created`, a `Location` header pointing at the new post, and the post itself, with the slug filled in from the title:
+
+```json
+{
+  "data": { "id": 11, "title": "Hello World", "slug": "hello-world", "body": "My first post.", "price": "0.00", "status": "draft", "author_id": 1,
+            "created_at": "2026-11-14T09:40:00.000Z", "updated_at": "2026-11-14T09:40:00.000Z", "deleted_at": null }
+}
+```
+
+### Send something wrong
+
+Leave out the title and pick a status that doesn't exist:
+
+```bash
+curl -X POST http://localhost:3000/api/posts \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"status":"archived"}'
+```
+
+**What you'll see:** status `422`, with **every** problem at once, each on its field:
+
+```json
+{
+  "type": "https://strutvane.dev/problems/validation_failed",
+  "title": "Some fields need attention",
+  "status": 422,
+  "code": "validation_failed",
+  "detail": "Fix the fields listed in `issues` and try again.",
+  "issues": [
+    { "field": "title", "code": "invalid_type", "message": "Title is required." },
+    { "field": "status", "code": "invalid_value", "message": "Status must be one of: draft, published." }
+  ]
+}
+```
+
+Now send a valid post with one extra field the API doesn't accept:
+
+```bash
+curl -X POST http://localhost:3000/api/posts \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"title":"Sneaky","is_admin":true}'
+```
+
+**What you'll see:** `422` again, this time for the unknown field:
+
+```json
+{ "field": "is_admin", "code": "unknown_field", "message": "\"is_admin\" is not a field you can send here. Remove it from the request body." }
+```
+
+Unknown fields are refused on purpose: a typo or an attempt to set `is_admin` never passes silently. They're reported once the other fields are valid. (The exact wording of each message may still change.)
+
+### Change and delete
+
+```bash
+# change only the status (PATCH sends just the fields you change)
+curl -X PATCH http://localhost:3000/api/posts/hello-world \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"status":"published"}'
+
+# soft-delete it (it can be restored from the Deleted filter in the UI)
+curl -X DELETE http://localhost:3000/api/posts/hello-world -H "Authorization: Bearer $TOKEN"
+```
+
+**What you'll see:** `200` with the updated post, then `204 No Content` (an empty answer that means "done"). Notice the address uses the slug, `hello-world`, not the id.
+
+### List, search, sort and filter
+
+| You want | Add to `/api/posts` |
+|---|---|
+| Page 2, 50 per page | `?page=2&perPage=50` (at most 100) |
+| Posts mentioning "launch" | `?search=launch` |
+| Newest first, then by title | `?sort=-created_at,title` |
+| Only drafts | `?filter[status]=draft` |
+| Drafts or published | `?filter[status][in]=draft,published` |
+| Price of at least 10 | `?filter[price][gte]=10` |
+
+A field that can't be sorted or filtered is a `422` that lists the ones that can. See [Search & Filters](../crud-search/).
+
 ## Step 5: Make it yours
 
 The first `migrate` also wrote a small file you own, `resources/ui/posts.ui.ts`. It starts with `columns: auto()` and `form: auto()`, so the screens follow your migrations automatically: a column you add later shows up by itself. Change it whenever you want, for example to choose which columns the list shows. Strutvane never overwrites this file. See [Customising Screens](../crud-customising/).
@@ -171,6 +323,44 @@ The first `migrate` also wrote a small file you own, `resources/ui/posts.ui.ts`.
 :::caution[Coming in 0.2]
 The exact options of `*.ui.ts` files are being finalised in the auto CRUD UI prototype (spike 14).
 :::
+
+## Step 5b: Let other people use Posts
+
+The generated policy, `app/policies/post.policy.ts`, lets **admins** do everything and **denies everyone else**. That's on purpose: a new feature is never open by accident. Open it and decide, method by method. For example, "members may list and read posts, and change their own":
+
+```ts title="app/policies/post.policy.ts"
+import { hasAdminRole, type AuthUser, type Policy } from '@strutvane/framework'
+import type { Post } from '../models/post.ts'
+
+export class PostPolicy implements Policy<Post> {
+  /** Admins may do everything. */
+  before(user: AuthUser | null): boolean | undefined {
+    return hasAdminRole(user) ? true : undefined
+  }
+
+  viewAny(user: AuthUser | null): boolean {
+    return user !== null
+  }
+
+  view(user: AuthUser | null, _post: Post): boolean {
+    return user !== null
+  }
+
+  create(user: AuthUser | null): boolean {
+    return user !== null
+  }
+
+  update(user: AuthUser | null, post: Post): boolean {
+    return user !== null && post.author_id === user.id
+  }
+
+  delete(user: AuthUser | null, post: Post): boolean {
+    return user !== null && post.author_id === user.id
+  }
+}
+```
+
+**What you'll see:** a member now finds Posts in the sidebar and can create posts. Edit and Delete appear only on their own posts, and the API answers `403` if they try someone else's. A method you delete also denies. See [Authorization](../authorization/) for rules that also filter lists in SQL.
 
 ## Step 6: Change your mind later
 
@@ -204,6 +394,33 @@ node strut migrate
 ```
 
 **What you'll see:** the new column in the detail page and the API. To let people *edit* it, add `'subtitle'` to `fillable` in `app/models/post.ts`; until then it's read-only, on purpose. If you had *removed* a column instead, every line of TypeScript that still used it would now be a compile error, so nothing breaks silently.
+
+### Undo the last migration
+
+Made a mistake in a migration you just ran (and nobody else has it yet)? Roll it back, fix the file, and migrate again:
+
+```bash
+node strut migrate:rollback     # runs down() of the last batch
+node strut migrate              # runs your corrected up()
+```
+
+Once a migration is shared with teammates or deployed, never edit it: write a new one instead, as above.
+
+:::caution[Coming in 0.2]
+Rollback is proven in the schema prototype (spike 10); the `migrate:rollback` command is designed, not built yet.
+:::
+
+### Start again from scratch
+
+While you're experimenting, you can drop every table, migrate and seed again in one go (development only, it deletes all your data):
+
+```bash
+node strut migrate:fresh --seed
+```
+
+## The same flow with Docker or without
+
+Nothing changes in what you type. With Docker, `node strut make:migration` writes files on your computer (the project folder is shared with the container), and `node strut migrate` runs inside the `app` container, against the MySQL container. Without Docker, both run on your computer against your database. See [Docker](../docker/).
 
 ## Common mistakes
 
@@ -242,11 +459,43 @@ node strut make:migration create_posts_table
 ### Posts doesn't appear in the sidebar
 
 **Why:** the sidebar only shows resources you may `viewAny`. If you're not the admin, the generated policy denies everything until you edit it.
-**Fix:** sign in as the admin from the installer's summary, or open `app/policies/post.policy.ts` and allow `viewAny`. See [Authorization](../authorization/).
+**Fix:** sign in as the admin from the installer's summary, or open `app/policies/post.policy.ts` and allow `viewAny` (Step 5b). See [Authorization](../authorization/).
+
+### The API answers 401
+
+```text
+{"type":"https://strutvane.dev/problems/unauthenticated","title":"Unauthenticated","status":401,"code":"unauthenticated","detail":"Sign in first: send an \"Authorization: Bearer <token>\" header."}
+```
+
+**Why:** the request carried no session and no token, and the API is deny by default.
+**Fix:** send `-H "Authorization: Bearer $TOKEN"` with a token you created (Step 4b).
+
+### The API answers 415 when I create a post
+
+```text
+{"type":"https://strutvane.dev/problems/unsupported_media_type","title":"Unsupported media type","status":415,"code":"unsupported_media_type","detail":"Send the body as JSON with \"Content-Type: application/json\"."}
+```
+
+**Why:** the body was sent without `Content-Type: application/json` (curl's `-d` sends a form type by default).
+**Fix:** add `-H "Content-Type: application/json"`.
+
+### PowerShell says "A parameter cannot be found that matches parameter name 'X'"
+
+**Why:** in Windows PowerShell, `curl` is a different command (`Invoke-WebRequest`) with other options.
+**Fix:** type `curl.exe` instead of `curl`. Everything else stays the same.
+
+### The seeder adds the same posts twice
+
+**Why:** it doesn't, in development: each seeder runs once and is remembered in a `seeders` table. You see duplicates only if you ran `node strut migrate --seed` or `node strut db:seed` on purpose.
+**Fix:** `node strut migrate:fresh --seed` starts clean (development only).
+
+### "The new column … is required but has no default" when I add a column
+
+See ["is required but has no default"](#is-required-but-has-no-default) above: give the column `.nullable()` or a `.default(…)`.
 
 ## What you learned
 
-- `node strut make:migration create_x_table --seeder --factory` writes the migration, model, seeder and factory.
+- `node strut make:migration create_x_table --seeder` writes the migration, model, seeder and factory.
 - Columns go in the migration, and only there; `fillable` in the model says which ones people may set.
 - `node strut migrate` updates the database, the types, the API and the screens in one go.
 - Files you own (`resources/ui/*.ui.ts`, models, migrations) are never overwritten.

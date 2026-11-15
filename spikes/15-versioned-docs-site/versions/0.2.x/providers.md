@@ -108,6 +108,10 @@ override boot(app: Application): void {
 
 Entries are sorted by group, then `order`, then label. The UI hides entries the user may not `viewAny`.
 
+:::caution[Coming in 0.2]
+Two prototypes describe a sidebar entry slightly differently: the application core (spike 12) uses `{ label, route, group, icon, order }` as above, while the UI prototype (spike 14) uses `{ name, label, path, icon, group, sort, badge, permission }`, with a `permission` that decides who sees it and a `badge` (a count or short text). The final shape will merge the two. See [Sidebar](../crud-sidebar/).
+:::
+
 ## Adding routes and commands from a package (advanced)
 
 A package's provider can bring its own routes and commands. Add both in `register()`:
@@ -148,6 +152,124 @@ node strut route:list --path billing
 :::caution[Coming in 0.2]
 `node strut install:<package>` will add the provider line to `bootstrap/providers.ts` for you. Until then, add it by hand.
 :::
+
+## Writing your own provider
+
+Big apps split their setup by topic: one provider for billing, one for reports. A provider is any class that extends `ServiceProvider`:
+
+1. Create the file:
+
+   ```ts title="app/providers/report.provider.ts"
+   import { config, ServiceProvider, token, type Application } from '@strutvane/framework'
+
+   export interface ReportSettings {
+     readonly title: string
+     readonly timezone: string
+   }
+
+   export const ReportSettingsToken = token<ReportSettings>('ReportSettings')
+
+   /** Everything the reports feature needs. */
+   export class ReportServiceProvider extends ServiceProvider {
+     override register(app: Application): void {
+       // config() works inside the factory: it runs later, inside the app.
+       app.container.singleton(ReportSettingsToken, () => ({ title: `${config('app.name')} reports`, timezone: 'UTC' }))
+     }
+
+     override boot(app: Application): void {
+       app.navigation.add({ label: 'Reports', route: 'reports.index', group: 'Insights', icon: 'chart-bar', order: 10 })
+     }
+   }
+   ```
+
+2. Add it to the list:
+
+   ```ts title="bootstrap/providers.ts"
+   import type { ProviderClass } from '@strutvane/framework'
+   import { AppServiceProvider } from '../app/providers/app.provider.ts'
+   import { ReportServiceProvider } from '../app/providers/report.provider.ts'
+
+   export const providers: ProviderClass[] = [ReportServiceProvider, AppServiceProvider]
+   ```
+
+3. Check it ran:
+
+   ```bash
+   node strut about
+   ```
+
+**What you'll see:** "Reports" in the Navigation section. If a provider throws while booting, the app doesn't start, and `node strut about` prints the error, so a broken provider never reaches production silently.
+
+:::caution[Coming in 0.2]
+`node strut make:provider ReportServiceProvider` (writing the file and adding the line) is planned with the other `make:*` commands. Until then, create the file by hand as above.
+:::
+
+## Async providers
+
+`register()` and `boot()` may return a `Promise`, and Strutvane waits for each one before the next. Use it when setup really needs to wait, for example to read a file once:
+
+```ts title="app/providers/feature-flags.provider.ts"
+import { readFile } from 'node:fs/promises'
+import { join } from 'node:path'
+import { ServiceProvider, token, type Application } from '@strutvane/framework'
+
+export const FlagsToken = token<Readonly<Record<string, boolean>>>('FeatureFlags')
+
+export class FeatureFlagsProvider extends ServiceProvider {
+  override async register(app: Application): Promise<void> {
+    const raw = await readFile(join(app.basePath, 'storage', 'flags.json'), 'utf8')
+    app.container.instance(FlagsToken, JSON.parse(raw) as Record<string, boolean>)
+  }
+}
+```
+
+Keep it quick: every provider runs before the first request, and `node strut` commands boot too.
+
+## Only in some environments
+
+A provider can check where it runs and skip work. `app.environment` is `APP_ENV` (`local`, `testing` or `production`):
+
+```ts title="app/providers/app.provider.ts"
+import { ServiceProvider, type Application } from '@strutvane/framework'
+
+export class AppServiceProvider extends ServiceProvider {
+  override boot(app: Application): void {
+    if (app.environment === 'local') {
+      app.navigation.add({ label: 'Mail inbox', route: 'dev.mail', group: 'Developer', order: 99 })
+    }
+  }
+}
+```
+
+## How a package plugs in
+
+A Strutvane package (the log viewer, billing, your own) ships one provider. Installing it with `node strut install:<name>` runs the **installer protocol**: it adds the package's config file, `.env` keys (and `.env.example` entries, never secrets), migrations, routes, screens and sidebar entries, and the provider line in `bootstrap/providers.ts`. Install order never changes the result.
+
+Each package describes what it installs in a `strutvane` block in its `package.json` (its id, name, the framework versions it supports, its config and `.env` keys, its optional installer questions), and no code runs to read it. To copy a package's files into your app so you can change them, `node strut publish <package> --tag=config` (or `migrations`, `views`) will do what Laravel's `vendor:publish` does.
+
+:::caution[Coming in 0.2]
+The package manifest, `install:<name>` and `publish` are designed (blueprint §3.3, Laravel parity matrix). `app.addRoutes()`, `app.addCommand()` and `app.navigation.add()` from a provider are proven in spike 12.
+:::
+
+## Testing a provider
+
+Build a fresh app in the test, boot it, and look at what the provider set up:
+
+```ts title="tests/feature/report-provider.test.ts"
+import { expect, test } from 'vitest'
+import { ReportSettingsToken } from '../../app/providers/report.provider.ts'
+import { createApp } from '../../bootstrap/app.ts'
+
+test('the report provider binds its settings and menu entry', async () => {
+  const app = createApp({ APP_ENV: 'testing', APP_KEY: 'test-key', DB_CONNECTION: 'sqlite' })
+  await app.boot()
+
+  expect(app.make(ReportSettingsToken).timezone).toBe('UTC')
+  expect(app.navigation.items.map((item) => item.label)).toContain('Reports')
+})
+```
+
+**What you'll see** with `npm test`: the test passes. Each test gets its own app and container, so nothing leaks between tests.
 
 ## Order matters (a little)
 
@@ -192,6 +314,27 @@ override register(app: Application): void {
 **Why:** it isn't in `bootstrap/providers.ts`. There is no auto-discovery.
 
 **Fix:** add it to the array.
+
+### "… was called outside a request or console command" in a provider file
+
+```text
+✖ config() was called outside a request or console command, so there is no current app.
+→ Call it from a controller, middleware or command, or wrap the code in app.run(() => …) (tests: await app.run(async () => …)).
+```
+
+**Why:** the helper ran at the **top level** of the provider file, when it was imported, before any app existed.
+**Fix:** move the call into `register()` or `boot()` (both run inside the app):
+
+```ts
+override boot(app: Application): void {
+  const name = config('app.name') // fine here
+}
+```
+
+### My navigation entry links nowhere
+
+**Why:** `route` must be the **name** of a route (`'reports.index'`), not a path (`'/reports'`).
+**Fix:** name the route with `.name('reports.index')` in your routes file, and use that name. `node strut route:list` shows every name.
 
 ## Next steps
 
