@@ -1,0 +1,86 @@
+{
+  "name": "@strutvane/notification-channels",
+  "version": "0.1.0",
+  "description": "Slack, SMS, Teams and push next to email",
+  "license": "MIT",
+  "type": "module",
+  "peerDependencies": {
+    "@strutvane/framework": "^1.0"
+  },
+  "strutvane": {
+    "manifestVersion": 1,
+    "id": "notification-channels",
+    "displayName": "Notification channels",
+    "description": "Slack, SMS, Teams and push next to email",
+    "category": "integrations",
+    "tags": [
+      "sms",
+      "slack",
+      "push"
+    ],
+    "kind": "package",
+    "popular": true,
+    "docs": "https://github.com/vishwajit-vm/strutvane-notification-channels#readme",
+    "framework": "^1.0",
+    "installs": {
+      "config": [
+        "config/notification-channels.ts"
+      ],
+      "env": [
+        {
+          "key": "SLACK_WEBHOOK_URL",
+          "description": "Slack incoming webhook URL (contains a secret)",
+          "secret": true
+        },
+        {
+          "key": "TWILIO_AUTH_TOKEN",
+          "description": "Twilio auth for SMS",
+          "secret": true
+        }
+      ],
+      "migrations": [
+        "create_notification_preferences_table",
+        "create_notification_deliveries_table"
+      ],
+      "screens": [
+        {
+          "path": "/settings/notifications",
+          "title": "Notifications"
+        }
+      ]
+    },
+    "questions": [
+      {
+        "id": "channels",
+        "type": "multiselect",
+        "label": "Notification channels: which ones?",
+        "choices": [
+          {
+            "value": "sms",
+            "label": "SMS"
+          },
+          {
+            "value": "slack",
+            "label": "Slack"
+          },
+          {
+            "value": "teams",
+            "label": "Microsoft Teams"
+          },
+          {
+            "value": "web-push",
+            "label": "Web push"
+          },
+          {
+            "value": "whatsapp",
+            "label": "WhatsApp"
+          }
+        ],
+        "default": [
+          "slack"
+        ],
+        "min": 1
+      }
+    ]
+  }
+}

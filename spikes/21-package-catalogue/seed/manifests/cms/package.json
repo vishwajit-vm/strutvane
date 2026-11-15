@@ -1,0 +1,63 @@
+{
+  "name": "@strutvane/cms",
+  "version": "0.1.0",
+  "description": "Pages, menus, redirects, SEO and sitemap",
+  "license": "MIT",
+  "type": "module",
+  "peerDependencies": {
+    "@strutvane/framework": "^1.0"
+  },
+  "strutvane": {
+    "manifestVersion": 1,
+    "id": "cms",
+    "displayName": "CMS",
+    "description": "Pages, menus, redirects, SEO and sitemap",
+    "category": "content",
+    "tags": [
+      "pages",
+      "seo",
+      "sitemap"
+    ],
+    "kind": "package",
+    "popular": false,
+    "docs": "https://github.com/vishwajit-vm/strutvane-cms#readme",
+    "framework": "^1.0",
+    "installs": {
+      "config": [
+        "config/cms.ts"
+      ],
+      "migrations": [
+        "create_pages_table",
+        "create_page_revisions_table",
+        "create_menus_table",
+        "create_redirects_table"
+      ],
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/{slug*}"
+        },
+        {
+          "method": "GET",
+          "path": "/sitemap.xml"
+        },
+        {
+          "method": "GET",
+          "path": "/robots.txt"
+        }
+      ],
+      "screens": [
+        {
+          "path": "/cms/pages",
+          "title": "Pages"
+        }
+      ],
+      "commands": [
+        {
+          "name": "cms:sitemap",
+          "description": "Rebuild the sitemap"
+        }
+      ]
+    }
+  }
+}

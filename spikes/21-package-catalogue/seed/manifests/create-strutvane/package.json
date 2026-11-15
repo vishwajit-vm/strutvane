@@ -1,0 +1,21 @@
+{
+  "name": "create-strutvane",
+  "version": "0.2.0",
+  "description": "npm create strutvane@latest: asks, installs, runs",
+  "license": "MIT",
+  "type": "module",
+  "strutvane": {
+    "manifestVersion": 1,
+    "id": "create-strutvane",
+    "displayName": "Project installer",
+    "description": "npm create strutvane@latest: asks, installs, runs",
+    "category": "core",
+    "tags": [
+      "installer"
+    ],
+    "kind": "package",
+    "popular": false,
+    "docs": "https://github.com/vishwajit-vm/create-strutvane#readme",
+    "framework": "^0.2"
+  }
+}

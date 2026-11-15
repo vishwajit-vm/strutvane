@@ -1,0 +1,36 @@
+{
+  "name": "@strutvane/log-viewer",
+  "version": "0.1.0",
+  "description": "Browse and search app logs at /_strutvane/logs",
+  "license": "MIT",
+  "type": "module",
+  "peerDependencies": {
+    "@strutvane/framework": "^0.2"
+  },
+  "strutvane": {
+    "manifestVersion": 1,
+    "id": "log-viewer",
+    "displayName": "Log viewer",
+    "description": "Browse and search app logs at /_strutvane/logs",
+    "category": "operations",
+    "tags": [
+      "logs",
+      "operator-panel"
+    ],
+    "kind": "package",
+    "popular": true,
+    "docs": "https://github.com/vishwajit-vm/strutvane-log-viewer#readme",
+    "framework": "^0.2",
+    "installs": {
+      "config": [
+        "config/log-viewer.ts"
+      ],
+      "screens": [
+        {
+          "path": "/_strutvane/logs",
+          "title": "Logs"
+        }
+      ]
+    }
+  }
+}

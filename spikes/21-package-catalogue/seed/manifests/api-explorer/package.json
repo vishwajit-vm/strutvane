@@ -1,0 +1,42 @@
+{
+  "name": "@strutvane/api-explorer",
+  "version": "0.1.0",
+  "description": "Try your API in the browser (OpenAPI)",
+  "license": "MIT",
+  "type": "module",
+  "peerDependencies": {
+    "@strutvane/framework": "^1.0"
+  },
+  "strutvane": {
+    "manifestVersion": 1,
+    "id": "api-explorer",
+    "displayName": "API explorer",
+    "description": "Try your API in the browser (OpenAPI)",
+    "category": "data",
+    "tags": [
+      "openapi",
+      "api"
+    ],
+    "kind": "package",
+    "popular": true,
+    "docs": "https://github.com/vishwajit-vm/strutvane-api-explorer#readme",
+    "framework": "^1.0",
+    "installs": {
+      "config": [
+        "config/api-explorer.ts"
+      ],
+      "screens": [
+        {
+          "path": "/docs/explorer",
+          "title": "API explorer"
+        }
+      ],
+      "commands": [
+        {
+          "name": "api:diff",
+          "description": "Compare two API versions"
+        }
+      ]
+    }
+  }
+}

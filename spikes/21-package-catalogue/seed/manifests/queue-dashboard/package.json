@@ -1,0 +1,40 @@
+{
+  "name": "@strutvane/queue-dashboard",
+  "version": "0.1.0",
+  "description": "Watch jobs, retries, failures and schedules",
+  "license": "MIT",
+  "type": "module",
+  "peerDependencies": {
+    "@strutvane/framework": "^0.3"
+  },
+  "strutvane": {
+    "manifestVersion": 1,
+    "id": "queue-dashboard",
+    "displayName": "Queue dashboard",
+    "description": "Watch jobs, retries, failures and schedules",
+    "category": "operations",
+    "tags": [
+      "queue",
+      "jobs",
+      "scheduler"
+    ],
+    "kind": "package",
+    "popular": true,
+    "docs": "https://github.com/vishwajit-vm/strutvane-queue-dashboard#readme",
+    "framework": "^0.3",
+    "installs": {
+      "config": [
+        "config/queue-dashboard.ts"
+      ],
+      "migrations": [
+        "create_queue_metrics_table"
+      ],
+      "screens": [
+        {
+          "path": "/_strutvane/queues",
+          "title": "Queues"
+        }
+      ]
+    }
+  }
+}

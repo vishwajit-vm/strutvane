@@ -1,0 +1,83 @@
+{
+  "name": "@strutvane/ai",
+  "version": "0.1.0",
+  "description": "Call AI models from your app, with policies",
+  "license": "MIT",
+  "type": "module",
+  "peerDependencies": {
+    "@strutvane/framework": "^1.0"
+  },
+  "strutvane": {
+    "manifestVersion": 1,
+    "id": "ai",
+    "displayName": "AI SDK",
+    "description": "Call AI models from your app, with policies",
+    "category": "ai",
+    "tags": [
+      "llm",
+      "embeddings",
+      "agents"
+    ],
+    "kind": "package",
+    "popular": true,
+    "docs": "https://github.com/vishwajit-vm/strutvane-ai#readme",
+    "framework": "^1.0",
+    "installs": {
+      "config": [
+        "config/ai.ts"
+      ],
+      "env": [
+        {
+          "key": "ANTHROPIC_API_KEY",
+          "description": "Anthropic API key",
+          "secret": true
+        },
+        {
+          "key": "OPENAI_API_KEY",
+          "description": "OpenAI API key",
+          "secret": true
+        }
+      ],
+      "commands": [
+        {
+          "name": "make:agent",
+          "description": "Create an AI agent"
+        },
+        {
+          "name": "make:tool",
+          "description": "Create an agent tool"
+        }
+      ]
+    },
+    "questions": [
+      {
+        "id": "provider",
+        "type": "select",
+        "label": "AI SDK: which model provider first?",
+        "choices": [
+          {
+            "value": "later",
+            "label": "Decide later"
+          },
+          {
+            "value": "anthropic",
+            "label": "Anthropic"
+          },
+          {
+            "value": "openai",
+            "label": "OpenAI"
+          },
+          {
+            "value": "google",
+            "label": "Google"
+          },
+          {
+            "value": "ollama",
+            "label": "Local (Ollama)"
+          }
+        ],
+        "default": "later"
+      }
+    ]
+  }
+}

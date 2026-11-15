@@ -1,0 +1,803 @@
+{
+  "title": "Strutvane package manifest (format 1)",
+  "description": "The \"strutvane\" block in a package.json. Generated from src/manifest/schema.ts; the Zod schema is the authority.",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "manifestVersion": {
+      "type": "number",
+      "const": 1
+    },
+    "id": {
+      "type": "string",
+      "maxLength": 40,
+      "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$",
+      "description": "What people type: node strut install:<id>. Unique in the catalogue."
+    },
+    "displayName": {
+      "type": "string",
+      "maxLength": 30,
+      "description": "Short name shown in pickers, e.g. \"Media library\"."
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 60,
+      "description": "One line shown next to the name."
+    },
+    "category": {
+      "type": "string",
+      "maxLength": 40,
+      "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$",
+      "description": "A category id from the hub (operations, data, back-office, …)."
+    },
+    "tags": {
+      "default": [],
+      "maxItems": 8,
+      "type": "array",
+      "items": {
+        "type": "string",
+        "maxLength": 24,
+        "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+      }
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "package",
+        "design"
+      ],
+      "description": "\"design\" for UI designs (blueprint §5.1), otherwise \"package\"."
+    },
+    "popular": {
+      "default": false,
+      "description": "Shown in the short popular list. First-party only.",
+      "type": "boolean"
+    },
+    "docs": {
+      "type": "string",
+      "maxLength": 300,
+      "description": "Documentation page (https)."
+    },
+    "framework": {
+      "type": "string",
+      "maxLength": 100,
+      "description": "The @strutvane/framework versions this release supports, e.g. \"^0.2\"."
+    },
+    "installs": {
+      "default": {
+        "config": [],
+        "env": [],
+        "migrations": [],
+        "routes": [],
+        "screens": [],
+        "sidebar": [],
+        "commands": []
+      },
+      "type": "object",
+      "properties": {
+        "config": {
+          "default": [],
+          "description": "Config files written, e.g. config/billing.ts.",
+          "maxItems": 40,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 120
+          }
+        },
+        "env": {
+          "default": [],
+          "maxItems": 40,
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "key": {
+                "type": "string",
+                "maxLength": 64,
+                "pattern": "^[A-Z][A-Z0-9_]{1,63}$"
+              },
+              "description": {
+                "type": "string",
+                "maxLength": 120,
+                "description": "Written as a comment above the key in .env.example."
+              },
+              "secret": {
+                "type": "boolean",
+                "description": "true: written empty to .env, never given a value in .env.example, redacted in logs."
+              },
+              "example": {
+                "description": "A safe example value for .env.example. Not allowed for secrets.",
+                "type": "string",
+                "maxLength": 100
+              }
+            },
+            "required": [
+              "key",
+              "description",
+              "secret"
+            ],
+            "additionalProperties": false,
+            "description": "One .env key the package reads."
+          }
+        },
+        "migrations": {
+          "default": [],
+          "description": "Migrations published into database/migrations/.",
+          "maxItems": 40,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 80,
+            "pattern": "^[a-z][a-z0-9_]{2,79}$"
+          }
+        },
+        "routes": {
+          "default": [],
+          "maxItems": 40,
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "method": {
+                "type": "string",
+                "enum": [
+                  "GET",
+                  "POST",
+                  "PUT",
+                  "PATCH",
+                  "DELETE"
+                ]
+              },
+              "path": {
+                "type": "string",
+                "maxLength": 120,
+                "pattern": "^\\/(?:[a-z0-9_.:{}*-]+(?:\\/[a-z0-9_.:{}*-]+)*)?$"
+              }
+            },
+            "required": [
+              "method",
+              "path"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "screens": {
+          "default": [],
+          "maxItems": 40,
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "path": {
+                "type": "string",
+                "maxLength": 120,
+                "pattern": "^\\/(?:[a-z0-9_:-]+(?:\\/[a-z0-9_:-]+)*)?$"
+              },
+              "title": {
+                "type": "string",
+                "maxLength": 30
+              }
+            },
+            "required": [
+              "path",
+              "title"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "sidebar": {
+          "default": [],
+          "maxItems": 10,
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "label": {
+                "type": "string",
+                "maxLength": 30
+              },
+              "path": {
+                "type": "string",
+                "maxLength": 120,
+                "pattern": "^\\/(?:[a-z0-9_:-]+(?:\\/[a-z0-9_:-]+)*)?$"
+              },
+              "group": {
+                "type": "string",
+                "maxLength": 30
+              },
+              "icon": {
+                "type": "string",
+                "maxLength": 41,
+                "pattern": "^[a-z][a-z0-9-]{1,40}$"
+              }
+            },
+            "required": [
+              "label",
+              "path"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "commands": {
+          "default": [],
+          "description": "node strut commands the package adds.",
+          "maxItems": 40,
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "maxLength": 60,
+                "pattern": "^[a-z][a-z0-9-]*(?::[a-z][a-z0-9-]*)*$"
+              },
+              "description": {
+                "type": "string",
+                "maxLength": 120
+              }
+            },
+            "required": [
+              "name",
+              "description"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false,
+      "description": "Everything the package installs. Used for the review screen, docs and collision checks."
+    },
+    "questions": {
+      "default": [],
+      "description": "Follow-up questions, asked in this order.",
+      "maxItems": 6,
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "maxLength": 40,
+                "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$",
+                "description": "Unique within the package. Answers are stored as <package id>.<question id>."
+              },
+              "label": {
+                "type": "string",
+                "maxLength": 74,
+                "description": "The question, e.g. \"Billing: which payment provider?\"."
+              },
+              "help": {
+                "description": "One line of extra help under the question.",
+                "type": "string",
+                "maxLength": 160
+              },
+              "when": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "question": {
+                        "type": "string",
+                        "maxLength": 40,
+                        "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$",
+                        "description": "An earlier question of this package."
+                      },
+                      "equals": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "maxLength": 200
+                          },
+                          {
+                            "type": "boolean"
+                          }
+                        ],
+                        "description": "Ask only when that answer equals this."
+                      }
+                    },
+                    "required": [
+                      "question",
+                      "equals"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "question": {
+                        "type": "string",
+                        "maxLength": 40,
+                        "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$",
+                        "description": "An earlier multiselect question of this package."
+                      },
+                      "includes": {
+                        "type": "string",
+                        "maxLength": 40,
+                        "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$",
+                        "description": "Ask only when that answer includes this choice."
+                      }
+                    },
+                    "required": [
+                      "question",
+                      "includes"
+                    ],
+                    "additionalProperties": false
+                  }
+                ],
+                "description": "Ask this question only when an earlier answer matches."
+              },
+              "type": {
+                "type": "string",
+                "const": "select"
+              },
+              "choices": {
+                "minItems": 2,
+                "maxItems": 12,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "value": {
+                      "type": "string",
+                      "maxLength": 40,
+                      "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$",
+                      "description": "Stored in strutvane.json and used as the flag value (--feature-option <pkg>.<question>=<value>)."
+                    },
+                    "label": {
+                      "type": "string",
+                      "maxLength": 74,
+                      "description": "What the developer sees."
+                    },
+                    "hint": {
+                      "description": "A dim hint next to the label.",
+                      "type": "string",
+                      "maxLength": 74
+                    }
+                  },
+                  "required": [
+                    "value",
+                    "label"
+                  ],
+                  "additionalProperties": false,
+                  "description": "One choice of a select or multiselect question."
+                }
+              },
+              "default": {
+                "type": "string",
+                "maxLength": 40,
+                "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$",
+                "description": "The value of one of the choices (used by --yes and CI)."
+              }
+            },
+            "required": [
+              "id",
+              "label",
+              "type",
+              "choices",
+              "default"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "maxLength": 40,
+                "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$",
+                "description": "Unique within the package. Answers are stored as <package id>.<question id>."
+              },
+              "label": {
+                "type": "string",
+                "maxLength": 74,
+                "description": "The question, e.g. \"Billing: which payment provider?\"."
+              },
+              "help": {
+                "description": "One line of extra help under the question.",
+                "type": "string",
+                "maxLength": 160
+              },
+              "when": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "question": {
+                        "type": "string",
+                        "maxLength": 40,
+                        "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$",
+                        "description": "An earlier question of this package."
+                      },
+                      "equals": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "maxLength": 200
+                          },
+                          {
+                            "type": "boolean"
+                          }
+                        ],
+                        "description": "Ask only when that answer equals this."
+                      }
+                    },
+                    "required": [
+                      "question",
+                      "equals"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "question": {
+                        "type": "string",
+                        "maxLength": 40,
+                        "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$",
+                        "description": "An earlier multiselect question of this package."
+                      },
+                      "includes": {
+                        "type": "string",
+                        "maxLength": 40,
+                        "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$",
+                        "description": "Ask only when that answer includes this choice."
+                      }
+                    },
+                    "required": [
+                      "question",
+                      "includes"
+                    ],
+                    "additionalProperties": false
+                  }
+                ],
+                "description": "Ask this question only when an earlier answer matches."
+              },
+              "type": {
+                "type": "string",
+                "const": "multiselect"
+              },
+              "choices": {
+                "minItems": 2,
+                "maxItems": 12,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "value": {
+                      "type": "string",
+                      "maxLength": 40,
+                      "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$",
+                      "description": "Stored in strutvane.json and used as the flag value (--feature-option <pkg>.<question>=<value>)."
+                    },
+                    "label": {
+                      "type": "string",
+                      "maxLength": 74,
+                      "description": "What the developer sees."
+                    },
+                    "hint": {
+                      "description": "A dim hint next to the label.",
+                      "type": "string",
+                      "maxLength": 74
+                    }
+                  },
+                  "required": [
+                    "value",
+                    "label"
+                  ],
+                  "additionalProperties": false,
+                  "description": "One choice of a select or multiselect question."
+                }
+              },
+              "default": {
+                "maxItems": 12,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "maxLength": 40,
+                  "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
+                },
+                "description": "Values of the choices picked by default (may be empty)."
+              },
+              "min": {
+                "description": "Fewest choices allowed (default 0).",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 12
+              },
+              "max": {
+                "description": "Most choices allowed (default: all).",
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 12
+              }
+            },
+            "required": [
+              "id",
+              "label",
+              "type",
+              "choices",
+              "default"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "maxLength": 40,
+                "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$",
+                "description": "Unique within the package. Answers are stored as <package id>.<question id>."
+              },
+              "label": {
+                "type": "string",
+                "maxLength": 74,
+                "description": "The question, e.g. \"Billing: which payment provider?\"."
+              },
+              "help": {
+                "description": "One line of extra help under the question.",
+                "type": "string",
+                "maxLength": 160
+              },
+              "when": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "question": {
+                        "type": "string",
+                        "maxLength": 40,
+                        "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$",
+                        "description": "An earlier question of this package."
+                      },
+                      "equals": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "maxLength": 200
+                          },
+                          {
+                            "type": "boolean"
+                          }
+                        ],
+                        "description": "Ask only when that answer equals this."
+                      }
+                    },
+                    "required": [
+                      "question",
+                      "equals"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "question": {
+                        "type": "string",
+                        "maxLength": 40,
+                        "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$",
+                        "description": "An earlier multiselect question of this package."
+                      },
+                      "includes": {
+                        "type": "string",
+                        "maxLength": 40,
+                        "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$",
+                        "description": "Ask only when that answer includes this choice."
+                      }
+                    },
+                    "required": [
+                      "question",
+                      "includes"
+                    ],
+                    "additionalProperties": false
+                  }
+                ],
+                "description": "Ask this question only when an earlier answer matches."
+              },
+              "type": {
+                "type": "string",
+                "const": "confirm"
+              },
+              "default": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "id",
+              "label",
+              "type",
+              "default"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "maxLength": 40,
+                "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$",
+                "description": "Unique within the package. Answers are stored as <package id>.<question id>."
+              },
+              "label": {
+                "type": "string",
+                "maxLength": 74,
+                "description": "The question, e.g. \"Billing: which payment provider?\"."
+              },
+              "help": {
+                "description": "One line of extra help under the question.",
+                "type": "string",
+                "maxLength": 160
+              },
+              "when": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "question": {
+                        "type": "string",
+                        "maxLength": 40,
+                        "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$",
+                        "description": "An earlier question of this package."
+                      },
+                      "equals": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "maxLength": 200
+                          },
+                          {
+                            "type": "boolean"
+                          }
+                        ],
+                        "description": "Ask only when that answer equals this."
+                      }
+                    },
+                    "required": [
+                      "question",
+                      "equals"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "question": {
+                        "type": "string",
+                        "maxLength": 40,
+                        "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$",
+                        "description": "An earlier multiselect question of this package."
+                      },
+                      "includes": {
+                        "type": "string",
+                        "maxLength": 40,
+                        "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$",
+                        "description": "Ask only when that answer includes this choice."
+                      }
+                    },
+                    "required": [
+                      "question",
+                      "includes"
+                    ],
+                    "additionalProperties": false
+                  }
+                ],
+                "description": "Ask this question only when an earlier answer matches."
+              },
+              "type": {
+                "type": "string",
+                "const": "text"
+              },
+              "default": {
+                "description": "Must match the pattern. Leave out to require an answer.",
+                "type": "string",
+                "maxLength": 200
+              },
+              "placeholder": {
+                "type": "string",
+                "maxLength": 74
+              },
+              "maxLength": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 200,
+                "description": "Longest answer accepted (at most 200)."
+              },
+              "pattern": {
+                "type": "object",
+                "properties": {
+                  "regex": {
+                    "type": "string",
+                    "maxLength": 200,
+                    "description": "A pattern in the safe subset: ^, single characters/escapes/[classes] with ? * + {n,m}, then $. No groups or alternatives."
+                  },
+                  "message": {
+                    "type": "string",
+                    "maxLength": 74,
+                    "description": "Shown when the answer does not match, e.g. \"Use lower-case letters and dashes\"."
+                  }
+                },
+                "required": [
+                  "regex",
+                  "message"
+                ],
+                "additionalProperties": false,
+                "description": "Every text answer is checked against a pattern; free-form text is never accepted unchecked."
+              }
+            },
+            "required": [
+              "id",
+              "label",
+              "type",
+              "maxLength",
+              "pattern"
+            ],
+            "additionalProperties": false
+          }
+        ],
+        "description": "A follow-up question asked after the package is picked. Data only: nothing runs to ask it."
+      }
+    },
+    "requires": {
+      "default": [],
+      "description": "Catalogue ids installed together with this one.",
+      "maxItems": 20,
+      "type": "array",
+      "items": {
+        "type": "string",
+        "maxLength": 40,
+        "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
+      }
+    },
+    "conflicts": {
+      "default": [],
+      "description": "Catalogue ids that cannot be installed together with this one.",
+      "maxItems": 20,
+      "type": "array",
+      "items": {
+        "type": "string",
+        "maxLength": 40,
+        "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
+      }
+    },
+    "deprecated": {
+      "type": "object",
+      "properties": {
+        "message": {
+          "type": "string",
+          "maxLength": 200,
+          "description": "Why, and what to do instead."
+        },
+        "replacedBy": {
+          "description": "The catalogue id to use instead.",
+          "type": "string",
+          "maxLength": 40,
+          "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
+        },
+        "since": {
+          "type": "string",
+          "pattern": "^(?:0|[1-9]\\d{0,8})\\.(?:0|[1-9]\\d{0,8})\\.(?:0|[1-9]\\d{0,8})$"
+        }
+      },
+      "required": [
+        "message"
+      ],
+      "additionalProperties": false,
+      "description": "Present when the package should no longer be picked. Deprecated packages are hidden from pickers."
+    }
+  },
+  "required": [
+    "manifestVersion",
+    "id",
+    "displayName",
+    "description",
+    "category",
+    "kind",
+    "docs",
+    "framework"
+  ],
+  "additionalProperties": false
+}

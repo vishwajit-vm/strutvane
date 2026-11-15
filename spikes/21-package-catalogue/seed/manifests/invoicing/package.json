@@ -1,0 +1,62 @@
+{
+  "name": "@strutvane/invoicing",
+  "version": "0.1.0",
+  "description": "Numbered invoices, credit notes and PDFs",
+  "license": "MIT",
+  "type": "module",
+  "peerDependencies": {
+    "@strutvane/framework": "^1.0"
+  },
+  "strutvane": {
+    "manifestVersion": 1,
+    "id": "invoicing",
+    "displayName": "Invoicing",
+    "description": "Numbered invoices, credit notes and PDFs",
+    "category": "money",
+    "tags": [
+      "invoices",
+      "tax"
+    ],
+    "kind": "package",
+    "popular": true,
+    "docs": "https://github.com/vishwajit-vm/strutvane-invoicing#readme",
+    "framework": "^1.0",
+    "installs": {
+      "config": [
+        "config/invoicing.ts"
+      ],
+      "migrations": [
+        "create_invoices_table",
+        "create_invoice_lines_table",
+        "create_credit_notes_table"
+      ],
+      "screens": [
+        {
+          "path": "/invoices",
+          "title": "Invoices"
+        }
+      ],
+      "sidebar": [
+        {
+          "label": "Invoices",
+          "path": "/invoices",
+          "icon": "receipt"
+        }
+      ]
+    },
+    "questions": [
+      {
+        "id": "number-prefix",
+        "type": "text",
+        "label": "Invoicing: invoice number prefix",
+        "placeholder": "INV-",
+        "default": "INV-",
+        "maxLength": 12,
+        "pattern": {
+          "regex": "^[A-Z][A-Z0-9-]{0,11}$",
+          "message": "Use capital letters, digits and dashes, like INV-"
+        }
+      }
+    ]
+  }
+}

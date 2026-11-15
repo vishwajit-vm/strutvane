@@ -1,0 +1,60 @@
+{
+  "name": "@strutvane/activity-log",
+  "version": "0.1.0",
+  "description": "Who changed what, and when",
+  "license": "MIT",
+  "type": "module",
+  "peerDependencies": {
+    "@strutvane/framework": "^1.0"
+  },
+  "strutvane": {
+    "manifestVersion": 1,
+    "id": "activity-log",
+    "displayName": "Activity log",
+    "description": "Who changed what, and when",
+    "category": "back-office",
+    "tags": [
+      "audit",
+      "history"
+    ],
+    "kind": "package",
+    "popular": true,
+    "docs": "https://github.com/vishwajit-vm/strutvane-activity-log#readme",
+    "framework": "^1.0",
+    "installs": {
+      "config": [
+        "config/activity-log.ts"
+      ],
+      "migrations": [
+        "create_activity_log_table"
+      ],
+      "screens": [
+        {
+          "path": "/activity",
+          "title": "Activity"
+        }
+      ],
+      "sidebar": [
+        {
+          "label": "Activity",
+          "path": "/activity",
+          "icon": "history"
+        }
+      ],
+      "commands": [
+        {
+          "name": "activity:prune",
+          "description": "Delete old activity entries"
+        }
+      ]
+    },
+    "questions": [
+      {
+        "id": "all-models",
+        "type": "confirm",
+        "label": "Activity log: record history for every model?",
+        "default": true
+      }
+    ]
+  }
+}

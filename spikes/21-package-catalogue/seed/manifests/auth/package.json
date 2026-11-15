@@ -1,0 +1,80 @@
+{
+  "name": "@strutvane/auth",
+  "version": "0.2.0",
+  "description": "Sign-in, 2FA, passkeys, tokens, teams, impersonation",
+  "license": "MIT",
+  "type": "module",
+  "peerDependencies": {
+    "@strutvane/framework": "^0.2"
+  },
+  "strutvane": {
+    "manifestVersion": 1,
+    "id": "auth",
+    "displayName": "Auth",
+    "description": "Sign-in, 2FA, passkeys, tokens, teams, impersonation",
+    "category": "app",
+    "tags": [
+      "login",
+      "two-factor",
+      "passkeys",
+      "teams"
+    ],
+    "kind": "package",
+    "popular": false,
+    "docs": "https://github.com/vishwajit-vm/strutvane-auth#readme",
+    "framework": "^0.2",
+    "installs": {
+      "config": [
+        "config/auth.ts"
+      ],
+      "migrations": [
+        "create_users_table",
+        "create_personal_access_tokens_table",
+        "create_passkeys_table",
+        "create_teams_table"
+      ],
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/login"
+        },
+        {
+          "method": "POST",
+          "path": "/login"
+        },
+        {
+          "method": "POST",
+          "path": "/logout"
+        }
+      ],
+      "screens": [
+        {
+          "path": "/login",
+          "title": "Sign in"
+        },
+        {
+          "path": "/settings/profile",
+          "title": "Profile"
+        },
+        {
+          "path": "/settings/security",
+          "title": "Security"
+        }
+      ],
+      "commands": [
+        {
+          "name": "user:create",
+          "description": "Create a user"
+        },
+        {
+          "name": "team:create",
+          "description": "Create a team"
+        },
+        {
+          "name": "tokens:prune",
+          "description": "Delete expired tokens"
+        }
+      ]
+    }
+  }
+}

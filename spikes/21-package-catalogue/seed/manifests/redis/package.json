@@ -1,0 +1,50 @@
+{
+  "name": "@strutvane/redis",
+  "version": "0.1.0",
+  "description": "Redis/Valkey for cache, queue, locks and sessions",
+  "license": "MIT",
+  "type": "module",
+  "peerDependencies": {
+    "@strutvane/framework": "^0.3"
+  },
+  "strutvane": {
+    "manifestVersion": 1,
+    "id": "redis",
+    "displayName": "Redis",
+    "description": "Redis/Valkey for cache, queue, locks and sessions",
+    "category": "operations",
+    "tags": [
+      "cache",
+      "queue",
+      "valkey"
+    ],
+    "kind": "package",
+    "popular": false,
+    "docs": "https://github.com/vishwajit-vm/strutvane-redis#readme",
+    "framework": "^0.3",
+    "installs": {
+      "config": [
+        "config/redis.ts"
+      ],
+      "env": [
+        {
+          "key": "REDIS_URL",
+          "description": "Redis or Valkey connection URL (may contain a password)",
+          "secret": true
+        },
+        {
+          "key": "CACHE_STORE",
+          "description": "Cache driver",
+          "secret": false,
+          "example": "redis"
+        },
+        {
+          "key": "QUEUE_CONNECTION",
+          "description": "Queue driver",
+          "secret": false,
+          "example": "redis"
+        }
+      ]
+    }
+  }
+}

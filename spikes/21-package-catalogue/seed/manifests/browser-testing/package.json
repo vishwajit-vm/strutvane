@@ -1,0 +1,39 @@
+{
+  "name": "@strutvane/browser-testing",
+  "version": "0.1.0",
+  "description": "Playwright fixtures for the real UI",
+  "license": "MIT",
+  "type": "module",
+  "peerDependencies": {
+    "@strutvane/framework": "^1.0"
+  },
+  "strutvane": {
+    "manifestVersion": 1,
+    "id": "browser-testing",
+    "displayName": "Browser tests",
+    "description": "Playwright fixtures for the real UI",
+    "category": "developer",
+    "tags": [
+      "playwright",
+      "testing"
+    ],
+    "kind": "package",
+    "popular": false,
+    "docs": "https://github.com/vishwajit-vm/strutvane-browser-testing#readme",
+    "framework": "^1.0",
+    "installs": {
+      "config": [
+        "playwright.config.ts"
+      ],
+      "commands": [
+        {
+          "name": "make:browser-test",
+          "description": "Create a browser test"
+        }
+      ]
+    },
+    "requires": [
+      "ui"
+    ]
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "name": "@strutvane/ui",
+  "version": "0.2.0",
+  "description": "React kit, app shell and auto CRUD admin screens",
+  "license": "MIT",
+  "type": "module",
+  "peerDependencies": {
+    "@strutvane/framework": "^0.2"
+  },
+  "strutvane": {
+    "manifestVersion": 1,
+    "id": "ui",
+    "displayName": "Admin UI",
+    "description": "React kit, app shell and auto CRUD admin screens",
+    "category": "app",
+    "tags": [
+      "react",
+      "admin",
+      "crud"
+    ],
+    "kind": "package",
+    "popular": false,
+    "docs": "https://github.com/vishwajit-vm/strutvane-ui#readme",
+    "framework": "^0.2",
+    "installs": {
+      "config": [
+        "config/ui.ts"
+      ],
+      "commands": [
+        {
+          "name": "ui:sync",
+          "description": "Regenerate admin screens from the schema"
+        },
+        {
+          "name": "ui:add",
+          "description": "Copy a UI component into the app"
+        },
+        {
+          "name": "make:page",
+          "description": "Create a page"
+        }
+      ]
+    }
+  }
+}

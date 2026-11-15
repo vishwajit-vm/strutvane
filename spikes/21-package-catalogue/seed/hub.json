@@ -1,0 +1,411 @@
+{
+  "hubVersion": 1,
+  "categories": [
+    {
+      "id": "operations",
+      "name": "Operations",
+      "pickable": true
+    },
+    {
+      "id": "data",
+      "name": "Data",
+      "pickable": true
+    },
+    {
+      "id": "back-office",
+      "name": "Back office",
+      "pickable": true
+    },
+    {
+      "id": "integrations",
+      "name": "Integrations",
+      "pickable": true
+    },
+    {
+      "id": "money",
+      "name": "Money",
+      "pickable": true
+    },
+    {
+      "id": "ai",
+      "name": "AI",
+      "pickable": true
+    },
+    {
+      "id": "identity",
+      "name": "Sign-in and identity",
+      "pickable": true
+    },
+    {
+      "id": "content",
+      "name": "Content",
+      "pickable": true
+    },
+    {
+      "id": "developer",
+      "name": "Developer tools",
+      "pickable": true
+    },
+    {
+      "id": "app",
+      "name": "App essentials",
+      "pickable": true
+    },
+    {
+      "id": "design",
+      "name": "Designs",
+      "pickable": false
+    },
+    {
+      "id": "core",
+      "name": "Core",
+      "pickable": false
+    }
+  ],
+  "framework": {
+    "versions": [
+      "0.2.0",
+      "0.3.0",
+      "1.0.0"
+    ]
+  },
+  "lifecycle": {
+    "activity-log": {
+      "status": "planned",
+      "phase": 4
+    },
+    "agent-tools": {
+      "status": "planned",
+      "phase": 3
+    },
+    "ai": {
+      "status": "planned",
+      "phase": 7
+    },
+    "api-explorer": {
+      "status": "planned",
+      "phase": 4
+    },
+    "auth": {
+      "status": "in-development",
+      "phase": 1,
+      "since": "0.2"
+    },
+    "backup": {
+      "status": "planned",
+      "phase": 4
+    },
+    "billing": {
+      "status": "planned",
+      "phase": 6
+    },
+    "browser-testing": {
+      "status": "planned",
+      "phase": 7
+    },
+    "charts": {
+      "status": "planned",
+      "phase": 3
+    },
+    "cms": {
+      "status": "planned",
+      "phase": 7
+    },
+    "comments": {
+      "status": "planned",
+      "phase": 4
+    },
+    "create-strutvane": {
+      "status": "in-development",
+      "phase": 1,
+      "since": "0.2"
+    },
+    "crisp": {
+      "status": "in-development",
+      "phase": 1,
+      "since": "0.2"
+    },
+    "dashboards": {
+      "status": "planned",
+      "phase": 3
+    },
+    "feature-flags": {
+      "status": "planned",
+      "phase": 5
+    },
+    "files": {
+      "status": "planned",
+      "phase": 3
+    },
+    "form-builder": {
+      "status": "planned",
+      "phase": 7
+    },
+    "framework": {
+      "status": "in-development",
+      "phase": 1,
+      "since": "0.2"
+    },
+    "geo": {
+      "status": "planned",
+      "phase": 8
+    },
+    "graphql": {
+      "status": "planned",
+      "phase": 5
+    },
+    "health": {
+      "status": "planned",
+      "phase": 3
+    },
+    "import-export": {
+      "status": "planned",
+      "phase": 3
+    },
+    "inspector": {
+      "status": "planned",
+      "phase": 3
+    },
+    "invoicing": {
+      "status": "planned",
+      "phase": 6
+    },
+    "log-viewer": {
+      "status": "in-development",
+      "phase": 1,
+      "since": "0.2"
+    },
+    "mail-templates": {
+      "status": "planned",
+      "phase": 6
+    },
+    "mcp-server": {
+      "status": "planned",
+      "phase": 5
+    },
+    "media-library": {
+      "status": "planned",
+      "phase": 4
+    },
+    "notification-channels": {
+      "status": "planned",
+      "phase": 6
+    },
+    "oauth-server": {
+      "status": "planned",
+      "phase": 5
+    },
+    "observability": {
+      "status": "planned",
+      "phase": 3
+    },
+    "payments": {
+      "status": "planned",
+      "phase": 8
+    },
+    "pdf": {
+      "status": "planned",
+      "phase": 4
+    },
+    "privacy": {
+      "status": "planned",
+      "phase": 4
+    },
+    "queue-dashboard": {
+      "status": "planned",
+      "phase": 2
+    },
+    "realtime": {
+      "status": "planned",
+      "phase": 6
+    },
+    "redis": {
+      "status": "planned",
+      "phase": 2
+    },
+    "resource-views": {
+      "status": "planned",
+      "phase": 6
+    },
+    "search": {
+      "status": "planned",
+      "phase": 3
+    },
+    "settings": {
+      "status": "planned",
+      "phase": 4
+    },
+    "social-login": {
+      "status": "planned",
+      "phase": 5
+    },
+    "sso": {
+      "status": "planned",
+      "phase": 5
+    },
+    "strutvane": {
+      "status": "in-development",
+      "phase": 1,
+      "since": "0.2"
+    },
+    "tags": {
+      "status": "planned",
+      "phase": 4
+    },
+    "translations": {
+      "status": "planned",
+      "phase": 7
+    },
+    "ui": {
+      "status": "in-development",
+      "phase": 1,
+      "since": "0.2"
+    },
+    "vivid": {
+      "status": "in-development",
+      "phase": 1,
+      "since": "0.2"
+    },
+    "webhooks": {
+      "status": "planned",
+      "phase": 5
+    },
+    "workflows": {
+      "status": "planned",
+      "phase": 7
+    }
+  },
+  "history": [
+    {
+      "package": "@strutvane/core",
+      "name": "Core (merged)",
+      "status": "retired",
+      "since": "0.2",
+      "date": "2026-11-15",
+      "note": "Merged into the framework; the repo was archived on 2026-11-15. npm deprecation waits for framework v2.",
+      "replacement": {
+        "packages": [
+          "@strutvane/framework"
+        ],
+        "import": "@strutvane/framework/core",
+        "note": "Import from @strutvane/framework/core instead."
+      }
+    },
+    {
+      "package": "@strutvane/contracts",
+      "name": "Contracts (merged)",
+      "status": "retired",
+      "since": "0.2",
+      "date": "2026-11-15",
+      "note": "Merged into the framework; the repo was archived on 2026-11-15. npm deprecation waits for framework v2.",
+      "replacement": {
+        "packages": [
+          "@strutvane/framework"
+        ],
+        "import": "@strutvane/framework/contracts",
+        "note": "Import from @strutvane/framework/contracts instead."
+      }
+    },
+    {
+      "package": "@strutvane/cli",
+      "name": "CLI (merged)",
+      "status": "retired",
+      "since": "0.2",
+      "date": "2026-11-15",
+      "note": "Merged into the framework; the repo was archived on 2026-11-15. npm deprecation waits for framework v2.",
+      "replacement": {
+        "packages": [
+          "@strutvane/framework"
+        ],
+        "import": "@strutvane/framework/cli",
+        "note": "Import from @strutvane/framework/cli instead."
+      }
+    },
+    {
+      "package": "@strutvane/devkit",
+      "name": "Devkit (merged)",
+      "status": "retired",
+      "since": "0.2",
+      "date": "2026-11-15",
+      "note": "Merged into the framework; the repo was archived on 2026-11-15. npm deprecation waits for framework v2.",
+      "replacement": {
+        "packages": [
+          "@strutvane/framework"
+        ],
+        "import": "@strutvane/framework/devkit",
+        "note": "Import from @strutvane/framework/devkit instead."
+      }
+    },
+    {
+      "package": "@strutvane/logs",
+      "name": "Logs (split)",
+      "status": "retired",
+      "since": "0.2",
+      "note": "Logging moves into the framework (ADR-0022); the log viewer UI becomes @strutvane/log-viewer.",
+      "replacement": {
+        "packages": [
+          "@strutvane/framework",
+          "@strutvane/log-viewer"
+        ],
+        "note": "Use framework logging channels, and install log-viewer for the UI."
+      }
+    },
+    {
+      "package": "@strutvane/design-glass",
+      "name": "Glass design",
+      "status": "shelved",
+      "note": "Design direction from spike 18, shelved in favour of Crisp and Vivid; the first candidate for a third design."
+    }
+  ],
+  "packages": [
+    "@strutvane/activity-log",
+    "@strutvane/agent-tools",
+    "@strutvane/ai",
+    "@strutvane/api-explorer",
+    "@strutvane/auth",
+    "@strutvane/backup",
+    "@strutvane/billing",
+    "@strutvane/browser-testing",
+    "@strutvane/charts",
+    "@strutvane/cms",
+    "@strutvane/comments",
+    "@strutvane/dashboards",
+    "@strutvane/design-crisp",
+    "@strutvane/design-vivid",
+    "@strutvane/feature-flags",
+    "@strutvane/files",
+    "@strutvane/form-builder",
+    "@strutvane/framework",
+    "@strutvane/geo",
+    "@strutvane/graphql",
+    "@strutvane/health",
+    "@strutvane/import-export",
+    "@strutvane/inspector",
+    "@strutvane/invoicing",
+    "@strutvane/log-viewer",
+    "@strutvane/mail-templates",
+    "@strutvane/mcp-server",
+    "@strutvane/media-library",
+    "@strutvane/notification-channels",
+    "@strutvane/oauth-server",
+    "@strutvane/observability",
+    "@strutvane/payments",
+    "@strutvane/pdf",
+    "@strutvane/privacy",
+    "@strutvane/queue-dashboard",
+    "@strutvane/realtime",
+    "@strutvane/redis",
+    "@strutvane/resource-views",
+    "@strutvane/search",
+    "@strutvane/settings",
+    "@strutvane/social-login",
+    "@strutvane/sso",
+    "@strutvane/tags",
+    "@strutvane/translations",
+    "@strutvane/ui",
+    "@strutvane/webhooks",
+    "@strutvane/workflows",
+    "create-strutvane",
+    "strutvane"
+  ]
+}

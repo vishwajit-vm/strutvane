@@ -1,0 +1,64 @@
+{
+  "name": "@strutvane/graphql",
+  "version": "0.1.0",
+  "description": "A GraphQL API next to the REST API",
+  "license": "MIT",
+  "type": "module",
+  "peerDependencies": {
+    "@strutvane/framework": "^1.0"
+  },
+  "strutvane": {
+    "manifestVersion": 1,
+    "id": "graphql",
+    "displayName": "GraphQL",
+    "description": "A GraphQL API next to the REST API",
+    "category": "integrations",
+    "tags": [
+      "graphql",
+      "api"
+    ],
+    "kind": "package",
+    "popular": true,
+    "docs": "https://github.com/vishwajit-vm/strutvane-graphql#readme",
+    "framework": "^1.0",
+    "installs": {
+      "config": [
+        "config/graphql.ts"
+      ],
+      "routes": [
+        {
+          "method": "POST",
+          "path": "/graphql"
+        }
+      ],
+      "commands": [
+        {
+          "name": "graphql:schema",
+          "description": "Print the GraphQL schema"
+        },
+        {
+          "name": "graphql:persist",
+          "description": "Store persisted operations"
+        }
+      ]
+    },
+    "questions": [
+      {
+        "id": "mode",
+        "type": "select",
+        "label": "GraphQL: who calls the API?",
+        "choices": [
+          {
+            "value": "first-party",
+            "label": "Only our own apps (persisted queries)"
+          },
+          {
+            "value": "public",
+            "label": "Anyone with access (public API)"
+          }
+        ],
+        "default": "first-party"
+      }
+    ]
+  }
+}

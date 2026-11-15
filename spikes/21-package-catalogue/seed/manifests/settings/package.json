@@ -1,0 +1,49 @@
+{
+  "name": "@strutvane/settings",
+  "version": "0.1.0",
+  "description": "App, team and user settings screens",
+  "license": "MIT",
+  "type": "module",
+  "peerDependencies": {
+    "@strutvane/framework": "^1.0"
+  },
+  "strutvane": {
+    "manifestVersion": 1,
+    "id": "settings",
+    "displayName": "Settings",
+    "description": "App, team and user settings screens",
+    "category": "back-office",
+    "tags": [
+      "settings",
+      "preferences"
+    ],
+    "kind": "package",
+    "popular": true,
+    "docs": "https://github.com/vishwajit-vm/strutvane-settings#readme",
+    "framework": "^1.0",
+    "installs": {
+      "config": [
+        "config/settings.ts"
+      ],
+      "migrations": [
+        "create_settings_table"
+      ],
+      "screens": [
+        {
+          "path": "/settings/app",
+          "title": "App settings"
+        }
+      ],
+      "commands": [
+        {
+          "name": "make:settings",
+          "description": "Create a settings group"
+        },
+        {
+          "name": "settings:list",
+          "description": "List settings"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,55 @@
+{
+  "name": "@strutvane/observability",
+  "version": "0.1.0",
+  "description": "OpenTelemetry export and a metrics dashboard",
+  "license": "MIT",
+  "type": "module",
+  "peerDependencies": {
+    "@strutvane/framework": "^1.0"
+  },
+  "strutvane": {
+    "manifestVersion": 1,
+    "id": "observability",
+    "displayName": "Observability",
+    "description": "OpenTelemetry export and a metrics dashboard",
+    "category": "operations",
+    "tags": [
+      "opentelemetry",
+      "metrics"
+    ],
+    "kind": "package",
+    "popular": false,
+    "docs": "https://github.com/vishwajit-vm/strutvane-observability#readme",
+    "framework": "^1.0",
+    "installs": {
+      "config": [
+        "config/observability.ts"
+      ],
+      "env": [
+        {
+          "key": "OTEL_EXPORTER_OTLP_ENDPOINT",
+          "description": "Where to send OpenTelemetry data",
+          "secret": false,
+          "example": "http://127.0.0.1:4318"
+        }
+      ],
+      "migrations": [
+        "create_metrics_aggregates_table"
+      ],
+      "screens": [
+        {
+          "path": "/_strutvane/metrics",
+          "title": "Metrics"
+        }
+      ]
+    },
+    "questions": [
+      {
+        "id": "otlp",
+        "type": "confirm",
+        "label": "Observability: export to an OpenTelemetry collector?",
+        "default": false
+      }
+    ]
+  }
+}

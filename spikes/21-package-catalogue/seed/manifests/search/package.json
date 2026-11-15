@@ -1,0 +1,72 @@
+{
+  "name": "@strutvane/search",
+  "version": "0.1.0",
+  "description": "Meilisearch or Typesense search across your models",
+  "license": "MIT",
+  "type": "module",
+  "peerDependencies": {
+    "@strutvane/framework": "^1.0"
+  },
+  "strutvane": {
+    "manifestVersion": 1,
+    "id": "search",
+    "displayName": "Search",
+    "description": "Meilisearch or Typesense search across your models",
+    "category": "data",
+    "tags": [
+      "full-text",
+      "meilisearch",
+      "typesense"
+    ],
+    "kind": "package",
+    "popular": true,
+    "docs": "https://github.com/vishwajit-vm/strutvane-search#readme",
+    "framework": "^1.0",
+    "installs": {
+      "config": [
+        "config/search.ts"
+      ],
+      "env": [
+        {
+          "key": "SEARCH_HOST",
+          "description": "Search engine URL",
+          "secret": false,
+          "example": "http://127.0.0.1:7700"
+        },
+        {
+          "key": "SEARCH_API_KEY",
+          "description": "Search engine admin key",
+          "secret": true
+        }
+      ],
+      "commands": [
+        {
+          "name": "search:import",
+          "description": "Index every searchable record"
+        },
+        {
+          "name": "search:flush",
+          "description": "Empty the search index"
+        }
+      ]
+    },
+    "questions": [
+      {
+        "id": "engine",
+        "type": "select",
+        "label": "Search: which search engine?",
+        "choices": [
+          {
+            "value": "meilisearch",
+            "label": "Meilisearch"
+          },
+          {
+            "value": "typesense",
+            "label": "Typesense"
+          }
+        ],
+        "default": "meilisearch"
+      }
+    ]
+  }
+}

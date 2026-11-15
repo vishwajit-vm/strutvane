@@ -1,0 +1,59 @@
+{
+  "name": "@strutvane/backup",
+  "version": "0.1.0",
+  "description": "Encrypted database and file backups",
+  "license": "MIT",
+  "type": "module",
+  "peerDependencies": {
+    "@strutvane/framework": "^1.0"
+  },
+  "strutvane": {
+    "manifestVersion": 1,
+    "id": "backup",
+    "displayName": "Backups",
+    "description": "Encrypted database and file backups",
+    "category": "operations",
+    "tags": [
+      "backup",
+      "restore"
+    ],
+    "kind": "package",
+    "popular": true,
+    "docs": "https://github.com/vishwajit-vm/strutvane-backup#readme",
+    "framework": "^1.0",
+    "installs": {
+      "config": [
+        "config/backup.ts"
+      ],
+      "env": [
+        {
+          "key": "BACKUP_ENCRYPTION_KEY",
+          "description": "Key that encrypts backup archives",
+          "secret": true
+        },
+        {
+          "key": "BACKUP_DISK",
+          "description": "Disk the backups go to",
+          "secret": false,
+          "example": "local"
+        }
+      ],
+      "screens": [
+        {
+          "path": "/_strutvane/backups",
+          "title": "Backups"
+        }
+      ],
+      "commands": [
+        {
+          "name": "backup:run",
+          "description": "Back up now"
+        },
+        {
+          "name": "backup:restore",
+          "description": "Restore a backup"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,82 @@
+{
+  "name": "@strutvane/payments",
+  "version": "0.1.0",
+  "description": "One-off payments, payment links and refunds",
+  "license": "MIT",
+  "type": "module",
+  "peerDependencies": {
+    "@strutvane/framework": "^1.0"
+  },
+  "strutvane": {
+    "manifestVersion": 1,
+    "id": "payments",
+    "displayName": "Payments",
+    "description": "One-off payments, payment links and refunds",
+    "category": "money",
+    "tags": [
+      "checkout",
+      "refunds"
+    ],
+    "kind": "package",
+    "popular": false,
+    "docs": "https://github.com/vishwajit-vm/strutvane-payments#readme",
+    "framework": "^1.0",
+    "installs": {
+      "config": [
+        "config/payments.ts"
+      ],
+      "env": [
+        {
+          "key": "STRIPE_SECRET",
+          "description": "Stripe secret API key",
+          "secret": true
+        },
+        {
+          "key": "RAZORPAY_KEY_ID",
+          "description": "Razorpay key id",
+          "secret": true
+        },
+        {
+          "key": "RAZORPAY_KEY_SECRET",
+          "description": "Razorpay key secret",
+          "secret": true
+        }
+      ],
+      "migrations": [
+        "create_payments_table",
+        "create_refunds_table",
+        "create_payment_events_table"
+      ],
+      "routes": [
+        {
+          "method": "POST",
+          "path": "/webhooks/payments/:gateway"
+        }
+      ],
+      "screens": [
+        {
+          "path": "/payments",
+          "title": "Payments"
+        }
+      ]
+    },
+    "questions": [
+      {
+        "id": "gateway",
+        "type": "select",
+        "label": "Payments: which payment gateway?",
+        "choices": [
+          {
+            "value": "stripe",
+            "label": "Stripe"
+          },
+          {
+            "value": "razorpay",
+            "label": "Razorpay"
+          }
+        ],
+        "default": "stripe"
+      }
+    ]
+  }
+}

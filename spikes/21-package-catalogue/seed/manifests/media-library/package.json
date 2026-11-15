@@ -1,0 +1,52 @@
+{
+  "name": "@strutvane/media-library",
+  "version": "0.1.0",
+  "description": "Uploads, images and files attached to records",
+  "license": "MIT",
+  "type": "module",
+  "peerDependencies": {
+    "@strutvane/framework": "^1.0"
+  },
+  "strutvane": {
+    "manifestVersion": 1,
+    "id": "media-library",
+    "displayName": "Media library",
+    "description": "Uploads, images and files attached to records",
+    "category": "back-office",
+    "tags": [
+      "media",
+      "images"
+    ],
+    "kind": "package",
+    "popular": true,
+    "docs": "https://github.com/vishwajit-vm/strutvane-media-library#readme",
+    "framework": "^1.0",
+    "installs": {
+      "config": [
+        "config/media.ts"
+      ],
+      "migrations": [
+        "create_media_table"
+      ],
+      "screens": [
+        {
+          "path": "/media",
+          "title": "Media"
+        }
+      ],
+      "sidebar": [
+        {
+          "label": "Media",
+          "path": "/media",
+          "icon": "image"
+        }
+      ],
+      "commands": [
+        {
+          "name": "media:regenerate",
+          "description": "Rebuild image conversions"
+        }
+      ]
+    }
+  }
+}

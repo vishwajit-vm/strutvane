@@ -1,0 +1,42 @@
+{
+  "name": "@strutvane/mcp-server",
+  "version": "0.1.0",
+  "description": "Let AI assistants use your app through MCP",
+  "license": "MIT",
+  "type": "module",
+  "peerDependencies": {
+    "@strutvane/framework": "^1.0"
+  },
+  "strutvane": {
+    "manifestVersion": 1,
+    "id": "mcp-server",
+    "displayName": "MCP server",
+    "description": "Let AI assistants use your app through MCP",
+    "category": "ai",
+    "tags": [
+      "mcp",
+      "agents"
+    ],
+    "kind": "package",
+    "popular": true,
+    "docs": "https://github.com/vishwajit-vm/strutvane-mcp-server#readme",
+    "framework": "^1.0",
+    "installs": {
+      "config": [
+        "routes/ai.ts"
+      ],
+      "routes": [
+        {
+          "method": "POST",
+          "path": "/mcp"
+        }
+      ],
+      "commands": [
+        {
+          "name": "make:mcp-tool",
+          "description": "Create an MCP tool"
+        }
+      ]
+    }
+  }
+}

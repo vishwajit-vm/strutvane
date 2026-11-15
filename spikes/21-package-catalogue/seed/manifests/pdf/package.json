@@ -1,0 +1,54 @@
+{
+  "name": "@strutvane/pdf",
+  "version": "0.1.0",
+  "description": "Generate PDFs from React templates",
+  "license": "MIT",
+  "type": "module",
+  "peerDependencies": {
+    "@strutvane/framework": "^1.0"
+  },
+  "strutvane": {
+    "manifestVersion": 1,
+    "id": "pdf",
+    "displayName": "PDF",
+    "description": "Generate PDFs from React templates",
+    "category": "back-office",
+    "tags": [
+      "pdf",
+      "documents"
+    ],
+    "kind": "package",
+    "popular": true,
+    "docs": "https://github.com/vishwajit-vm/strutvane-pdf#readme",
+    "framework": "^1.0",
+    "installs": {
+      "config": [
+        "config/pdf.ts"
+      ],
+      "commands": [
+        {
+          "name": "make:pdf",
+          "description": "Create a PDF template"
+        }
+      ]
+    },
+    "questions": [
+      {
+        "id": "driver",
+        "type": "select",
+        "label": "PDF: how should PDFs be rendered?",
+        "choices": [
+          {
+            "value": "react-pdf",
+            "label": "React PDF (no browser needed)"
+          },
+          {
+            "value": "chromium",
+            "label": "Headless Chromium (pixel-perfect HTML)"
+          }
+        ],
+        "default": "react-pdf"
+      }
+    ]
+  }
+}

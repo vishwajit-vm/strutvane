@@ -1,0 +1,100 @@
+{
+  "name": "@strutvane/billing",
+  "version": "0.1.0",
+  "description": "Subscriptions, seats and a customer portal",
+  "license": "MIT",
+  "type": "module",
+  "peerDependencies": {
+    "@strutvane/framework": "^1.0"
+  },
+  "strutvane": {
+    "manifestVersion": 1,
+    "id": "billing",
+    "displayName": "Billing",
+    "description": "Subscriptions, seats and a customer portal",
+    "category": "money",
+    "tags": [
+      "subscriptions",
+      "stripe",
+      "paddle"
+    ],
+    "kind": "package",
+    "popular": true,
+    "docs": "https://github.com/vishwajit-vm/strutvane-billing#readme",
+    "framework": "^1.0",
+    "installs": {
+      "config": [
+        "config/billing.ts"
+      ],
+      "env": [
+        {
+          "key": "STRIPE_SECRET",
+          "description": "Stripe secret API key",
+          "secret": true
+        },
+        {
+          "key": "STRIPE_WEBHOOK_SECRET",
+          "description": "Stripe webhook signing secret",
+          "secret": true
+        },
+        {
+          "key": "PADDLE_API_KEY",
+          "description": "Paddle API key",
+          "secret": true
+        }
+      ],
+      "migrations": [
+        "create_subscriptions_table",
+        "create_subscription_items_table",
+        "create_billing_customers_table"
+      ],
+      "routes": [
+        {
+          "method": "POST",
+          "path": "/webhooks/billing/:provider"
+        }
+      ],
+      "screens": [
+        {
+          "path": "/billing",
+          "title": "Billing"
+        }
+      ],
+      "sidebar": [
+        {
+          "label": "Billing",
+          "path": "/billing",
+          "icon": "credit-card"
+        }
+      ]
+    },
+    "questions": [
+      {
+        "id": "provider",
+        "type": "select",
+        "label": "Billing: which payment provider?",
+        "choices": [
+          {
+            "value": "stripe",
+            "label": "Stripe"
+          },
+          {
+            "value": "paddle",
+            "label": "Paddle (merchant of record)"
+          }
+        ],
+        "default": "stripe"
+      },
+      {
+        "id": "stripe-tax",
+        "type": "confirm",
+        "label": "Billing: let Stripe calculate sales tax?",
+        "default": false,
+        "when": {
+          "question": "provider",
+          "equals": "stripe"
+        }
+      }
+    ]
+  }
+}

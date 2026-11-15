@@ -1,0 +1,37 @@
+{
+  "name": "@strutvane/agent-tools",
+  "version": "0.1.0",
+  "description": "AGENTS.md, skills and a local docs MCP server",
+  "license": "MIT",
+  "type": "module",
+  "peerDependencies": {
+    "@strutvane/framework": "^1.0"
+  },
+  "strutvane": {
+    "manifestVersion": 1,
+    "id": "agent-tools",
+    "displayName": "AI coding assistants",
+    "description": "AGENTS.md, skills and a local docs MCP server",
+    "category": "developer",
+    "tags": [
+      "ai",
+      "mcp",
+      "agents"
+    ],
+    "kind": "package",
+    "popular": false,
+    "docs": "https://github.com/vishwajit-vm/strutvane-agent-tools#readme",
+    "framework": "^1.0",
+    "installs": {
+      "config": [
+        ".ai/rules/strutvane.md"
+      ],
+      "commands": [
+        {
+          "name": "agents:sync",
+          "description": "Refresh AGENTS.md and skills"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,62 @@
+{
+  "name": "@strutvane/geo",
+  "version": "0.1.0",
+  "description": "Map fields, distance queries and geocoding",
+  "license": "MIT",
+  "type": "module",
+  "peerDependencies": {
+    "@strutvane/framework": "^1.0"
+  },
+  "strutvane": {
+    "manifestVersion": 1,
+    "id": "geo",
+    "displayName": "Geo",
+    "description": "Map fields, distance queries and geocoding",
+    "category": "data",
+    "tags": [
+      "maps",
+      "spatial"
+    ],
+    "kind": "package",
+    "popular": false,
+    "docs": "https://github.com/vishwajit-vm/strutvane-geo#readme",
+    "framework": "^1.0",
+    "installs": {
+      "config": [
+        "config/geo.ts"
+      ],
+      "env": [
+        {
+          "key": "GEOCODER_URL",
+          "description": "Geocoding service URL",
+          "secret": false,
+          "example": "https://nominatim.openstreetmap.org"
+        }
+      ],
+      "commands": [
+        {
+          "name": "geo:geocode",
+          "description": "Geocode the addresses of a resource"
+        }
+      ]
+    },
+    "questions": [
+      {
+        "id": "geocoder",
+        "type": "select",
+        "label": "Geo: which geocoding service?",
+        "choices": [
+          {
+            "value": "none",
+            "label": "None for now"
+          },
+          {
+            "value": "nominatim",
+            "label": "Nominatim (OpenStreetMap)"
+          }
+        ],
+        "default": "none"
+      }
+    ]
+  }
+}

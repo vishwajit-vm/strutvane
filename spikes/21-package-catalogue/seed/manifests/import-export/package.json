@@ -1,0 +1,47 @@
+{
+  "name": "@strutvane/import-export",
+  "version": "0.1.0",
+  "description": "CSV and Excel import/export for any model",
+  "license": "MIT",
+  "type": "module",
+  "peerDependencies": {
+    "@strutvane/framework": "^1.0"
+  },
+  "strutvane": {
+    "manifestVersion": 1,
+    "id": "import-export",
+    "displayName": "Import and export",
+    "description": "CSV and Excel import/export for any model",
+    "category": "data",
+    "tags": [
+      "csv",
+      "xlsx"
+    ],
+    "kind": "package",
+    "popular": true,
+    "docs": "https://github.com/vishwajit-vm/strutvane-import-export#readme",
+    "framework": "^1.0",
+    "installs": {
+      "config": [
+        "config/import-export.ts"
+      ],
+      "migrations": [
+        "create_imports_table",
+        "create_exports_table"
+      ],
+      "screens": [
+        {
+          "path": "/downloads",
+          "title": "Downloads"
+        }
+      ],
+      "sidebar": [
+        {
+          "label": "Downloads",
+          "path": "/downloads",
+          "icon": "download"
+        }
+      ]
+    }
+  }
+}
