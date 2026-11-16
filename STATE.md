@@ -4,6 +4,7 @@
 > - Read it first at the start of every session and after any context summary. Trust it over memory.
 > - Every number here was **verified by the coordinator** (re-run, not taken from an agent's report). An unverified claim is marked *(agent-reported)*.
 > - Update it in the same commit as every verification, merge, decision or plan change. Add the date.
+> - **Run `node scripts/state-check.mjs` at the start of every session and before reporting status.** It fails if any repo has uncommitted or unpushed work, or if this file names a commit that doesn't exist.
 > - Details live elsewhere and are linked, not copied: decisions in `spikes/CONSISTENCY-2026-11-15.md`, the plan in `docs/21-delivery-plan.md`, rules in `docs/19-production-readiness.md`, each branch's `NEXT.md`.
 
 _Last updated: 2026-11-16_
@@ -21,9 +22,9 @@ _Last updated: 2026-11-16_
 |---|---|---|---|---|
 | strutvane (hub) | blueprint, docs 18–21, ADRs to 0023, spikes, decisions 1–129 | — | — | pushed |
 | strutvane-framework | **v2 at 0.1.0-next.1** (1fd4885) | `v2/data-layer` (ORM + migrations) and `v2/app-core` (MVC + commands) | 🔄 agents building | `main`: 1,466 tests pass, code rules clean (2026-11-16) |
-| strutvane-auth | v1 + 6 audit fixes | `v2/native-engine` (ADR-0023) | 🔄 agent finishing; branch pushed up to 5e30674 (WIP) | v1 `main`: 379 tests |
-| strutvane-ui | v1 + 17 audit fixes | `v2/behaviour` at **0.2.0-next.0** | ✅ done; last 3 commits (20c44ce, 399e81d, 3ca9c57) **local only**: agent push blocked, awaiting the lead's OK | v2: **488 tests**, coverage 97.1/92.9/96.4/98.4 (2026-11-16) |
-| create-strutvane | v1 | `v2/installer` at **0.2.0-next.0** | ✅ done; last 3 commits (67f2f24, 7d2cb06, 52cebb1) **local only**: agent push blocked, awaiting the lead's OK | 473 tests, 3× green *(agent-reported; the coordinator's re-run is pending)* |
+| strutvane-auth | v1 + 6 audit fixes | `v2/native-engine` (ADR-0023) at **0.2.0-next.0** | ✅ done locally at 39bba2f; GitHub has 5e30674. The agent's push was blocked, so this awaits the lead's OK | v2: 819 tests + 63 Postgres integration, 3× green *(agent-reported; the coordinator's re-run is pending)* |
+| strutvane-ui | v1 + 17 audit fixes | `v2/behaviour` at **0.2.0-next.0** | ✅ done and **pushed** (3ca9c57, 2026-11-16, lead approved) | v2: **488 tests**, coverage 97.1/92.9/96.4/98.4 (2026-11-16) |
+| create-strutvane | v1 | `v2/installer` at **0.2.0-next.0** | ✅ done and **pushed** (52cebb1, 2026-11-16, lead approved) | 473 tests, 3× green *(agent-reported; the coordinator's re-run is pending)* |
 | strutvane-logs | v1 | `v2/channels` (ADR-0022) | ✅ audited and pushed; folds into the framework next | 573 tests |
 | strutvane-tooling | npm + R1–R9 CI | — | — | 129 tests |
 | strutvane-docs | v2 site, live at https://vishwajit-vm.github.io/strutvane-docs/ (flat Packages menu) | `0.1.x` = old v1 site | — | 522 pages, 0 broken links |
@@ -34,7 +35,7 @@ _Last updated: 2026-11-16_
 ## 3. Open decisions (waiting on the project lead)
 | # | Question | Coordinator's recommendation |
 |---|---|---|
-| D-1 | Push the ui v2 and installer v2 branches (the agents' pushes were blocked by the permission system) | yes |
+| D-2 | Push auth `v2/native-engine` (the agent's push was blocked) | yes |
 
 ## 4. Next steps (in order)
 1. Finish and verify auth v2, then push and merge it after the framework is published.
