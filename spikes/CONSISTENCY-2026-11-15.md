@@ -196,3 +196,13 @@ The docs pass found places where the blueprint and the spikes disagree. When a m
 | # | Topic | Decision | Owner |
 |---|---|---|---|
 | 122 | Pre-hijacking without punishing normal sign-ups | Registration binds the account to the registering browser with a `__Host-` nonce cookie (same pattern as the email-link binding). When the verification link is opened **in that same browser**, the password the user chose is kept: no extra step. When it's opened **in a different browser**, or through an email-link sign-in, the pre-verification password and every session and token are cleared and the owner sets a new password (#114). A completed password reset also marks the address verified. | spike 20, auth |
+
+## Tenth pass (framework fix pass, 2026-11-16)
+
+| # | Topic | Decision | Owner |
+|---|---|---|---|
+| 123 | Uppercase framework error codes | Move every existing framework code to lowercase `snake_case` within the 0.2 line (a breaking change is allowed before 1.0). The registry accepts both for one minor version, with a deprecation warning; the upgrade guide lists every renamed code. | framework, docs |
+| 124 | Bearer + session cookie together | Still CSRF-checked (fails closed). Only a request with **no** session cookie skips the check. Blueprint §5.2 wording follows. | blueprint |
+| 125 | Behaviour changes accepted | A failing `after*`/`afterCommit` hook is logged and never turns a committed write into a 500. CSRF covers hook-answered routes. Reaching the dev server by LAN IP or another hostname needs `trustedHosts`. | docs |
+| 126 | Include cap signal; idempotency store | Single-record responses use the `Strutvane-Truncated-Includes` header; lists use `meta.truncated`. The in-memory idempotency store is per-process; clusters bind a shared store (`@strutvane/redis` in 0.3). | docs |
+| 127 | `sv` in generated text | Every generated file, hint and message says `node strut …`, never `sv`. | framework, installer |
