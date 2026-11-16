@@ -22,7 +22,7 @@ _Last updated: 2026-11-16_
 |---|---|---|---|---|
 | strutvane (hub) | blueprint, docs 18–21, ADRs to 0023, spikes, decisions 1–129 | — | — | pushed |
 | strutvane-framework | **v2 at 0.1.0-next.1** (1fd4885) | `v2/data-layer` (ORM + migrations) and `v2/app-core` (MVC + commands) | 🔄 agents building | `main`: 1,466 tests pass, code rules clean (2026-11-16) |
-| strutvane-auth | v1 + 6 audit fixes | `v2/native-engine` (ADR-0023) at **0.2.0-next.0** | ✅ done locally at 39bba2f; GitHub has 5e30674. The agent's push was blocked, so this awaits the lead's OK | v2: 819 tests + 63 Postgres integration, 3× green *(agent-reported; the coordinator's re-run is pending)* |
+| strutvane-auth | v1 + 6 audit fixes | `v2/native-engine` (ADR-0023) at **0.2.0-next.0** | ✅ done and **pushed** (39bba2f, 2026-11-16, lead approved) | v2: 819 tests + 63 Postgres integration, 3× green *(agent-reported; the coordinator's re-run is pending)* |
 | strutvane-ui | v1 + 17 audit fixes | `v2/behaviour` at **0.2.0-next.0** | ✅ done and **pushed** (3ca9c57, 2026-11-16, lead approved) | v2: **488 tests**, coverage 97.1/92.9/96.4/98.4 (2026-11-16) |
 | create-strutvane | v1 | `v2/installer` at **0.2.0-next.0** | ✅ done and **pushed** (52cebb1, 2026-11-16, lead approved) | 473 tests, 3× green *(agent-reported; the coordinator's re-run is pending)* |
 | strutvane-logs | v1 | `v2/channels` (ADR-0022) | ✅ audited and pushed; folds into the framework next | 573 tests |
@@ -35,7 +35,7 @@ _Last updated: 2026-11-16_
 ## 3. Open decisions (waiting on the project lead)
 | # | Question | Coordinator's recommendation |
 |---|---|---|
-| D-2 | Push auth `v2/native-engine` (the agent's push was blocked) | yes |
+| — | none right now | — |
 
 ## 4. Next steps (in order)
 1. Finish and verify auth v2, then push and merge it after the framework is published.
