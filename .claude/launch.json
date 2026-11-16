@@ -1,0 +1,36 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "spike-14-admin-ui",
+      "runtimeExecutable": "npm.cmd",
+      "runtimeArgs": ["--prefix", "spikes/14-auto-crud-ui", "run", "dev", "--", "--port", "5174", "--strictPort"],
+      "port": 5174
+    },
+    {
+      "name": "spike-15-docs-site",
+      "runtimeExecutable": "npm.cmd",
+      "runtimeArgs": ["--prefix", "spikes/15-versioned-docs-site", "run", "preview", "--", "--port", "4325"],
+      "port": 4325,
+      "url": "http://localhost:4325"
+    },
+    {
+      "name": "design-a-modern-pro",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["spikes/17-design-a-modern-pro/node_modules/vite/bin/vite.js", "spikes/17-design-a-modern-pro", "--port", "5191", "--strictPort"],
+      "port": 5191
+    },
+    {
+      "name": "design-b-glass",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["spikes/18-design-b-glass/node_modules/vite/bin/vite.js", "spikes/18-design-b-glass", "--port", "5192", "--strictPort"],
+      "port": 5192
+    },
+    {
+      "name": "design-c-minimal",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["spikes/19-design-c-minimal/node_modules/vite/bin/vite.js", "spikes/19-design-c-minimal", "--port", "5193", "--strictPort"],
+      "port": 5193
+    }
+  ]
+}

@@ -608,3 +608,40 @@ Services: `passwords`, `passwordReset`, `verification`, `emailLink`, `twoFactor`
 - to Spike 11 / tenancy: the current team is `auth.teams.current(req)` (re-read per request); feed it to `runWithTenant`.
 - to Spike 13: `features` maps 1:1 to installer questions 5, 6, 9, 11 (`passwordLogin`, `registration` (default off), `emailVerification`, `emailLink`, `twoFactor`, `passkeys`, `tokens`, `teams`, `impersonation`). The admin seeder calls `auth.system.createUser({ …, roles: ['admin'] })`.
 - Disabled features: no routes AND services throw `NOT_FOUND`; the 404 must be byte-identical to an unknown path.
+
+## Spike 21: package catalogue (catalogue agent, 2026-11-15; code and findings in `spikes/21-package-catalogue/README.md`)
+
+Data-driven listing for 100+ packages (blueprint §3.3). 239 tests (tsc type-level tests + vitest, property and fuzz tests included). One runtime dependency, `zod` 4.6.7.
+
+**Manifest** (`strutvane` block in each package.json, `manifestVersion: 1`; Zod in `src/manifest/schema.ts`, JSON Schema in `schema/`):
+- id, displayName, description, category, tags, kind (`package` | `design`), popular (first-party only), docs (https), framework range (must equal the framework peer);
+- `installs` (config, env with `secret`, migrations, routes, screens, sidebar, commands), `questions` (select, multiselect, confirm, text with a required safe pattern; optional `when`), `requires`, `conflicts`, `deprecated`.
+- Refused: questions that mention keys, secrets, tokens or passwords (any spelling); code-like fields; unknown fields; oversized values; names outside `@strutvane/` or `strutvane-`; non-https URLs; ReDoS-prone patterns (a group-free subset plus a linear-time matcher).
+
+**Index** (`catalogue.json` format 2, `buildCatalogue()`):
+- a field-for-field superset of spike 13's format 1;
+- deterministic and fails closed;
+- per entry: `versions[]` plus a `compatibility` (framework line → version) table, `verified` only from a passing conformance results file, and lifecycle `status`, `phase`, `since`;
+- `history[]` for retired packages (with replacements) and shelved ones.
+
+**Resolver** (`src/resolver/`): `offered`, `groupByCategory`, `search` (case- and diacritic-insensitive), `planInstall` (requirements added, conflicts, cycles and two designs refused, order-independent), `resolveAnswers`.
+
+**Rules other spikes must keep:**
+- to Spike 13 (installer): switch `src/catalogue.ts` to `parseCatalogueIndex`, `offered`, `groupByCategory`, `search`, `planInstall` and `resolveAnswers` (table in the spike 21 README §5). Never run a package's text pattern with `new RegExp`; use `matchesPattern`. The fixture's exact differences are listed in README §5. Content changes: `log-viewer` → `@strutvane/log-viewer`, `backups` → `backup`, `ai-sdk` → `ai`, and sitemap/geocoder/virus-scanner/calendar are not packages.
+- to the docs site: render the packages page from `seed/catalogue.json`: entries with `status`, `phase`, `since`; `history[]` for retired packages (core, contracts, cli and devkit → `@strutvane/framework/<name>`; logs → framework logging + `@strutvane/log-viewer`) and the shelved Glass design.
+- to the framework / `new-package-repo` skill: every package ships the manifest; `installs` must list everything `install:<id>` writes (the builder refuses overlaps between packages that can be installed together).
+- to the roadmap: planned add-ons on `^1.0` that require auth or ui need a 1.0 core-train entry (the builder warns for browser-testing, oauth-server, resource-views, social-login and sso).
+
+## Spike 12: security kit + commands (MVC agent, 2026-11-15)
+
+Code and evidence: `spikes/12-mvc-app-core/` (README section "Security kit and commands"). Imports are `#strutvane/http` and `#strutvane/security` here, `@strutvane/framework/…` in the product.
+
+- **Protections, every style, one helper:** `defineProtection(alias, MiddlewareClass)` returns a protection usable as `static readonly middleware = [csrf({ except: ['callback'] })]`, `withCsrf(handler)`, `await csrf.verify(ctx)`. Built in: `csrf` (+ `csrf.token(ctx)`, `csrf_field(ctx)`, `csrf_meta(ctx)`), `auth`, `can` (`m.defineAbility(name, (user, ctx) => boolean)`), `throttle`, `signed`, `idempotent`. Routes: `.withoutMiddleware('csrf')`; groups: `Route.middleware(...).group([...])`, `Route.withoutMiddleware(...).group([...])`, `Route.group({ withoutMiddleware })`. Priority: csrf → signed → auth → can → throttle → idempotent. Tests: `client(app).withoutCsrf()` (APP_ENV=testing only). **No decorators.**
+- **`route:list --security [--json]`:** per route `{ protections, optOuts: [{ alias, source: 'route'|'group'|'controller'|'app', detail? }], warnings }`. Spike 14/16: read this rather than re-deriving security from middleware names.
+- **App-wide settings** (`withMiddleware((m) => …)`): `validateCsrfTokens({ except, origins })`, `trustProxies({ at })`, `trustHosts({ at, subdomains })`, `cors({ origins, credentials, … })` (off by default; `*` + credentials refused at boot), `securityHeaders({ csp, hsts, … })`, `limits({ maxBytes, maxDepth, maxKeys })`. All problems are reported in one boot error.
+- **Every response** gets CSP (nonce in `ctx.nonce`; reports to `POST /_strutvane/csp-report`), HSTS (production over HTTPS), nosniff, Referrer-Policy, Permissions-Policy, COOP/CORP, frame-ancestors. Spike 14 (UI) must put `ctx.nonce` on its inline scripts and styles.
+- **Keys and crypto:** `APP_KEY` must be ≥ 32 bytes (`base64:` accepted); `APP_PREVIOUS_KEYS` (comma list) keeps old ciphertexts and signed links valid after `key:rotate`. `encrypt()/decrypt()` = AES-256-GCM, `sv1.<keyId>.<b64url>`, 16-byte tags only. Subkeys per purpose via `KeyringToken.subkey(purpose)`: spike 20 (auth) should use it for HMAC'd tokens.
+- **Other helpers:** `signedRoute()/temporarySignedRoute()` + `signed` middleware; `redirect().intended(ctx, fallback)` (same-origin paths only); `safeFetch(url, { allow, timeoutMs, maxBytes })` (SSRF guard with pinned DNS); `idempotent` middleware (`Idempotency-Key`, user-scoped).
+- **Boot guards:** `APP_DEBUG=true` + `APP_ENV=production` refused unless `--force-debug` (global `node strut` flag) or `app.forceDebug()`.
+- **Commands:** `optimize[:clear]`, `config|route|event:cache/clear`, `event:list`, `cache:clear [--store]`, `cache:forget`, `key:generate`, `key:rotate`, `env:encrypt/decrypt` (`--key` or `STRUT_ENV_KEY`, never written), `down [--secret|--with-secret --retry --refresh --redirect --render]`, `up`, `session:flush`, `security:check [--audit --json]` (exit 1 on failure). Caches live in `bootstrap/cache/*.json`, encrypted, stamped with key id + code fingerprint, ignored with a warning when stale. Maintenance state: `storage/framework/down` (atomic, shared by all processes; `/up` stays healthy).
+- **Requests:** spike 13 (installer) should write `APP_KEY` as `base64:` + 32 random bytes and may call `node strut key:generate`; spike 20 should rebind `SessionStoreToken` to its database store so `session:flush` signs everyone out.
