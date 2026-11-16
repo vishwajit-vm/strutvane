@@ -21,7 +21,7 @@
 
 This section is updated at every milestone and before every stop, together with the PDF copy. Every number comes from `STATE.md` and was checked by the coordinator.
 
-> **⏸ Paused on 2026-11-16 (evening)** at the project lead's request. Everything is committed. Pushed to GitHub except framework `v2/app-core` and the hub's pause commit, which wait for the personal GitHub account (see `STATE.md`). **Resume: ~21–22 Nov 2026.** At resume: read `STATE.md`, run `node scripts/state-check.mjs`, then continue with §0.3 (each framework branch has a `NEXT.md` saying exactly where it stopped).
+> **⏸ Paused on 2026-11-16 (evening)** at the project lead's request. Everything is committed and pushed to GitHub; nothing lives only on this machine. **Resume: ~21–22 Nov 2026.** At resume: read `STATE.md`, run `node scripts/state-check.mjs`, then continue with §0.3 (each framework branch has a `NEXT.md` saying exactly where it stopped).
 
 **Definitions:**
 - **Built:** the code is written.

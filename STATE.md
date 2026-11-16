@@ -7,7 +7,7 @@
 > - **Run `node scripts/state-check.mjs` at the start of every session and before reporting status.** It fails if any repo has uncommitted or unpushed work, or if this file names a commit that doesn't exist.
 > - Details live elsewhere and are linked, not copied: decisions in `spikes/CONSISTENCY-2026-11-15.md`, the plan in `docs/21-delivery-plan.md`, rules in `docs/19-production-readiness.md`, each branch's `NEXT.md`.
 
-_Last updated: 2026-11-16 (evening). **Work is PAUSED** until ~21–22 Nov 2026. All work is committed. Pushed: everything except framework `v2/app-core` (ef3ab03) and this hub commit, which wait for the personal GitHub account (the machine's active `gh` login is now an office account, which must never be used for these repos). Run `node scripts/state-check.mjs` to see what is still unpushed._
+_Last updated: 2026-11-16 (evening). **Work is PAUSED** until ~21–22 Nov 2026. Everything is committed and pushed to GitHub with the personal account (never the office account). Run `node scripts/state-check.mjs` at resume._
 
 ## 1. Release status
 | Item | State |
@@ -21,7 +21,7 @@ _Last updated: 2026-11-16 (evening). **Work is PAUSED** until ~21–22 Nov 2026.
 | Repo | `main` | Work branch | Branch state | Verified by coordinator |
 |---|---|---|---|---|
 | strutvane (hub) | blueprint, docs 18–21, ADRs to 0023, spikes, decisions 1–129 | — | — | pushed |
-| strutvane-framework | **v2 at 0.1.0-next.1** (1fd4885) | `v2/data-layer` (ORM + migrations, f9e505a) and `v2/app-core` (MVC + commands, ef3ab03) | ⏸ paused WIP (data-layer pushed; app-core committed, push pending); each has a `NEXT.md` with done / half-done / next | `main`: 1,466 tests pass, code rules clean (2026-11-16) |
+| strutvane-framework | **v2 at 0.1.0-next.1** (1fd4885) | `v2/data-layer` (ORM + migrations, f9e505a) and `v2/app-core` (MVC + commands, ef3ab03) | ⏸ paused WIP, both pushed; each has a `NEXT.md` with done / half-done / next | `main`: 1,466 tests pass, code rules clean (2026-11-16) |
 | strutvane-auth | v1 + 6 audit fixes | `v2/native-engine` (ADR-0023) at **0.2.0-next.0** | ✅ done and **pushed** (39bba2f, 2026-11-16, lead approved) | v2: 819 tests + 63 Postgres integration, 3× green *(agent-reported; the coordinator's re-run is pending)* |
 | strutvane-ui | v1 + 17 audit fixes | `v2/behaviour` at **0.2.0-next.0** | ✅ done and **pushed** (3ca9c57, 2026-11-16, lead approved) | v2: **488 tests**, coverage 97.1/92.9/96.4/98.4 (2026-11-16) |
 | create-strutvane | v1 | `v2/installer` at **0.2.0-next.0** | ✅ done and **pushed** (52cebb1, 2026-11-16, lead approved) | 473 tests, 3× green *(agent-reported; the coordinator's re-run is pending)* |
@@ -68,6 +68,7 @@ Tracked privately in `docs/research/2026-11-15-audit-findings.md` (git-excluded)
 ## 6. Verification log (newest first)
 | Date | What | Result |
 |---|---|---|
+| 2026-11-16 (pause) | framework `v2/app-core` ef3ab03 and the hub pushed | pushed |
 | 2026-11-16 (pause) | `scripts/state-check.mjs` before stopping | every repo committed; see the hub commit for the pause |
 | 2026-11-16 | framework `v2/data-layer` pushed (f9e505a); notes scrubbed of unfixed security details before the first push | pushed |
 | 2026-11-16 | ui `v2/behaviour` at 3ca9c57, full gate | 488 passed, 0 failed |
