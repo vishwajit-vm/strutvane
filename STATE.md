@@ -35,8 +35,8 @@ _Last updated: 2026-11-16_
 ## 2a. Agents running right now (updated 2026-11-16)
 | Work | Repo / branch | Started | Expected result |
 |---|---|---|---|
-| Framework database layer (ORM, migrations, migrate, seeding, sandbox F-06) | framework  | 2026-11-16 | 0.2.0-next.0, gate 3× green, then merge |
-| Framework app core (Application.configure, routing, security kit, commands, facades, lowercase codes) | framework  | 2026-11-16 | same |
+| Framework database layer (ORM, migrations, migrate, seeding, sandbox F-06) | framework `v2/data-layer` | 2026-11-16 | 0.2.0-next.0, gate 3× green, then merge |
+| Framework app core (Application.configure, routing, security kit, commands, facades, lowercase codes) | framework `v2/app-core` | 2026-11-16 | same |
 | design-crisp (default design package) | new local repo packages/design-crisp | 2026-11-16 | conformance passes; the coordinator creates the GitHub repo and pushes |
 | design-vivid | new local repo packages/design-vivid | 2026-11-16 | same |
 
