@@ -30,7 +30,7 @@ _Last updated: 2026-11-16_
 | strutvane-docs | v2 site, live at https://vishwajit-vm.github.io/strutvane-docs/ (flat Packages menu) | `0.1.x` = old v1 site | — | 522 pages, 0 broken links |
 | strutvane-files | v1, first pushed 2026-11-16 | — | — | — |
 | strutvane-design-crisp | **0.2.0-next.0** (5d5fcd6), repo created 2026-11-16 | — | ✅ done; conformance passes | **105 tests**, coverage 100% (2026-11-16) |
-| strutvane-design-vivid | local repo packages/design-vivid | — | 🔄 agent building | — |
+| strutvane-design-vivid | **0.2.0-next.0** (5956bfe), repo created 2026-11-16 | — | ✅ done; conformance 15/15 | **233 tests**, coverage 100% (2026-11-16) |
 | core, contracts, cli, devkit | archived (moved into the framework) | — | — | — |
 
 ## 2a. Agents running right now (updated 2026-11-16)
@@ -38,7 +38,6 @@ _Last updated: 2026-11-16_
 |---|---|---|---|
 | Framework database layer (ORM, migrations, migrate, seeding, sandbox F-06) | framework `v2/data-layer` | 2026-11-16 | 0.2.0-next.0, gate 3× green, then merge |
 | Framework app core (Application.configure, routing, security kit, commands, facades, lowercase codes) | framework `v2/app-core` | 2026-11-16 | same |
-| design-vivid | new local repo packages/design-vivid | 2026-11-16 | same |
 
 When an agent finishes: re-run its gate, update §2 and §6, push, and remove it from this table.
 
@@ -50,7 +49,7 @@ When an agent finishes: re-run its gate, update §2 and §6, push, and remove it
 ## 4. Next steps (in order)
 1. Finish and verify auth v2, then push and merge it after the framework is published.
 2. Framework `v2/data-layer` and `v2/app-core`: verify, merge, release as 0.2.0-next.0.
-3. design-crisp and design-vivid: create the repos, verify, push.
+3. ✅ design-crisp and design-vivid: created, verified and pushed; both added to the tooling manifest. Lockfiles wait for ui to publish.
 4. Logging fold-in → log-viewer → installers (`node strut install:x`) → skeleton → catalogue CI → npx guard.
 5. After npm unlocks: stage the framework, refresh the downstream lockfiles, apply the release patches, release the 0.2 core train.
 6. Acceptance: the demo app with the installer, then remove the docs' "Coming in 0.2" labels, then **0.2.0**.
