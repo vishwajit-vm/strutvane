@@ -206,3 +206,10 @@ The docs pass found places where the blueprint and the spikes disagree. When a m
 | 125 | Behaviour changes accepted | A failing `after*`/`afterCommit` hook is logged and never turns a committed write into a 500. CSRF covers hook-answered routes. Reaching the dev server by LAN IP or another hostname needs `trustedHosts`. | docs |
 | 126 | Include cap signal; idempotency store | Single-record responses use the `Strutvane-Truncated-Includes` header; lists use `meta.truncated`. The in-memory idempotency store is per-process; clusters bind a shared store (`@strutvane/redis` in 0.3). | docs |
 | 127 | `sv` in generated text | Every generated file, hint and message says `node strut …`, never `sv`. | framework, installer |
+
+## Eleventh pass (release versions, 2026-11-16)
+
+| # | Topic | Decision | Owner |
+|---|---|---|---|
+| 128 | Core-train version | The core train releases in lockstep as **`0.2.0-next.N`**: framework, auth, ui, the design packages, create-strutvane and skeleton. v2 is breaking, but pre-1.0 breaking changes ride a minor bump (blueprint §8), so changesets use `minor`, never `major`. Framework `0.1.0-next.1` (already on main) may be staged as an interim pre-release, and its next version is `0.2.0-next.0`. Peers use `^0.2.0-next.0` once the framework is at that version. | all core repos |
+| 129 | Design packages | `@strutvane/design-crisp` (the default) and `@strutvane/design-vivid` are separate repos (`strutvane-design-crisp`, `strutvane-design-vivid`). Each implements the ui v2 Design contract, passes `designConformance()`, and has `@strutvane/ui` as a peer. | new repos |
