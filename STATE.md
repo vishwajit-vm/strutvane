@@ -32,6 +32,16 @@ _Last updated: 2026-11-16_
 | strutvane-design-crisp / -vivid | **repos not created yet** (local `packages/design-*`) | `main` (local) | 🔄 agents building | — |
 | core, contracts, cli, devkit | archived (moved into the framework) | — | — | — |
 
+## 2a. Agents running right now (updated 2026-11-16)
+| Work | Repo / branch | Started | Expected result |
+|---|---|---|---|
+| Framework database layer (ORM, migrations, migrate, seeding, sandbox F-06) | framework  | 2026-11-16 | 0.2.0-next.0, gate 3× green, then merge |
+| Framework app core (Application.configure, routing, security kit, commands, facades, lowercase codes) | framework  | 2026-11-16 | same |
+| design-crisp (default design package) | new local repo packages/design-crisp | 2026-11-16 | conformance passes; the coordinator creates the GitHub repo and pushes |
+| design-vivid | new local repo packages/design-vivid | 2026-11-16 | same |
+
+When an agent finishes: re-run its gate, update §2 and §6, push, and remove it from this table.
+
 ## 3. Open decisions (waiting on the project lead)
 | # | Question | Coordinator's recommendation |
 |---|---|---|
