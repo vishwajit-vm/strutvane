@@ -1,6 +1,6 @@
 # 21. Delivery plan: what gets built, in what order, and when
 
-- **As of:** 2026-11-16
+- **As of:** 2026-11-16 (the live status dashboard in §0 is updated at every milestone)
 - **Owner:** project lead (decisions) · coordinator (planning, verification, merges)
 - **How to read this:**
   - §1 is the one-page overview.
@@ -14,6 +14,78 @@
 - **Estimates:**
   - Hours are **agent-hours**: the time AI agents spend building, testing, auditing, documenting and having the coordinator verify a package. They are honest estimates with about **±30% uncertainty**.
   - Calendar dates depend mainly on usage limits (§6), not on how fast the work itself goes.
+
+---
+
+## 0. Live status dashboard (updated 2026-11-16, evening)
+
+This section is updated at every milestone, together with the PDF copy. Every number comes from `STATE.md` and was checked by the coordinator.
+
+**Definitions:**
+- **Built:** the code is written.
+- **Tested:** the full gate passes 3× in a row, re-run by the coordinator.
+- **Pushed:** the work is on GitHub.
+- **Merged:** it's on `main`.
+- **Released:** it's on npm.
+- **Docs:** the docs site describes it.
+- **100% done** means all six are ✅.
+
+### 0.1 Overall progress
+| Measure | Value |
+|---|---|
+| Release 0.2 (full flow) | **~31% done**: ~26 of ~84 planned agent-hours completed; ~58 hours left |
+| Whole ecosystem (47 packages + 2 designs) | **~5% done** of ~546 agent-hours |
+| Released on npm so far | **0%**: npm unlocks 2026-11-17 08:35 UTC, and the framework 0.1.0-next.1 release is staged first |
+| Time spent so far | **~4 days** (13–16 Nov 2026), about 100–130 agent-hours *(estimate)* |
+| Time left to 0.2 | **~12 days** at the current pace (~5 agent-hours/day); **~17 days** with buffer |
+| Test cases passing in finished packages | ~3,600 (framework 1,466 · auth 819 + 63 integration · ui 488 · installer 473 · logs 573 · Crisp 105 · Vivid 233 · tooling 129) |
+
+### 0.2 ✅ Done list
+| Item | Built | Tested | Pushed | Merged | Released | Docs | Done |
+|---|---|---|---|---|---|---|---|
+| Tooling: npm CI and the R1–R9 production checks | ✅ | ✅ 129 | ✅ | ✅ | n/a | ✅ | **100%** |
+| Docs site v2 (live, 522 pages) | ✅ | ✅ 0 broken links | ✅ | ✅ | ✅ live | ✅ | **100%** |
+| Old repos archived (core, contracts, cli, devkit) | ✅ | n/a | ✅ | ✅ | npm deprecation after 0.2 | ✅ | 90% |
+| Framework v2 (consolidation, 4 audits, fix pass) | ✅ | ✅ 1,466 | ✅ | ✅ | ⏳ npm unlock | ✅ | 85% |
+| auth v2 (native engine) | ✅ | ⚠️ agent-reported 819 + 63 | ✅ | ⏳ after framework publish | ⏳ | ⏳ | 65% |
+| ui v2 (behaviour + design contract) | ✅ | ✅ 488 | ✅ | ⏳ | ⏳ | ⏳ | 65% |
+| create-strutvane v2 (installer) | ✅ | ⚠️ agent-reported 473 | ✅ | ⏳ | ⏳ | ✅ | 65% |
+| design-crisp (default) | ✅ | ✅ 105 | ✅ new repo | ✅ | ⏳ | ⏳ | 70% |
+| design-vivid | ✅ | ✅ 233 | ✅ new repo | ✅ | ⏳ | ⏳ | 70% |
+| logging channels (`v2/channels`) | ✅ | ✅ 573 | ✅ | ⏳ fold into framework | ⏳ | ✅ | 60% |
+| Prototypes 10–21 (schema, ORM, MVC, installer, UI, charts, designs, auth, catalogue) | ✅ | ✅ | ✅ | ✅ (hub) | n/a | n/a | **100%** (as prototypes) |
+| Plans and decisions (docs 18–21, ADRs to 0023, decisions #1–129, STATE.md, state-check) | ✅ | ✅ | ✅ | ✅ | n/a | ✅ | **100%** |
+
+### 0.3 🔄 Working on now
+| Item | Progress | Hours left | Notes |
+|---|---|---|---|
+| Framework database layer (ORM, migrations, sandbox) | ~20% | ~14 | agent building on `v2/data-layer` |
+| Framework app core (MVC, commands, security kit) | ~20% | ~11 | agent building on `v2/app-core` |
+
+### 0.4 ⏭ Next (after the current work)
+| Order | Item | Hours |
+|---|---|---|
+| 1 | npm unlock: stage framework 0.1.0-next.1, refresh lockfiles, apply the release patches | 2 |
+| 2 | Logging folded into the framework, then log-viewer | 8 |
+| 3 | Package installers (`node strut install:<x>`) | 8 |
+| 4 | strutvane-skeleton, catalogue CI, npx guard | 8 |
+| 5 | Security reviews (R3) and soak tests (R4) for auth, ui and the installer | 6 |
+| 6 | Demo app end to end, docs labels removed, **release 0.2.0** | 8 |
+
+### 0.5 🗓 After that
+| Release | Packages | Hours | Target |
+|---|---|---|---|
+| 0.3 | queues, mail, notifications, scheduler, cache, Redis, queue dashboard, social login, agent tools | ~60 | late Dec 2026 |
+| 1.0 | files, search, import/export, inspector, observability, health, charts, dashboards + external audit | ~82 | Feb 2027 |
+| 1.x | back-office → identity → money/realtime → content/AI → on demand | ~320 | Feb–Apr 2027 |
+
+### 0.6 Release timeline (current pace, ~5 agent-hours/day)
+| Release | Hours left | Days from now | Expected | With 30% buffer |
+|---|---|---|---|---|
+| 0.2 | ~58 | ~12 | **28 Nov 2026** | **3 Dec 2026** |
+| 0.3 | ~118 | ~24 | 10 Dec 2026 | 18 Dec 2026 |
+| 1.0 (build) | ~200 | ~40 | 26 Dec 2026 | 8 Jan 2027 (+ audit → Feb 2027) |
+| Everything | ~520 | ~104 | 28 Feb 2027 | **3 Apr 2027** |
 
 ---
 
