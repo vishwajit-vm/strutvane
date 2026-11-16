@@ -1,6 +1,6 @@
 # ADR-0013: Better Auth is the default identity engine, behind a contract-tested `IdentityEngine` interface with mandatory hardening
 
-- **Status:** Accepted (refines [ADR-0005](0005-identity-adapter-better-auth-default.md))
+- **Status:** Superseded by ADR-0023 (2026-11-16); the IdentityEngine contract and hardening rules carry over
 - **Date:** 2026-11-13
 - **Related:** [Spike 07 report](../../spikes/07-better-auth-adapter/README.md), [ADR-0007](0007-tenancy-rls-enforcement-rules.md), [07 Auth](../07-package-auth.md), [12 Security](../12-security-model.md)
 

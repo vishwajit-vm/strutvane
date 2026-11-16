@@ -1,6 +1,6 @@
 # ADR-0005: Identity via adapter (Better Auth default); native authorization, tenancy and audit
 
-- **Status:** Accepted
+- **Status:** Accepted; its "Better Auth is the default" part is superseded by ADR-0023 (2026-11-16)
 - **Date:** 2026-11-13
 - **Related:** [07 Auth](../07-package-auth.md), [12 Security](../12-security-model.md)
 

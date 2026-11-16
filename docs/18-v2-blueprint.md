@@ -592,7 +592,7 @@ Still open:
 ## 12. Decisions to record as ADRs once approved
 
 - **Superseded:** D2, D4, D5, D6, D7, D17, D23; ADR-0002 (polyrepo), 0003, 0009, 0010 (registry compiler), 0012 (merge engine).
-- **Refined:** D1, D8, D9, D10, D12, D14, D15, D18, D21, D24; ADR-0001, 0004, 0005/0013 (Better Auth default), 0014, 0016 (`latest`, plain 0.x), 0018 (409 = skip).
+- **Refined:** D1, D8, D9, D10, D12 (done: ADR-0023), D14, D15, D18, D21, D24; ADR-0001, 0004, 0005/0013 (Better Auth default; done: ADR-0023), 0014, 0016 (`latest`, plain 0.x), 0018 (409 = skip).
 - **New ADRs:**
   - migration-first schema with in-memory replay (an exception to ADR-0010's "never execute");
   - the Strutvane ORM;
