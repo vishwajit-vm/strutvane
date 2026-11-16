@@ -29,7 +29,8 @@ _Last updated: 2026-11-16_
 | strutvane-tooling | npm + R1–R9 CI | — | — | 129 tests |
 | strutvane-docs | v2 site, live at https://vishwajit-vm.github.io/strutvane-docs/ (flat Packages menu) | `0.1.x` = old v1 site | — | 522 pages, 0 broken links |
 | strutvane-files | v1, first pushed 2026-11-16 | — | — | — |
-| strutvane-design-crisp / -vivid | **repos not created yet** (local `packages/design-*`) | `main` (local) | 🔄 agents building | — |
+| strutvane-design-crisp | **0.2.0-next.0** (5d5fcd6), repo created 2026-11-16 | — | ✅ done; conformance passes | **105 tests**, coverage 100% (2026-11-16) |
+| strutvane-design-vivid | local repo packages/design-vivid | — | 🔄 agent building | — |
 | core, contracts, cli, devkit | archived (moved into the framework) | — | — | — |
 
 ## 2a. Agents running right now (updated 2026-11-16)
@@ -37,7 +38,6 @@ _Last updated: 2026-11-16_
 |---|---|---|---|
 | Framework database layer (ORM, migrations, migrate, seeding, sandbox F-06) | framework `v2/data-layer` | 2026-11-16 | 0.2.0-next.0, gate 3× green, then merge |
 | Framework app core (Application.configure, routing, security kit, commands, facades, lowercase codes) | framework `v2/app-core` | 2026-11-16 | same |
-| design-crisp (default design package) | new local repo packages/design-crisp | 2026-11-16 | conformance passes; the coordinator creates the GitHub repo and pushes |
 | design-vivid | new local repo packages/design-vivid | 2026-11-16 | same |
 
 When an agent finishes: re-run its gate, update §2 and §6, push, and remove it from this table.
