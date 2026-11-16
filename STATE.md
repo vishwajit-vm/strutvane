@@ -7,7 +7,7 @@
 > - **Run `node scripts/state-check.mjs` at the start of every session and before reporting status.** It fails if any repo has uncommitted or unpushed work, or if this file names a commit that doesn't exist.
 > - Details live elsewhere and are linked, not copied: decisions in `spikes/CONSISTENCY-2026-11-15.md`, the plan in `docs/21-delivery-plan.md`, rules in `docs/19-production-readiness.md`, each branch's `NEXT.md`.
 
-_Last updated: 2026-11-16_
+_Last updated: 2026-11-16 (evening). **Work is PAUSED** until ~21–22 Nov 2026. All work is committed. Pushed: everything except framework `v2/app-core` (ef3ab03) and this hub commit, which wait for the personal GitHub account (the machine's active `gh` login is now an office account, which must never be used for these repos). Run `node scripts/state-check.mjs` to see what is still unpushed._
 
 ## 1. Release status
 | Item | State |
@@ -21,7 +21,7 @@ _Last updated: 2026-11-16_
 | Repo | `main` | Work branch | Branch state | Verified by coordinator |
 |---|---|---|---|---|
 | strutvane (hub) | blueprint, docs 18–21, ADRs to 0023, spikes, decisions 1–129 | — | — | pushed |
-| strutvane-framework | **v2 at 0.1.0-next.1** (1fd4885) | `v2/data-layer` (ORM + migrations) and `v2/app-core` (MVC + commands) | 🔄 agents building | `main`: 1,466 tests pass, code rules clean (2026-11-16) |
+| strutvane-framework | **v2 at 0.1.0-next.1** (1fd4885) | `v2/data-layer` (ORM + migrations, f9e505a) and `v2/app-core` (MVC + commands, ef3ab03) | ⏸ paused WIP (data-layer pushed; app-core committed, push pending); each has a `NEXT.md` with done / half-done / next | `main`: 1,466 tests pass, code rules clean (2026-11-16) |
 | strutvane-auth | v1 + 6 audit fixes | `v2/native-engine` (ADR-0023) at **0.2.0-next.0** | ✅ done and **pushed** (39bba2f, 2026-11-16, lead approved) | v2: 819 tests + 63 Postgres integration, 3× green *(agent-reported; the coordinator's re-run is pending)* |
 | strutvane-ui | v1 + 17 audit fixes | `v2/behaviour` at **0.2.0-next.0** | ✅ done and **pushed** (3ca9c57, 2026-11-16, lead approved) | v2: **488 tests**, coverage 97.1/92.9/96.4/98.4 (2026-11-16) |
 | create-strutvane | v1 | `v2/installer` at **0.2.0-next.0** | ✅ done and **pushed** (52cebb1, 2026-11-16, lead approved) | 473 tests, 3× green *(agent-reported; the coordinator's re-run is pending)* |
@@ -33,18 +33,26 @@ _Last updated: 2026-11-16_
 | strutvane-design-vivid | **0.2.0-next.0** (5956bfe), repo created 2026-11-16 | — | ✅ done; conformance 15/15 | **233 tests**, coverage 100% (2026-11-16) |
 | core, contracts, cli, devkit | archived (moved into the framework) | — | — | — |
 
-## 2a. Agents running right now (updated 2026-11-16)
-| Work | Repo / branch | Started | Expected result |
-|---|---|---|---|
-| Framework database layer (ORM, migrations, migrate, seeding, sandbox F-06) | framework `v2/data-layer` | 2026-11-16 | 0.2.0-next.0, gate 3× green, then merge |
-| Framework app core (Application.configure, routing, security kit, commands, facades, lowercase codes) | framework `v2/app-core` | 2026-11-16 | same |
+## 2a. Agents running right now (updated 2026-11-16, evening)
+None: all agents were stopped for the pause.
 
-When an agent finishes: re-run its gate, update §2 and §6, push, and remove it from this table.
+Where the two framework branches stopped *(agent-reported; the coordinator has not re-run either gate)*:
+| Branch | State at the pause | First jobs at resume |
+|---|---|---|
+| `v2/data-layer` f9e505a | own ORM on MySQL, MariaDB, PostgreSQL and SQLite; migration-first schema; v2 migrator and replay sandbox; migrate/db:seed/make:migration commands. One full gate green (2,205 passed, 16 skipped, coverage 96.2/89.9/97.4/97.2); 3× under load NOT met (v1 PGlite timeouts). **Security review: 2 critical + 2 high unfixed** (private file) | fix the review findings with whole-class regression tests; re-run the full review; raise v1 PGlite suite timeouts; gate 3×; generated CRUD API over the ORM |
+| `v2/app-core` ef3ab03 | security kit, Application + routing + HTTP kernel, exception handler + dev error page, facades, commands, maintenance mode, cache and session stores (commands and facades agents' work is included). Targeted suites green; `tsc` has 1 error in a test fixture; full gate never run | fix the fixture; write the missing command tests; lowercase codes (#123); exports + `./facades`; serve.ts + CLI wiring; make `serve-lifecycle` deterministic; changeset; gate 3× |
+
+Expect a merge conflict between the two branches in `src/console/commands/make.ts` (`make:migration`) and `src/commands.ts`.
 
 ## 3. Open decisions (waiting on the project lead)
 | # | Question | Coordinator's recommendation |
 |---|---|---|
-| — | none right now | — |
+| 1 | Generated apps must not set `isolatedDeclarations` (typed `route()`/`config()` need it off) | accept |
+| 2 | `route:list` is the app command; `routes` stays for `strutvane.config.ts` projects | accept |
+| 3 | HSTS only in production | accept |
+| 4 | Unsafe request with a session cookie to an unknown path answers 419 (CSRF runs before routing) | accept; matches Laravel |
+| 5 | Runtime and migrations share one `DB_*` role, so on PostgreSQL the runtime role owns the tables (conflicts with ADR-0007 rule 4) | add `DB_MIGRATE_*` credentials for migrations; runtime role without ownership |
+| 6 | `DB_SSLMODE=prefer` connects without TLS (Node drivers can't fall back) | document it; default generated apps to `require` in production |
 
 ## 4. Next steps (in order)
 1. Finish and verify auth v2, then push and merge it after the framework is published.
@@ -60,6 +68,8 @@ Tracked privately in `docs/research/2026-11-15-audit-findings.md` (git-excluded)
 ## 6. Verification log (newest first)
 | Date | What | Result |
 |---|---|---|
+| 2026-11-16 (pause) | `scripts/state-check.mjs` before stopping | every repo committed; see the hub commit for the pause |
+| 2026-11-16 | framework `v2/data-layer` pushed (f9e505a); notes scrubbed of unfixed security details before the first push | pushed |
 | 2026-11-16 | ui `v2/behaviour` at 3ca9c57, full gate | 488 passed, 0 failed |
 | 2026-11-16 | framework `main` 1fd4885 (fix pass), full gate with strict unhandled rejections | 1,466 passed, code rules 0 |
 | 2026-11-16 | spike 20 (auth prototype) | 279 passed |

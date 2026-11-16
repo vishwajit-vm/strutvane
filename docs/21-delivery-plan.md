@@ -17,9 +17,11 @@
 
 ---
 
-## 0. Live status dashboard (updated 2026-11-16, evening)
+## 0. Live status dashboard (updated 2026-11-16, evening — work paused)
 
-This section is updated at every milestone, together with the PDF copy. Every number comes from `STATE.md` and was checked by the coordinator.
+This section is updated at every milestone and before every stop, together with the PDF copy. Every number comes from `STATE.md` and was checked by the coordinator.
+
+> **⏸ Paused on 2026-11-16 (evening)** at the project lead's request. Everything is committed. Pushed to GitHub except framework `v2/app-core` and the hub's pause commit, which wait for the personal GitHub account (see `STATE.md`). **Resume: ~21–22 Nov 2026.** At resume: read `STATE.md`, run `node scripts/state-check.mjs`, then continue with §0.3 (each framework branch has a `NEXT.md` saying exactly where it stopped).
 
 **Definitions:**
 - **Built:** the code is written.
@@ -33,12 +35,12 @@ This section is updated at every milestone, together with the PDF copy. Every nu
 ### 0.1 Overall progress
 | Measure | Value |
 |---|---|
-| Release 0.2 (full flow) | **~31% done**: ~26 of ~84 planned agent-hours completed; ~58 hours left |
-| Whole ecosystem (47 packages + 2 designs) | **~5% done** of ~546 agent-hours |
+| Release 0.2 (full flow) | **~45% done**: ~38 of ~84 planned agent-hours completed; ~46 hours left |
+| Whole ecosystem (47 packages + 2 designs) | **~7% done** of ~546 agent-hours |
 | Released on npm so far | **0%**: npm unlocks 2026-11-17 08:35 UTC, and the framework 0.1.0-next.1 release is staged first |
 | Time spent so far | **~4 days** (13–16 Nov 2026), about 100–130 agent-hours *(estimate)* |
-| Time left to 0.2 | **~12 days** at the current pace (~5 agent-hours/day); **~17 days** with buffer |
-| Test cases passing in finished packages | ~3,600 (framework 1,466 · auth 819 + 63 integration · ui 488 · installer 473 · logs 573 · Crisp 105 · Vivid 233 · tooling 129) |
+| Time left to 0.2 | **~9 working days** after the resume (~5 agent-hours/day); **~12** with buffer |
+| Test cases passing in finished packages | ~3,600 (framework 1,466 · auth 819 + 63 integration · ui 488 · installer 473 · logs 573 · Crisp 105 · Vivid 233 · tooling 129); plus 2,205 on the framework data-layer branch *(agent-reported, WIP)* |
 
 ### 0.2 ✅ Done list
 | Item | Built | Tested | Pushed | Merged | Released | Docs | Done |
@@ -56,11 +58,12 @@ This section is updated at every milestone, together with the PDF copy. Every nu
 | Prototypes 10–21 (schema, ORM, MVC, installer, UI, charts, designs, auth, catalogue) | ✅ | ✅ | ✅ | ✅ (hub) | n/a | n/a | **100%** (as prototypes) |
 | Plans and decisions (docs 18–21, ADRs to 0023, decisions #1–129, STATE.md, state-check) | ✅ | ✅ | ✅ | ✅ | n/a | ✅ | **100%** |
 
-### 0.3 🔄 Working on now
-| Item | Progress | Hours left | Notes |
+### 0.3 🔄 Working on now (⏸ paused)
+| Item | Progress | Hours left | Where it stopped |
 |---|---|---|---|
-| Framework database layer (ORM, migrations, sandbox) | ~20% | ~14 | agent building on `v2/data-layer` |
-| Framework app core (MVC, commands, security kit) | ~20% | ~11 | agent building on `v2/app-core` |
+| Framework database layer (ORM, migrations, sandbox) on `v2/data-layer` | ~60% | ~6 | built; one full gate green *(agent-reported)*; **2 critical + 2 high security findings to fix first**; then gate 3×, generated CRUD API |
+| Framework app core (MVC, commands, security kit, facades) on `v2/app-core` | ~45% | ~7 | built; targeted tests green; command tests, lowercase codes, exports, CLI wiring and the full gate still to do |
+| Merge both into framework `main` → 0.2.0-next.0 | 0% | ~1 | expect one conflict in `make:migration` |
 
 ### 0.4 ⏭ Next (after the current work)
 | Order | Item | Hours |
@@ -79,13 +82,15 @@ This section is updated at every milestone, together with the PDF copy. Every nu
 | 1.0 | files, search, import/export, inspector, observability, health, charts, dashboards + external audit | ~82 | Feb 2027 |
 | 1.x | back-office → identity → money/realtime → content/AI → on demand | ~320 | Feb–Apr 2027 |
 
-### 0.6 Release timeline (current pace, ~5 agent-hours/day)
-| Release | Hours left | Days from now | Expected | With 30% buffer |
+### 0.6 Release timeline (pace ~5 agent-hours/working day, counted from the resume on ~21 Nov 2026)
+| Release | Hours left | Working days | Expected | With 30% buffer |
 |---|---|---|---|---|
-| 0.2 | ~58 | ~12 | **28 Nov 2026** | **3 Dec 2026** |
-| 0.3 | ~118 | ~24 | 10 Dec 2026 | 18 Dec 2026 |
-| 1.0 (build) | ~200 | ~40 | 26 Dec 2026 | 8 Jan 2027 (+ audit → Feb 2027) |
-| Everything | ~520 | ~104 | 28 Feb 2027 | **3 Apr 2027** |
+| 0.2 | ~46 | ~9 | **1 Dec 2026** | **3 Dec 2026** |
+| 0.3 | ~106 | ~21 | 12 Dec 2026 | 18 Dec 2026 |
+| 1.0 (build) | ~188 | ~38 | 28 Dec 2026 | 8 Jan 2027 (+ external audit → Feb 2027) |
+| Everything | ~508 | ~102 | 2 Mar 2027 | **2 Apr 2027** |
+
+The pause (17–20 Nov) moved every date by about 5 days. If work only happens at weekends, the calendar stretches roughly 3× (see §6.3); the hours stay the same.
 
 ---
 
