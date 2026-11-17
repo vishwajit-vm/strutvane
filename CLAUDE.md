@@ -51,6 +51,10 @@ This folder is the **umbrella workspace and the hub repo** (`github.com/vishwaji
 
 ## Working rules
 
+- **`HANDOFF.md`** (hub root) is the shared memory for every Claude account and session: how to start, the anti-hallucination rules, the stop protocol and the session log. Follow it at the start and end of every session.
+
+@HANDOFF.md
+
 - **`STATE.md`** (hub root) is the single source of truth for current status: read it first every session and after any context summary; update it with every verification, merge or decision.
 - **Production readiness protocol** (`docs/19-production-readiness.md`) is binding for every package, both built and in progress. Nothing reaches npm `latest` until gates R1–R9 pass with evidence.
 
