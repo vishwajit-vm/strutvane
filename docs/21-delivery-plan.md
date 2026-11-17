@@ -17,11 +17,11 @@
 
 ---
 
-## 0. Live status dashboard (updated 2026-11-16, evening — work paused)
+## 0. Live status dashboard (updated 2026-11-17 — work paused for the weekly usage limit)
 
 This section is updated at every milestone and before every stop, together with the PDF copy. Every number comes from `STATE.md` and was checked by the coordinator.
 
-> **⏸ Paused on 2026-11-16 (evening)** at the project lead's request. Everything is committed and pushed to GitHub; nothing lives only on this machine. **Resume: ~21–22 Nov 2026.** At resume: read `STATE.md`, run `node scripts/state-check.mjs`, then continue with §0.3 (each framework branch has a `NEXT.md` saying exactly where it stopped).
+> **⏸ Paused on 2026-11-17** because the account's weekly usage reached 85% (it resets 2026-11-18 00:00 UTC). On 2026-11-17 the hub's commit identities were corrected (see HANDOFF §5) and work resumed briefly: two agents were started on the framework branches and stopped before changing anything. Everything is committed and pushed; nothing lives only on this machine. **Resume: after 2026-11-18 00:00 UTC.** At resume: read `STATE.md`, run `node scripts/state-check.mjs`, then continue with §0.3 (each framework branch has a `NEXT.md` saying exactly where it stopped).
 
 **Definitions:**
 - **Built:** the code is written.
@@ -37,7 +37,7 @@ This section is updated at every milestone and before every stop, together with 
 |---|---|
 | Release 0.2 (full flow) | **~45% done**: ~38 of ~84 planned agent-hours completed; ~46 hours left |
 | Whole ecosystem (47 packages + 2 designs) | **~7% done** of ~546 agent-hours |
-| Released on npm so far | **0%**: npm unlocks 2026-11-17 08:35 UTC, and the framework 0.1.0-next.1 release is staged first |
+| Released on npm so far | **0% of v2**: npm unlocked 2026-11-17 08:35 UTC (v1 0.1.0-next.0 packages are on npm under `next`); the framework 0.1.0-next.1 release is staged first, with the project lead present for 2FA |
 | Time spent so far | **~4 days** (13–16 Nov 2026), about 100–130 agent-hours *(estimate)* |
 | Time left to 0.2 | **~9 working days** after the resume (~5 agent-hours/day); **~12** with buffer |
 | Test cases passing in finished packages | ~3,600 (framework 1,466 · auth 819 + 63 integration · ui 488 · installer 473 · logs 573 · Crisp 105 · Vivid 233 · tooling 129); plus 2,205 on the framework data-layer branch *(agent-reported, WIP)* |

@@ -66,6 +66,13 @@ Template:
 - Next session should start with: …
 ```
 
+### 2026-11-17: account A — paused for the weekly usage limit (85%)
+- Did: read `STATE.md`, ran state-check and identity-check (both OK); read both framework branches' `NEXT.md` and the private findings; started two agents (data-layer security fixes, app-core finish) in scratchpad worktrees, then stopped them within minutes when the weekly limit reached 85%. Neither had changed anything; the worktrees were released.
+- Commits / branches (pushed? yes): this hub commit only; framework branches unchanged (`v2/data-layer` f9e505a, `v2/app-core` ef3ab03).
+- Verified by re-running: state-check, identity-check. | Agent-reported only: nothing new.
+- Left half-done: nothing new; the plan is unchanged (see the 2026-11-16 entry below and each branch's `NEXT.md`).
+- Next session should start with: after 2026-11-18 00:00 UTC (weekly reset), §1, then re-launch the same two jobs: (1) data-layer: fix the 2 critical + 2 high findings (private file) with whole-class tests, stabilise the gate under load, re-run the security review; (2) app-core: NEXT.md items in order (tsc fixture, command tests, lowercase codes, exports/facades, serve wiring, deterministic serve-lifecycle test, changeset, gate 3×). Check usage (`get_usage`) every ~15 minutes and stop at ~85% of the 5-hour OR weekly limit.
+
 ### 2026-11-17: account A — commit identities corrected on the hub
 - Did: two hub commits made with the wrong (work) identity, and a README contributor-badge commit, were rewritten on `main` at the project lead's request. All five commits since `ade92da` now carry only the personal identity (author, committer and `Signed-off-by`), with unchanged content, messages and dates; the badge commit was dropped. `main`'s force-push protection was lifted for that single push and restored.
 - Commit id changes: 376e5d2→19871a4, 301c480→0cd873f, e6170dd→f80f25b, 418c2f3→713b5c9, 833fa40→25349c9; ea9744f dropped. Local clones made before this must reset to `origin/main`.

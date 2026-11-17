@@ -7,12 +7,12 @@
 > - **Run `node scripts/state-check.mjs` at the start of every session and before reporting status.** It fails if any repo has uncommitted or unpushed work, or if this file names a commit that doesn't exist.
 > - Details live elsewhere and are linked, not copied: decisions in `spikes/CONSISTENCY-2026-11-15.md`, the plan in `docs/21-delivery-plan.md`, rules in `docs/19-production-readiness.md`, each branch's `NEXT.md`.
 
-_Last updated: 2026-11-16 (evening). **Work is PAUSED** until ~21–22 Nov 2026. Everything is committed and pushed to GitHub with the personal account (never the office account). Run `node scripts/state-check.mjs` at resume._
+_Last updated: 2026-11-17. **Work is PAUSED** until the weekly usage limit resets (2026-11-18 00:00 UTC; it reached 85% on 2026-11-17). Everything is committed and pushed to GitHub with the personal account (never the office account). Run `node scripts/state-check.mjs` and `node scripts/identity-check.mjs` at resume._
 
 ## 1. Release status
 | Item | State |
 |---|---|
-| npm account | read-only until **2026-11-17 08:35 UTC** (nothing publishes before then) |
+| npm account | unlocked since **2026-11-17 08:35 UTC**; publishing and approving still need the project lead present for 2FA |
 | Next release | core train **0.2.0-next.0** (CONSISTENCY #128): framework, auth, ui, design-crisp, design-vivid, create-strutvane, skeleton |
 | Release order | framework → auth → ui → designs → create-strutvane (see `release/0.2/patches/README.md`) |
 | `RELEASE_ENABLED` | true on framework, auth, ui, logs and create-strutvane; any push to `main` runs the release workflow, which only stages and needs 2FA approval |
@@ -33,8 +33,8 @@ _Last updated: 2026-11-16 (evening). **Work is PAUSED** until ~21–22 Nov 2026.
 | strutvane-design-vivid | **0.2.0-next.0** (5956bfe), repo created 2026-11-16 | — | ✅ done; conformance 15/15 | **233 tests**, coverage 100% (2026-11-16) |
 | core, contracts, cli, devkit | archived (moved into the framework) | — | — | — |
 
-## 2a. Agents running right now (updated 2026-11-16, evening)
-None: all agents were stopped for the pause.
+## 2a. Agents running right now (updated 2026-11-17)
+None. Two agents (data-layer security fixes; app-core finish) were started on 2026-11-17 and stopped within minutes for the weekly usage limit, before changing anything; both branches are unchanged at the commits below.
 
 Where the two framework branches stopped *(agent-reported; the coordinator has not re-run either gate)*:
 | Branch | State at the pause | First jobs at resume |
@@ -68,6 +68,8 @@ Tracked privately in `docs/research/2026-11-15-audit-findings.md` (git-excluded)
 ## 6. Verification log (newest first)
 | Date | What | Result |
 |---|---|---|
+| 2026-11-17 | hub `main` rewritten to remove commits made with the work identity (HANDOFF §5); force-push protection restored | contributors API lists only `vishwajitvm`; state-check and identity-check OK |
+| 2026-11-17 | paused for the weekly usage limit (85%) | framework `v2/data-layer` f9e505a and `v2/app-core` ef3ab03 unchanged; nothing uncommitted |
 | 2026-11-16 (pause) | framework `v2/app-core` ef3ab03 and the hub pushed | pushed |
 | 2026-11-16 (pause) | `scripts/state-check.mjs` before stopping | every repo committed; see the hub commit for the pause |
 | 2026-11-16 | framework `v2/data-layer` pushed (f9e505a); notes scrubbed of unfixed security details before the first push | pushed |
