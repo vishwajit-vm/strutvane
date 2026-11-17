@@ -40,8 +40,11 @@
    ```
 5. Add an entry at the top of §5 below (template there).
 6. Commit the hub (`docs(state): …`). **Push every repo and branch** if the personal GitHub account is active (step 1.4); otherwise leave it committed and say so in the §5 entry and to the project lead.
-7. Run `node scripts/state-check.mjs` and report the result in one line.
-8. Update your own account's private memory with a pointer to this file. Nothing more is needed, because the facts live here.
+7. Release this session's git worktrees once their branch is pushed and clean (`git -C packages/<repo> worktree remove <path>` and then `git worktree prune`). Worktrees in a session's scratchpad belong to that session only: while one exists, no other session or account can check out that branch. The branch and its commits stay.
+8. Run `node scripts/state-check.mjs` and report the result in one line.
+9. Update your own account's private memory with a pointer to this file. Nothing more is needed, because the facts live here.
+
+**Same computer, different Claude accounts:** both accounts use the same project folder, so nothing needs to move between them. But only one account works at a time, and each finishes the stop protocol (including step 7) before the other starts.
 
 **The 5-hour usage limit:**
 - If the session can read usage (the Claude desktop app's usage tool), check it every ~15 minutes while agents run.
