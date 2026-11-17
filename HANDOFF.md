@@ -8,7 +8,10 @@
 1. Read `CLAUDE.md`, `.claude/ECOSYSTEM.md`, then **`STATE.md`** in full.
 2. Read §5 of this file (the session log): the newest entry says where the last session stopped and what it left half-done.
 3. Run `node scripts/state-check.mjs` in the hub. It must print `OK`. If it reports unpushed or uncommitted work, find out who left it (session log), and don't build on top of it until it's understood.
-4. Check `gh auth status`. **Push only with the GitHub account that administers the `vishwajit-vm` org (the personal account).** If another account is active, don't push, don't run `gh` against these repos, don't switch accounts yourself. Commit locally and tell the project lead.
+4. **Identity check (mandatory):** run `node scripts/identity-check.mjs`. It must print `OK`.
+   - **What it checks:** every repo's commit email is the project lead's **personal** email, and the active GitHub CLI login is the **personal** account `vishwajitvm`. Strutvane is a personal project on a personal GitHub org; a work account and a work email also exist on this computer and must **never** be used here.
+   - **If it fails:** don't commit, push or run `gh` against these repos. Don't switch accounts or change `git config` yourself. Tell the project lead which check failed.
+   - **When to run it again:** before **every** commit and push, because the login can change in the middle of a session.
 5. Read the `NEXT.md` of the branch you'll work on (for example framework `v2/data-layer`, `v2/app-core`).
 6. Only then plan the work. Take the next item from `STATE.md` §4 / §2a, or `docs/21-delivery-plan.md` §0.3–0.4, unless the project lead says otherwise.
 
@@ -26,6 +29,7 @@
 - Conventional commits, signed off (`git commit -s`). Stage by path (pathspec); in the hub, never `amend`, `reset`, `checkout` or `stash` (other sessions may be working there).
 - Work on short-lived branches and merge into `main` only after the coordinator has verified the gate 3× green. `RELEASE_ENABLED=true` on framework, auth, ui, logs and create-strutvane: **any push to `main` there runs the release workflow**, so run `changeset version` first and merge the framework first.
 - Never: commit `.env`, secrets or Docker files; type passwords, OTPs or tokens; publish or approve on npm without the project lead's 2FA; touch `C:\personal_projects\demo-strutvane-project`.
+- Commit and push only after `node scripts/identity-check.mjs` prints `OK` (personal email and personal GitHub account only, never the work ones).
 - Ask the project lead before: creating, renaming or deleting repos; pushing to `main` in a new way; anything a running agent says it was blocked from doing.
 
 ## 4. Stop protocol: on "stop", "pause", the usage limit, or a hand-over to another account
@@ -39,7 +43,7 @@
    "C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe" --headless=new --disable-gpu --no-pdf-header-footer --print-to-pdf="C:\personal_projects\strutvane\docs\21-delivery-plan.pdf" "file:///<temp-dir>/plan.html"
    ```
 5. Add an entry at the top of §5 below (template there).
-6. Commit the hub (`docs(state): …`). **Push every repo and branch** if the personal GitHub account is active (step 1.4); otherwise leave it committed and say so in the §5 entry and to the project lead.
+6. Run `node scripts/identity-check.mjs`. Only if it prints `OK`: commit the hub (`docs(state): …`) and **push every repo and branch**. If it fails: commit nothing more and push nothing; say so in the §5 entry and to the project lead.
 7. Release this session's git worktrees once their branch is pushed and clean (`git -C packages/<repo> worktree remove <path>` and then `git worktree prune`). Worktrees in a session's scratchpad belong to that session only: while one exists, no other session or account can check out that branch. The branch and its commits stay.
 8. Run `node scripts/state-check.mjs` and report the result in one line.
 9. Update your own account's private memory with a pointer to this file. Nothing more is needed, because the facts live here.
