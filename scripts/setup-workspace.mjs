@@ -36,10 +36,15 @@ export const REPOS = /** @type {const} */ ([
   ['ui', 'strutvane-ui'],
   ['cli', 'strutvane-cli'],
   ['devkit', 'strutvane-devkit'],
-  ['logs', 'strutvane-logs'],
+  // Renamed on GitHub from strutvane-logs (2026-11-17); the local folder keeps its old name.
+  ['logs', 'strutvane-log-viewer'],
   ['create-strutvane', 'create-strutvane'],
   ['tooling', 'strutvane-tooling'],
   ['docs', 'strutvane-docs'],
+  ['files', 'strutvane-files'],
+  ['design-crisp', 'strutvane-design-crisp'],
+  ['design-vivid', 'strutvane-design-vivid'],
+  // Planned add-ons (README-only placeholders, created 2026-11-17) are not cloned until they are built.
 ])
 
 /** Run git and return trimmed stdout, or null on failure. Never throws. */

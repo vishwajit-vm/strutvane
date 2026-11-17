@@ -21,28 +21,21 @@ _Last updated: 2026-11-17. **Work is PAUSED** until the weekly usage limit reset
 | Repo | `main` | Work branch | Branch state | Verified by coordinator |
 |---|---|---|---|---|
 | strutvane (hub) | blueprint, docs 18–21, ADRs to 0023, spikes, decisions 1–129 | — | — | pushed |
-| strutvane-framework | **v2 at 0.1.0-next.1** (1fd4885) | `v2/data-layer` (ORM + migrations, f9e505a) and `v2/app-core` (MVC + commands, ef3ab03) | ⏸ paused WIP, both pushed; each has a `NEXT.md` with done / half-done / next | `main`: 1,466 tests pass, code rules clean (2026-11-16) |
+| strutvane-framework | **0.2.0-next.0** (b9a23ab, 2026-11-17): v2 app core + data layer merged | `v2/data-layer`, `v2/app-core`, `v2/merge-0.2` (all merged into main) | ✅ merged and pushed. **Release blocked:** CI's TruffleHog step fails on fake test DSNs already in history (see §4 step 1) | `main`: 2,981 passed, 16 skipped, 0 failed, 3× in a row (coordinator, 2026-11-17); coverage 96.4/90.9/97.2/97.4 |
 | strutvane-auth | v1 + 6 audit fixes | `v2/native-engine` (ADR-0023) at **0.2.0-next.0** | ✅ done and **pushed** (39bba2f, 2026-11-16, lead approved) | v2: 819 tests + 63 Postgres integration, 3× green *(agent-reported; the coordinator's re-run is pending)* |
 | strutvane-ui | v1 + 17 audit fixes | `v2/behaviour` at **0.2.0-next.0** | ✅ done and **pushed** (3ca9c57, 2026-11-16, lead approved) | v2: **488 tests**, coverage 97.1/92.9/96.4/98.4 (2026-11-16) |
 | create-strutvane | v1 | `v2/installer` at **0.2.0-next.0** | ✅ done and **pushed** (52cebb1, 2026-11-16, lead approved) | 473 tests, 3× green *(agent-reported; the coordinator's re-run is pending)* |
-| strutvane-logs | v1 | `v2/channels` (ADR-0022) | ✅ audited and pushed; folds into the framework next | 573 tests |
+| strutvane-log-viewer (renamed from strutvane-logs 2026-11-17; old URL redirects) | v1 | `v2/channels` (ADR-0022) | ✅ audited and pushed; logging folds into the framework next | 573 tests |
 | strutvane-tooling | npm + R1–R9 CI | — | — | 129 tests |
 | strutvane-docs | v2 site, live at https://vishwajit-vm.github.io/strutvane-docs/ (flat Packages menu) | `0.1.x` = old v1 site | — | 522 pages, 0 broken links |
 | strutvane-files | v1, first pushed 2026-11-16 | — | — | — |
 | strutvane-design-crisp | **0.2.0-next.0** (5d5fcd6), repo created 2026-11-16 | — | ✅ done; conformance passes | **105 tests**, coverage 100% (2026-11-16) |
 | strutvane-design-vivid | **0.2.0-next.0** (5956bfe), repo created 2026-11-16 | — | ✅ done; conformance 15/15 | **233 tests**, coverage 100% (2026-11-16) |
+| 43 planned repos (README + LICENSE only) | created 2026-11-17: strutvane-skeleton, strutvane-npx, strutvane-design-glass and 40 add-ons (`strutvane-<id>` for every planned catalogue id) | — | planned | — |
 | core, contracts, cli, devkit | archived (moved into the framework) | — | — | — |
 
 ## 2a. Agents running right now (updated 2026-11-17)
-None. Two agents (data-layer security fixes; app-core finish) were started on 2026-11-17 and stopped within minutes for the weekly usage limit, before changing anything; both branches are unchanged at the commits below.
-
-Where the two framework branches stopped *(agent-reported; the coordinator has not re-run either gate)*:
-| Branch | State at the pause | First jobs at resume |
-|---|---|---|
-| `v2/data-layer` f9e505a | own ORM on MySQL, MariaDB, PostgreSQL and SQLite; migration-first schema; v2 migrator and replay sandbox; migrate/db:seed/make:migration commands. One full gate green (2,205 passed, 16 skipped, coverage 96.2/89.9/97.4/97.2); 3× under load NOT met (v1 PGlite timeouts). **Security review: 2 critical + 2 high unfixed** (private file) | fix the review findings with whole-class regression tests; re-run the full review; raise v1 PGlite suite timeouts; gate 3×; generated CRUD API over the ORM |
-| `v2/app-core` ef3ab03 | security kit, Application + routing + HTTP kernel, exception handler + dev error page, facades, commands, maintenance mode, cache and session stores (commands and facades agents' work is included). Targeted suites green; `tsc` has 1 error in a test fixture; full gate never run | fix the fixture; write the missing command tests; lowercase codes (#123); exports + `./facades`; serve.ts + CLI wiring; make `serve-lifecycle` deterministic; changeset; gate 3× |
-
-Expect a merge conflict between the two branches in `src/console/commands/make.ts` (`make:migration`) and `src/commands.ts`.
+None.
 
 ## 3. Open decisions (waiting on the project lead)
 | # | Question | Coordinator's recommendation |
@@ -55,13 +48,12 @@ Expect a merge conflict between the two branches in `src/console/commands/make.t
 | 6 | `DB_SSLMODE=prefer` connects without TLS (Node drivers can't fall back) | document it; default generated apps to `require` in production |
 
 ## 4. Next steps (in order)
-1. Finish and verify auth v2, then push and merge it after the framework is published.
-2. Framework `v2/data-layer` and `v2/app-core`: app-core ✅ verified 3× (23c496e) and data-layer ✅ verified 3× (d8d373a), both 2026-11-17; merge into `main` in progress. Then merge both (conflicts expected in `src/commands.ts`, `package.json`, `tsdown.config.ts`, `src/index.ts`; rename data-layer's `INVALID_ARGUMENT` to `invalid_argument`; replace leftover `sv` with `node strut`), release as 0.2.0-next.0.
-2a. **Required before the 0.2 train:** auth and ui v2 branches switch to the lowercase error codes and the issue `field` member (#123, #69); the hub RFC-0003 is updated to match.
-3. ✅ design-crisp and design-vivid: created, verified and pushed; both added to the tooling manifest. Lockfiles wait for ui to publish.
-4. Logging fold-in → log-viewer → installers (`node strut install:x`) → skeleton → catalogue CI → npx guard.
-5. After npm unlocks: stage the framework, refresh the downstream lockfiles, apply the release patches, release the 0.2 core train.
-6. Acceptance: the demo app with the installer, then remove the docs' "Coming in 0.2" labels, then **0.2.0**.
+1. **Unblock framework CI's secrets scan.** TruffleHog (`--results=verified,unknown`) fails on fake Postgres URLs in tests and doc comments (`u:p@h`, `app:hunter2@db`, test canaries). These are already in history, so inline `trufflehog:ignore` alone won't pass a range scan. Fix in strutvane-tooling, the synced CI (for example a per-repo exclude-paths file for `test/` and fixtures, or build the fixture URLs at runtime), verify locally with the TruffleHog container, sync, then re-run the release on framework `main` (0.2.0-next.0).
+2. **npm names:** the project lead runs `npm login`, then `node scripts/reserve-npm-names.mjs` (45 placeholders, `0.0.0-reserved.0` on dist-tag `reserved`), then sets up a trusted publisher (GitHub Actions) per package on npmjs.com.
+3. Release framework 0.2.0-next.0: the project lead approves it under npmjs.com → Staged Packages. An old staged `create-strutvane@0.1.0-next.0` (2026-11-14) is still waiting there: reject it, because v2 replaces it.
+4. auth and ui v2 branches: switch to lowercase error codes and the issue `field` member (#123, #69); update hub RFC-0003; refresh lockfiles against the published framework; apply `release/0.2/patches`; release the core train at 0.2.0-next.0.
+5. Logging fold-in → log-viewer → installers (`node strut install:x`) → skeleton → catalogue CI → npx guard.
+6. Security reviews (R3) and soak tests (R4) for auth, ui and the installer; demo app acceptance; **0.2.0**.
 
 ## 5. Open security items
 Tracked privately in `docs/research/2026-11-15-audit-findings.md` (git-excluded), never in this public file.
@@ -69,6 +61,8 @@ Tracked privately in `docs/research/2026-11-15-audit-findings.md` (git-excluded)
 ## 6. Verification log (newest first)
 | Date | What | Result |
 |---|---|---|
+| 2026-11-17 | framework `v2/merge-0.2` b9a23ab (both v2 branches merged, 0.2.0-next.0), full gate re-run by the coordinator 3× in a row; then fast-forwarded to `main` and pushed | 2,981 passed, 16 skipped, 0 failed each run |
+| 2026-11-17 | framework release re-run (run 43790797498, `main` 1fd4885) | CI security job failed (TruffleHog flags fake test DSNs); release skipped; npm account shows no lock |
 | 2026-11-17 | framework `v2/data-layer` at d8d373a (4 critical/high fixed + 5 review mediums/lows), full gate re-run by the coordinator 3× in a row with real MySQL/MariaDB/Postgres | 2,458 passed, 16 skipped, 0 failed each run; coverage 96.1/90.0/97.4/97.1 |
 | 2026-11-17 | framework `v2/app-core` at 23c496e (all NEXT.md items done), full gate re-run by the coordinator 3× in a row | 1,987 passed, 14 skipped, 0 failed each run; coverage 97.0/91.8/97.0/97.9; build OK |
 | 2026-11-17 | hub `main` rewritten to remove commits made with the work identity (HANDOFF §5); force-push protection restored | contributors API lists only `vishwajitvm`; state-check and identity-check OK |
