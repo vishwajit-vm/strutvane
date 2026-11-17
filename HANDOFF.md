@@ -66,11 +66,17 @@ Template:
 - Next session should start with: …
 ```
 
+### 2026-11-17: account A — commit identities corrected on the hub
+- Did: two hub commits made with the wrong (work) identity, and a README contributor-badge commit, were rewritten on `main` at the project lead's request. All five commits since `ade92da` now carry only the personal identity (author, committer and `Signed-off-by`), with unchanged content, messages and dates; the badge commit was dropped. `main`'s force-push protection was lifted for that single push and restored.
+- Commit id changes: 376e5d2→19871a4, 301c480→0cd873f, e6170dd→f80f25b, 418c2f3→713b5c9, 833fa40→25349c9; ea9744f dropped. Local clones made before this must reset to `origin/main`.
+- Verified: content identical to the pre-badge tree; no commit in the hub history carries the work identity; identity-check OK.
+- Next session should start with: §1 as usual.
+
 ### 2026-11-16 evening: account A (the original coordinator) — paused for the hand-over
 - **Did:**
   - stopped all agents;
   - framework `v2/data-layer` (f9e505a) and `v2/app-core` (ef3ab03) were committed with `NEXT.md` and pushed;
-  - `STATE.md`, the plan dashboard and the PDF updated and pushed (hub 301c480);
+  - `STATE.md`, the plan dashboard and the PDF updated and pushed (hub 0cd873f);
   - wrote this file. Its commit was made on 2026-11-17 while the office GitHub account was active, so it was **not pushed** then; the next session should push it with the personal account.
 - **Verified:** `state-check` OK at the pause.
 - **Agent-reported only:**
