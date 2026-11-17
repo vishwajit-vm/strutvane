@@ -56,7 +56,7 @@ Expect a merge conflict between the two branches in `src/console/commands/make.t
 
 ## 4. Next steps (in order)
 1. Finish and verify auth v2, then push and merge it after the framework is published.
-2. Framework `v2/data-layer` and `v2/app-core`: app-core ✅ verified 3× (23c496e, 2026-11-17); data-layer security fixes in progress. Then merge both (conflicts expected in `src/commands.ts`, `package.json`, `tsdown.config.ts`, `src/index.ts`; rename data-layer's `INVALID_ARGUMENT` to `invalid_argument`; replace leftover `sv` with `node strut`), release as 0.2.0-next.0.
+2. Framework `v2/data-layer` and `v2/app-core`: app-core ✅ verified 3× (23c496e) and data-layer ✅ verified 3× (d8d373a), both 2026-11-17; merge into `main` in progress. Then merge both (conflicts expected in `src/commands.ts`, `package.json`, `tsdown.config.ts`, `src/index.ts`; rename data-layer's `INVALID_ARGUMENT` to `invalid_argument`; replace leftover `sv` with `node strut`), release as 0.2.0-next.0.
 2a. **Required before the 0.2 train:** auth and ui v2 branches switch to the lowercase error codes and the issue `field` member (#123, #69); the hub RFC-0003 is updated to match.
 3. ✅ design-crisp and design-vivid: created, verified and pushed; both added to the tooling manifest. Lockfiles wait for ui to publish.
 4. Logging fold-in → log-viewer → installers (`node strut install:x`) → skeleton → catalogue CI → npx guard.
@@ -69,6 +69,7 @@ Tracked privately in `docs/research/2026-11-15-audit-findings.md` (git-excluded)
 ## 6. Verification log (newest first)
 | Date | What | Result |
 |---|---|---|
+| 2026-11-17 | framework `v2/data-layer` at d8d373a (4 critical/high fixed + 5 review mediums/lows), full gate re-run by the coordinator 3× in a row with real MySQL/MariaDB/Postgres | 2,458 passed, 16 skipped, 0 failed each run; coverage 96.1/90.0/97.4/97.1 |
 | 2026-11-17 | framework `v2/app-core` at 23c496e (all NEXT.md items done), full gate re-run by the coordinator 3× in a row | 1,987 passed, 14 skipped, 0 failed each run; coverage 97.0/91.8/97.0/97.9; build OK |
 | 2026-11-17 | hub `main` rewritten to remove commits made with the work identity (HANDOFF §5); force-push protection restored | contributors API lists only `vishwajitvm`; state-check and identity-check OK |
 | 2026-11-17 | paused for the weekly usage limit (85%) | framework `v2/data-layer` f9e505a and `v2/app-core` ef3ab03 unchanged; nothing uncommitted |
