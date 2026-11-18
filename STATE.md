@@ -23,7 +23,7 @@ _Last updated: 2026-11-18 ~14:10 UTC (19:40 IST). Agents are stopped for the usa
 | strutvane (hub) | blueprint, docs 18–21, ADRs to 0023, spikes, decisions 1–129 | — | — | pushed |
 | strutvane-framework | **0.2.0-next.1 — LIVE on npm** (`next` tag, 2026-11-18, approved by the lead; provenance) | `v2/logging` f3e28b8 (logging, not merged) | ✅ **released** | 3,121 passed 3× (coordinator); CI green on Linux/Windows/macOS × Node 24/26 |
 | strutvane-auth | v1 + 6 audit fixes | `v2/native-engine` 9e4bf38: lowercase codes + `field` (2d3a47a, 247e02f) + WIP | 🔄 pushed; its gate timed out under machine load | not verified |
-| strutvane-ui | **0.2.0-next.1** (f747c8b, 2026-11-18) | — | ✅ **STAGED on npm** (release run 44346535643, all CI green on Linux/Windows/macOS × Node 24/26). **Waiting for the lead's approval** | 499 passed 3× against the published framework (coordinator) |
+| strutvane-ui | **0.2.0-next.1 — LIVE on npm** (`next`, 2026-11-18, approved by the lead) | — | ✅ **released** | 499 passed 3× against the published framework (coordinator); CI green on all platforms |
 | create-strutvane | **0.2.0-next.1** (3e279d8, merged 2026-11-18): v2 installer built from the skeleton; 7 template bugs + Docker-mode TLS + graceful SIGTERM fixed | — | ✅ merged; **release workflow running** → stages for approval (replaces the v1 `0.1.0-next.0` that was accidentally approved on `next`) | **513 passed, 3 skipped, 3×** incl. real Docker apps (coordinator, 2026-11-18) |
 | strutvane-log-viewer (renamed from strutvane-logs 2026-11-17; old URL redirects) | v1 | `v2/channels` (ADR-0022) | ✅ audited and pushed; logging folds into the framework next | 573 tests |
 | strutvane-tooling | **d91e087** (2026-11-18): `app-template` profile; npx (library) and skeleton targets | — | ✅ merged | **144/144, 3×** (coordinator, 2026-11-18) |
@@ -92,6 +92,7 @@ Tracked privately in `docs/research/2026-11-15-audit-findings.md` (git-excluded)
 ## 6. Verification log (newest first)
 | Date | What | Result |
 |---|---|---|
+| 2026-11-18 | `npm view @strutvane/ui dist-tags` after the lead's approval | `next` = **0.2.0-next.1** |
 | 2026-11-18 | social-login `v2/social-login` (allowScripts fix added by the coordinator) against published framework 0.2.0-next.1 | npm ci OK; 247 passed 3× + 1 after the fix |
 | 2026-11-18 | ui `main` f747c8b (0.2.0-next.1) against published framework | npm ci OK; 499 passed 3×; prod audit 0; release workflow running |
 | 2026-11-18 | create-strutvane `v2/installer` full gate (first run caught 2 real bugs: Docker-mode TLS, SIGTERM in the prod image; fixed), then 3× | 513 passed, 3 skipped, 0 failed each run; merged as 0.2.0-next.1 |
