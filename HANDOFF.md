@@ -66,6 +66,27 @@ Template:
 - Next session should start with: …
 ```
 
+### 2026-11-18 ~04:10 UTC: account A — stopped by the project lead ("stop now")
+- **Did:**
+  - after the weekly reset ran 7 agents: framework CI fix, framework logging, auth codes, ui codes + RFC-0003, skeleton, npx guard, docs;
+  - created 43 planned repos (2026-11-17) and renamed strutvane-logs to strutvane-log-viewer;
+  - fixed the framework TruffleHog failure (6dfc239).
+- **Commits / branches (all pushed):**
+  - framework: `fix/ci-cross-platform` bf2fa91, `v2/logging` f3e28b8;
+  - auth `v2/native-engine` 9e4bf38;
+  - ui `v2/behaviour` c375f7b;
+  - skeleton `v2/skeleton` 7a8be7e;
+  - npx `main` 1e58faf;
+  - docs `docs/framework-0.2` 2c9b4a1;
+  - hub RFC-0003 faa5a14.
+  No worktrees are left.
+- **Verified by re-running:** npx guard 3× (107 passed). ui a9e8751: 1 of 3 runs failed on a flaky test, which is now fixed, so ui needs a re-run. The rest is agent-reported.
+- **Left half-done:** see `STATE.md` §2 and §4 and each branch's `NEXT.md`.
+- **Next session should start with:** `STATE.md` §4 step 1. These framework release blockers came from the skeleton's integration test:
+  - `strutvane.compat` still `^0.1`;
+  - no database connection in the v2 Application.
+  Then the CI fix merge, which stages the npm release. Run at most 2–3 heavy test gates at once.
+
 ### 2026-11-17: account A — paused for the weekly usage limit (85%)
 - Did: read `STATE.md`, ran state-check and identity-check (both OK); read both framework branches' `NEXT.md` and the private findings; started two agents (data-layer security fixes, app-core finish) in scratchpad worktrees, then stopped them within minutes when the weekly limit reached 85%. Neither had changed anything; the worktrees were released.
 - Commits / branches (pushed? yes): this hub commit only; framework branches unchanged (`v2/data-layer` f9e505a, `v2/app-core` ef3ab03).

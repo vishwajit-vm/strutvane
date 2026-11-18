@@ -7,7 +7,7 @@
 > - **Run `node scripts/state-check.mjs` at the start of every session and before reporting status.** It fails if any repo has uncommitted or unpushed work, or if this file names a commit that doesn't exist.
 > - Details live elsewhere and are linked, not copied: decisions in `spikes/CONSISTENCY-2026-11-15.md`, the plan in `docs/21-delivery-plan.md`, rules in `docs/19-production-readiness.md`, each branch's `NEXT.md`.
 
-_Last updated: 2026-11-17. **Work is PAUSED** until the weekly usage limit resets (2026-11-18 00:00 UTC; it reached 85% on 2026-11-17). Everything is committed and pushed to GitHub with the personal account (never the office account). Run `node scripts/state-check.mjs` and `node scripts/identity-check.mjs` at resume._
+_Last updated: 2026-11-18 ~04:10 UTC. **Stopped by the project lead** ("stop now"); every branch is committed and pushed, no agents running, no worktrees left._
 
 ## 1. Release status
 | Item | State |
@@ -21,47 +21,52 @@ _Last updated: 2026-11-17. **Work is PAUSED** until the weekly usage limit reset
 | Repo | `main` | Work branch | Branch state | Verified by coordinator |
 |---|---|---|---|---|
 | strutvane (hub) | blueprint, docs 18–21, ADRs to 0023, spikes, decisions 1–129 | — | — | pushed |
-| strutvane-framework | **0.2.0-next.0** (b9a23ab, 2026-11-17): v2 app core + data layer merged | `v2/data-layer`, `v2/app-core`, `v2/merge-0.2` (all merged into main) | ✅ merged and pushed. **Release blocked:** CI's TruffleHog step fails on fake test DSNs already in history (see §4 step 1) | `main`: 2,981 passed, 16 skipped, 0 failed, 3× in a row (coordinator, 2026-11-17); coverage 96.4/90.9/97.2/97.4 |
-| strutvane-auth | v1 + 6 audit fixes | `v2/native-engine` (ADR-0023) at **0.2.0-next.0** | ✅ done and **pushed** (39bba2f, 2026-11-16, lead approved) | v2: 819 tests + 63 Postgres integration, 3× green *(agent-reported; the coordinator's re-run is pending)* |
-| strutvane-ui | v1 + 17 audit fixes | `v2/behaviour` at **0.2.0-next.0** | ✅ done and **pushed** (3ca9c57, 2026-11-16, lead approved) | v2: **488 tests**, coverage 97.1/92.9/96.4/98.4 (2026-11-16) |
+| strutvane-framework | **0.2.0-next.0** (6dfc239): app core + data layer + TruffleHog fix | `fix/ci-cross-platform` bf2fa91 (Windows Docker + macOS real-path fix; final gate not run) · `v2/logging` f3e28b8 (ADR-0022 logging, code complete; gate not yet green: timeouts under machine overload) | 🔄 pushed WIP | `main`: 2,981 passed 3× (coordinator, 2026-11-17). **Release blockers:** see §4 step 1 |
+| strutvane-auth | v1 + 6 audit fixes | `v2/native-engine` 9e4bf38: lowercase codes + `field` (2d3a47a, 247e02f) + WIP | 🔄 pushed; its gate timed out under machine load | not verified |
+| strutvane-ui | v1 + 17 audit fixes | `v2/behaviour` c375f7b: lowercase codes + `field` (a9e8751) + deterministic debounce tests (c375f7b) | 🔄 pushed | coordinator run on a9e8751: 1 of 3 failed (timing-flaky debounce test, since fixed in c375f7b); c375f7b gate 2/3 green *(agent-reported)*, re-run needed |
 | create-strutvane | v1 | `v2/installer` at **0.2.0-next.0** | ✅ done and **pushed** (52cebb1, 2026-11-16, lead approved) | 473 tests, 3× green *(agent-reported; the coordinator's re-run is pending)* |
 | strutvane-log-viewer (renamed from strutvane-logs 2026-11-17; old URL redirects) | v1 | `v2/channels` (ADR-0022) | ✅ audited and pushed; logging folds into the framework next | 573 tests |
 | strutvane-tooling | npm + R1–R9 CI | — | — | 129 tests |
-| strutvane-docs | v2 site, live at https://vishwajit-vm.github.io/strutvane-docs/ (flat Packages menu) | `0.1.x` = old v1 site | — | 522 pages, 0 broken links |
+| strutvane-docs | v2 site, live at https://vishwajit-vm.github.io/strutvane-docs/ | `docs/framework-0.2` 2c9b4a1 (framework 0.2 pages, WIP, not build-checked) | 🔄 pushed WIP | — |
 | strutvane-files | v1, first pushed 2026-11-16 | — | — | — |
 | strutvane-design-crisp | **0.2.0-next.0** (5d5fcd6), repo created 2026-11-16 | — | ✅ done; conformance passes | **105 tests**, coverage 100% (2026-11-16) |
 | strutvane-design-vivid | **0.2.0-next.0** (5956bfe), repo created 2026-11-16 | — | ✅ done; conformance 15/15 | **233 tests**, coverage 100% (2026-11-16) |
+| strutvane-npx (`strutvane`, npx guard) | **0.2.0-next.0** (1e58faf, merged 2026-11-18) | — | ✅ done; needs tooling sync (CI/release) before npm | **107 passed, 3 skipped, 3×** (coordinator, 2026-11-18) |
+| strutvane-skeleton (app template) | placeholder README | `v2/skeleton` 7a8be7e (template/, skeleton.json, renderer, INSTALLER.md) | 🔄 pushed | 62 tests, 3× *(agent-reported)* |
 | 43 planned repos (README + LICENSE only) | created 2026-11-17: strutvane-skeleton, strutvane-npx, strutvane-design-glass and 40 add-ons (`strutvane-<id>` for every planned catalogue id) | — | planned | — |
 | core, contracts, cli, devkit | archived (moved into the framework) | — | — | — |
 
-## 2a. Agents running right now (updated 2026-11-18 00:40 UTC)
-| Work | Repo / branch | Expected result |
-|---|---|---|
-| Windows/macOS CI fix (Docker must run Linux containers; real-path project root) | framework `fix/ci-cross-platform` | gate 3× green, then merged; the release stages 0.2.0-next.0 |
-| Logging folded into the framework (ADR-0022) | framework `v2/logging` | channels from `.env`, `Log` facade, `log:*` commands, gate 3× |
-| auth: lowercase error codes and issue `field` (#123, #69) | auth `v2/native-engine` | gate 3× against framework 0.2.0-next.0 (local tarball) |
-| ui: lowercase codes and `field`; hub RFC-0003 amended | ui `v2/behaviour` + hub | same |
-| strutvane-skeleton: the app template plus a manifest for the installer | skeleton `v2/skeleton` | template, tests, installer plan |
+## 2a. Agents running right now (updated 2026-11-18)
+None. Stopped by the project lead. No worktrees are left; resume from each branch's `NEXT.md`.
 
-When an agent finishes: re-run its gate, update §2 and §6, push, and remove it from this table.
+**Lesson (2026-11-18):** at most 2–3 agents running heavy test gates at once on this machine. Seven at once overloaded it (99% CPU): tests timed out and three agents stalled.
 
 ## 3. Open decisions (waiting on the project lead)
 | # | Question | Coordinator's recommendation |
 |---|---|---|
-| 1 | Generated apps must not set `isolatedDeclarations` (typed `route()`/`config()` need it off) | accept |
-| 2 | `route:list` is the app command; `routes` stays for `strutvane.config.ts` projects | accept |
-| 3 | HSTS only in production | accept |
-| 4 | Unsafe request with a session cookie to an unknown path answers 419 (CSRF runs before routing) | accept; matches Laravel |
-| 5 | Runtime and migrations share one `DB_*` role, so on PostgreSQL the runtime role owns the tables (conflicts with ADR-0007 rule 4) | add `DB_MIGRATE_*` credentials for migrations; runtime role without ownership |
-| 6 | `DB_SSLMODE=prefer` connects without TLS (Node drivers can't fall back) | document it; default generated apps to `require` in production |
+| 1 | Framework and the npx guard both ship a `strutvane` bin; inside an installed app `npx strutvane` runs the framework's, not the guard | drop the framework's `strutvane` bin, keep `strutvane-cli` |
+| 2 | Who owns the `users` table: the skeleton's migration or auth's SQL (`CREATE TABLE IF NOT EXISTS users/sessions`)? | the skeleton owns `users`; auth ships its own tables as normal migrations (ADR-0023) |
+| 3 | How the installer gets the skeleton | copy it into create-strutvane at build time from a pinned skeleton tag |
+| 4 | Skeleton layout: the app lives under `template/`, with lowercase folders (`app/http/controllers`) | accept |
+| 5 | Request logging (node/hono/express adapters): a framework hook, or stays in log-viewer? | framework hook; log-viewer only reads |
+| 6 | `log:clear` in production | refuse without `--force` in production |
+| 7 | Apps log to `storage/logs` by default instead of stdout (ADR-0022) | accept; the production Dockerfile sets `LOG_CHANNEL=stderr` |
 
 ## 4. Next steps (in order)
-1. **Unblock framework CI's secrets scan.** TruffleHog (`--results=verified,unknown`) fails on fake Postgres URLs in tests and doc comments (`u:p@h`, `app:hunter2@db`, test canaries). These are already in history, so inline `trufflehog:ignore` alone won't pass a range scan. Fix in strutvane-tooling, the synced CI (for example a per-repo exclude-paths file for `test/` and fixtures, or build the fixture URLs at runtime), verify locally with the TruffleHog container, sync, then re-run the release on framework `main` (0.2.0-next.0).
-2. **npm names:** the project lead runs `npm login`, then `node scripts/reserve-npm-names.mjs` (45 placeholders, `0.0.0-reserved.0` on dist-tag `reserved`), then sets up a trusted publisher (GitHub Actions) per package on npmjs.com.
-3. Release framework 0.2.0-next.0: the project lead approves it under npmjs.com → Staged Packages. An old staged `create-strutvane@0.1.0-next.0` (2026-11-14) is still waiting there: reject it, because v2 replaces it.
-4. auth and ui v2 branches: switch to lowercase error codes and the issue `field` member (#123, #69); update hub RFC-0003; refresh lockfiles against the published framework; apply `release/0.2/patches`; release the core train at 0.2.0-next.0.
-5. Logging fold-in → log-viewer → installers (`node strut install:x`) → skeleton → catalogue CI → npx guard.
-6. Security reviews (R3) and soak tests (R4) for auth, ui and the installer; demo app acceptance; **0.2.0**.
+1. **Framework release blockers** (found by the skeleton's integration test):
+   - `package.json` `strutvane.compat` is `^0.1.0-next.0`, so the 0.2 CLI refuses `migrate`, `db:seed`, `sync`, `start` and `dev`. Set it to `^0.2.0-next.0`, with a test.
+   - The v2 `Application` opens no database connection, so models can't query from handlers.
+   - `resources.json` exposes internal tables (sessions, cache) and takes `fillable` from the migration.
+   - `ConfigOf`/`RoutesOf` are not exported.
+   - The replay sandbox's 10 s timeout can't be configured.
+   Then merge `fix/ci-cross-platform` (run its gate 3× on a quiet machine), push `main`, CI stages 0.2.0-next.0, and the project lead approves it on npmjs.com.
+2. `v2/logging`: gate 3× on a quiet machine plus `test:perf`, pack, publint, attw, audit; then merge.
+3. auth `v2/native-engine` and ui `v2/behaviour`: gate 3× (at most 2 heavy gates at once); after the framework is on npm, refresh lockfiles, `changeset version`, merge, and release in train order.
+4. Docs `docs/framework-0.2`: finish, build and link-check, then merge (the site deploys from `main`).
+5. npx guard: add to `packages/tooling/manifest.json` as a library, sync, set `RELEASE_ENABLED`, release with the train.
+6. Skeleton: decisions 2–4, a tooling `app-template` profile, merge; then switch create-strutvane to the skeleton (INSTALLER.md lists 7 template bugs to fix).
+7. log-viewer (UI only) → installers (`node strut install:x`) → catalogue CI → R3/R4 → demo app → **0.2.0**.
+8. The project lead: run `node scripts/reserve-npm-names.mjs` after `npm login`; reject the stale staged `create-strutvane@0.1.0-next.0`.
 
 ## 5. Open security items
 Tracked privately in `docs/research/2026-11-15-audit-findings.md` (git-excluded), never in this public file.
@@ -69,6 +74,8 @@ Tracked privately in `docs/research/2026-11-15-audit-findings.md` (git-excluded)
 ## 6. Verification log (newest first)
 | Date | What | Result |
 |---|---|---|
+| 2026-11-18 | npx guard `strutvane` 1e58faf, full gate re-run by the coordinator 3×; merged to `main` | 107 passed, 3 skipped, 0 failed each run |
+| 2026-11-18 | ui a9e8751, coordinator gate run 1 | 1 failed (timing-flaky debounce test under load), 495 passed; fixed in c375f7b, re-run pending |
 | 2026-11-17 | framework `v2/merge-0.2` b9a23ab (both v2 branches merged, 0.2.0-next.0), full gate re-run by the coordinator 3× in a row; then fast-forwarded to `main` and pushed | 2,981 passed, 16 skipped, 0 failed each run |
 | 2026-11-17 | framework release re-run (run 43790797498, `main` 1fd4885) | CI security job failed (TruffleHog flags fake test DSNs); release skipped; npm account shows no lock |
 | 2026-11-17 | framework `v2/data-layer` at d8d373a (4 critical/high fixed + 5 review mediums/lows), full gate re-run by the coordinator 3× in a row with real MySQL/MariaDB/Postgres | 2,458 passed, 16 skipped, 0 failed each run; coverage 96.1/90.0/97.4/97.1 |

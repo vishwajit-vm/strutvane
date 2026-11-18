@@ -17,9 +17,11 @@
 
 ---
 
-## 0. Live status dashboard (updated 2026-11-18, 06:20 IST — 7 agents working)
+## 0. Live status dashboard (updated 2026-11-18, 09:40 IST — ⏸ stopped by the project lead)
 
 This section is updated at every milestone and before every stop, together with the PDF copy. Every number comes from `STATE.md`; anything not re-run by the coordinator is marked *(agent-reported)*.
+
+> **⏸ Stopped 2026-11-18 ~09:40 IST** at the project lead's request. Every branch is committed and pushed, no agents are running and no worktrees are left. Resume with `STATE.md` §4 step 1. **Two release blockers in the framework** came from the skeleton's integration test: `strutvane.compat` still says `^0.1`, and the v2 Application opens no database connection. Fix them before staging 0.2.0-next.0.
 
 **Definitions:**
 - **Built:** the code is written.
@@ -33,7 +35,7 @@ This section is updated at every milestone and before every stop, together with 
 ### 0.1 Overall progress
 | Measure | Value |
 |---|---|
-| Release 0.2 (full flow) | **~55% done**: ~46 of ~84 planned agent-hours; **~45 hours left** |
+| Release 0.2 (full flow) | **~60% done**: ~50 of ~84 planned agent-hours; **~40 hours left** (plus ~3 h for the newly found framework blockers) |
 | Whole ecosystem (60 repos: 47 packages + designs + skeleton + tooling) | **~8% done** of ~546 agent-hours; ~510 left |
 | Released on npm (v2) | **0%**. npm is unlocked. Framework 0.2.0-next.0 stages as soon as the Windows/macOS CI fix is merged; the project lead approves it on npmjs.com |
 | GitHub | **60 repos**, including 43 planned-package placeholders created 2026-11-17 (`strutvane-logs` renamed to `strutvane-log-viewer`) |
@@ -54,18 +56,19 @@ This section is updated at every milestone and before every stop, together with 
 | auth v2 (own engine) | ✅ | ⚠️ agent-reported | ✅ branch | ⏳ lowercase codes | ⏳ | ⏳ | 65% |
 | create-strutvane v2 | ✅ | ⚠️ agent-reported 473 | ✅ branch | ⏳ | ⏳ | ✅ | 65% |
 | 43 planned repos + log-viewer rename | ✅ | n/a | ✅ | ✅ | n/a | ✅ | **100%** |
+| **`strutvane` (npx guard) 0.2.0-next.0** | ✅ | ✅ 107 (3×) | ✅ | ✅ `main` | ⏳ tooling sync, then train | ⏳ | **~85%** |
 | Plans, decisions, STATE.md, HANDOFF.md, state-check, identity-check | ✅ | ✅ | ✅ | ✅ | n/a | ✅ | **100%** |
 
-### 0.3 🔄 Working on now (7 agents in parallel)
-| Package | Task | Progress | Hours left |
-|---|---|---|---|
-| `@strutvane/framework` | Windows/macOS CI fix (Docker must run Linux containers; real-path project root) | ~70% | ~0.5 |
-| `@strutvane/framework` | Logging built in (ADR-0022): `.env` channels, `storage/logs`, `Log` facade, `log:*` commands | ~50% | ~3 |
-| `@strutvane/auth` | Lowercase error codes and the issue `field` (#123, #69) | ~10% | ~2 |
-| `@strutvane/ui` | The same, plus hub RFC-0003 | ~10% | ~2 |
-| strutvane-skeleton | The app template `npm create strutvane` installs | ~10% | ~4 |
-| `strutvane` (npx guard) | The `npx strutvane` command | ~10% | ~1 |
-| strutvane-docs | Pages for everything framework 0.2 ships | ~10% | ~3 |
+### 0.3 ⏸ In progress (stopped; all pushed)
+| Package | Task | Branch | Progress | Hours left |
+|---|---|---|---|---|
+| `@strutvane/framework` | **Release blockers**: compat `^0.2`, database connection in the v2 Application, `resources.json` internals, `ConfigOf`/`RoutesOf` exports | — (new) | 0% | ~3 |
+| `@strutvane/framework` | Windows/macOS CI fix | `fix/ci-cross-platform` bf2fa91 | ~90% (final gate left) | ~0.5 |
+| `@strutvane/framework` | Logging built in (ADR-0022) | `v2/logging` f3e28b8 | ~85% (code done; gate + checks left) | ~1.5 |
+| `@strutvane/auth` | Lowercase codes + `field` | `v2/native-engine` 9e4bf38 | ~80% (gate left) | ~1 |
+| `@strutvane/ui` | Lowercase codes + `field`, deterministic tests | `v2/behaviour` c375f7b | ~90% (gate re-run left) | ~0.5 |
+| strutvane-skeleton | App template + manifest + installer plan | `v2/skeleton` 7a8be7e | ~80% (decisions + tooling profile left) | ~1 |
+| strutvane-docs | Framework 0.2 pages | `docs/framework-0.2` 2c9b4a1 | ~50% | ~2 |
 
 ### 0.4 ⏭ Next
 | Order | Item | Hours |
@@ -87,7 +90,7 @@ This section is updated at every milestone and before every stop, together with 
 ### 0.6 Release timeline (~5 agent-hours/working day; faster with more agents in parallel)
 | Release | Hours left | Working days | Expected | With 30% buffer |
 |---|---|---|---|---|
-| 0.2 | ~45 | ~9 | **29 Nov 2026** | **2 Dec 2026** |
+| 0.2 | ~43 | ~9 | **29 Nov 2026** | **2 Dec 2026** |
 | 0.3 | ~105 | ~21 | 10 Dec 2026 | 17 Dec 2026 |
 | 1.0 (build) | ~187 | ~37 | 26 Dec 2026 | 6 Jan 2027 (+ external audit → Feb 2027) |
 | Everything | ~507 | ~101 | 28 Feb 2027 | **31 Mar 2027** |
