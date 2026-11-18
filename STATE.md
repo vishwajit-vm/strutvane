@@ -36,15 +36,20 @@ _Last updated: 2026-11-18 ~10:12 UTC (15:42 IST). Stopped at 84% of the 5-hour w
 | 43 planned repos (README + LICENSE only) | created 2026-11-17: strutvane-skeleton, strutvane-npx, strutvane-design-glass and 40 add-ons (`strutvane-<id>` for every planned catalogue id) | — | planned | — |
 | core, contracts, cli, devkit | archived (moved into the framework) | — | — | — |
 
-## 2a. Agents running right now (updated 2026-11-18 ~10:12 UTC)
-None (stopped for the reset). Resume from each branch's `NEXT.md`:
-| Branch | Head | State |
+## 2a. Agents running right now (started 2026-11-18 ~10:30 UTC, after the 16:00 IST reset)
+| Package | Repo / branch | Work |
 |---|---|---|
-| framework `fix/release-0.2` | 2492d9f | Fixed (targeted tests pass): compat (8e88e94), database connection in the Application (2cd9d0b; HTTP read/write on all 4 engines), `ConfigOf`/`RoutesOf` exports (e937372), replay timeout (2ec0b7a). resources.json is WIP; its new test has not run yet. **The full gate has not run on this branch.** |
-| create-strutvane `v2/installer` | 62bbf28 | Skeleton vendored at ea31741 (14722fe) and the installer renders from it; the 7 bugs are fixed in code (62bbf28). **Tests need updating; the suite fails until then.** |
-| logs `v2/log-viewer` | 8d85229 | ✅ done: UI + read API on framework logging; 163 tests 3× *(agent-reported)*; `npm ci` blocked until the framework is on npm |
+| `@strutvane/framework` | `fix/release-0.2` (from 2492d9f) | finish resources.json (users/teams stay internal, F-01), then the gate 3× |
+| `create-strutvane` | `v2/installer` (from 62bbf28) | tests, one test per bug, end-to-end test, gate 3× |
+| `@strutvane/social-login` | strutvane-social-login `v2/social-login` | new package: OAuth/OIDC providers on auth v2 |
+| `@strutvane/files` | strutvane-files `v2/files` | S3/R2/MinIO/Azure disks, resumable uploads, virus scan, quotas |
+| `@strutvane/charts` | strutvane-charts `v2/charts` | from spike 16: widgets plus privacy-safe aggregates |
+| `@strutvane/health` | strutvane-health `v2/health` | checks, history, alerts, `health:check` |
+| `@strutvane/redis` | strutvane-redis `v2/redis` | cache store, locks, sessions, rate limits, queue interface |
+| `@strutvane/search` | strutvane-search `v2/search` | Meilisearch/Typesense, Scout-style |
+| `@strutvane/import-export` | strutvane-import-export `v2/import-export` | CSV/XLSX import with dry run; safe export |
 
-At 16:07 IST: resume the 2 above and start 7 new packages: social-login, files, charts, health, redis, search, import-export. **Keep at least 10 packages in development.** Run heavy gates late and staggered.
+Finished: log-viewer `v2/log-viewer` 8d85229. Stopped on purpose: agent-tools (not a priority). **Keep at least 10 packages in development.** Heavy test gates run late and staggered.
 
 ## 3. Open decisions (waiting on the project lead)
 | # | Question | Coordinator's recommendation |
