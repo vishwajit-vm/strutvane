@@ -7,7 +7,7 @@
 > - **Run `node scripts/state-check.mjs` at the start of every session and before reporting status.** It fails if any repo has uncommitted or unpushed work, or if this file names a commit that doesn't exist.
 > - Details live elsewhere and are linked, not copied: decisions in `spikes/CONSISTENCY-2026-11-15.md`, the plan in `docs/21-delivery-plan.md`, rules in `docs/19-production-readiness.md`, each branch's `NEXT.md`.
 
-_Last updated: 2026-11-18 ~04:10 UTC. **Stopped by the project lead** ("stop now"); every branch is committed and pushed, no agents running, no worktrees left._
+_Last updated: 2026-11-18 ~10:00 UTC (15:30 IST). Checkpoint before the 16:00 IST 5-hour reset; agents still running (§2a); every finished commit is pushed._
 
 ## 1. Release status
 | Item | State |
@@ -26,26 +26,28 @@ _Last updated: 2026-11-18 ~04:10 UTC. **Stopped by the project lead** ("stop now
 | strutvane-ui | v1 + 17 audit fixes | `v2/behaviour` c375f7b: lowercase codes + `field` + deterministic debounce tests | ✅ verified; waits for the framework on npm (then lockfile refresh, `changeset version`, merge) | **499 passed, 3×**, against a framework 0.2.0-next.0 tarball (coordinator, 2026-11-18) |
 | create-strutvane | v1 | `v2/installer` at **0.2.0-next.0** | ✅ done and **pushed** (52cebb1, 2026-11-16, lead approved) | 473 tests, 3× green *(agent-reported; the coordinator's re-run is pending)* |
 | strutvane-log-viewer (renamed from strutvane-logs 2026-11-17; old URL redirects) | v1 | `v2/channels` (ADR-0022) | ✅ audited and pushed; logging folds into the framework next | 573 tests |
-| strutvane-tooling | npm + R1–R9 CI | — | — | 129 tests |
+| strutvane-tooling | **d91e087** (2026-11-18): `app-template` profile; npx (library) and skeleton targets | — | ✅ merged | **144/144, 3×** (coordinator, 2026-11-18) |
 | strutvane-docs | v2 site, live at https://vishwajit-vm.github.io/strutvane-docs/ | `docs/framework-0.2` 2c9b4a1 (framework 0.2 pages, WIP, not build-checked) | 🔄 pushed WIP | — |
 | strutvane-files | v1, first pushed 2026-11-16 | — | — | — |
 | strutvane-design-crisp | **0.2.0-next.0** (5d5fcd6), repo created 2026-11-16 | — | ✅ done; conformance passes | **105 tests**, coverage 100% (2026-11-16) |
 | strutvane-design-vivid | **0.2.0-next.0** (5956bfe), repo created 2026-11-16 | — | ✅ done; conformance 15/15 | **233 tests**, coverage 100% (2026-11-16) |
-| strutvane-npx (`strutvane`, npx guard) | **0.2.0-next.0** (1e58faf, merged 2026-11-18) | — | ✅ done; needs tooling sync (CI/release) before npm | **107 passed, 3 skipped, 3×** (coordinator, 2026-11-18) |
+| strutvane-npx (`strutvane`, npx guard) | **0.2.0-next.0** (10aa9b1, tooling sync merged 2026-11-18) | — | ✅ done; CI/release workflows synced; `RELEASE_ENABLED` not set yet | **107 passed, 3 skipped, 3×** (coordinator, before and after the sync) |
 | strutvane-skeleton (app template) | placeholder README | `v2/skeleton` 7a8be7e (template/, skeleton.json, renderer, INSTALLER.md) | 🔄 pushed | 62 tests, 3× *(agent-reported)* |
 | 43 planned repos (README + LICENSE only) | created 2026-11-17: strutvane-skeleton, strutvane-npx, strutvane-design-glass and 40 add-ons (`strutvane-<id>` for every planned catalogue id) | — | planned | — |
 | core, contracts, cli, devkit | archived (moved into the framework) | — | — | — |
 
-## 2a. Agents running right now (updated 2026-11-18 08:45 UTC)
-| Work | Repo / branch (worktree in the scratchpad) | Expected result |
+## 2a. Agents running right now (checkpoint 2026-11-18 ~10:00 UTC)
+| Work | Repo / branch | Head at checkpoint |
 |---|---|---|
-| Framework release blockers (compat `^0.2`, database connection in the Application, resources.json internals, `ConfigOf`/`RoutesOf`, sandbox timeout), built on the Windows/macOS fix | framework `fix/release-0.2` (`fw-rel`) | gate 3×, then merge to `main`; the npm release stages |
-| Docs: framework 0.2 pages | docs `docs/framework-0.2` (`docs-fw2`) | build and link check 3× |
-| Tooling: `npx` library target, new `app-template` profile for the skeleton, sync into both | tooling `feat/npx-and-app-template`; npx `chore/tooling-sync`; skeleton `v2/skeleton` | the gates green; list of repo settings to apply |
-| log-viewer: UI + read API only, on top of the framework's logging | logs (strutvane-log-viewer) `v2/log-viewer` (`logviewer-wt`) | gate 3× |
-| Package catalogue: index, builder, conformance and drift checks, hub CI | hub `feat/catalogue` (`hub-catalogue`) | tests 3×; real drift report |
+| Framework release blockers (on top of the Windows/macOS fix) | framework `fix/release-0.2` | 2ec0b7a (pushed): compat fixed (8e88e94) and sandbox timeout configurable (2ec0b7a); the database connection, resources.json and exports are in progress |
+| Installer switched to the skeleton, plus the 7 template bugs | create-strutvane `v2/installer` | 52cebb1 (started 09:50; no commits yet) |
+| log-viewer: UI + read API on the framework's logging | logs `v2/log-viewer` | 2607bff (no commits yet) |
+| Package catalogue: index, builder, checks, hub CI | hub `feat/catalogue` | 4d8ba9e (no commits yet) |
+| Docs: framework 0.2 pages | docs `docs/framework-0.2` | 51f7120 (pushed) |
 
-**Lesson (2026-11-18):** at most 2–3 agents running heavy test gates at once on this machine. Seven at once overloaded it (99% CPU): tests timed out and three agents stalled. Today only the framework job is heavy.
+Stopped on purpose: `@strutvane/agent-tools`. The project lead put release-critical work first; agent-tools waits for 0.3.
+
+**Lesson (2026-11-18):** at most 2–3 heavy test gates at once on this machine.
 
 ## 3. Open decisions (waiting on the project lead)
 | # | Question | Coordinator's recommendation |
@@ -80,6 +82,8 @@ Tracked privately in `docs/research/2026-11-15-audit-findings.md` (git-excluded)
 ## 6. Verification log (newest first)
 | Date | What | Result |
 |---|---|---|
+| 2026-11-18 | tooling `feat/npx-and-app-template` d91e087 3×; merged to `main` | 144/144 each run |
+| 2026-11-18 | npx `chore/tooling-sync` 10aa9b1 3×; merged to `main` | 107 passed, 3 skipped each run |
 | 2026-11-18 | ui `v2/behaviour` c375f7b, full gate 3× against a framework 0.2.0-next.0 tarball (`npm install --no-save`) | 499 passed, 0 failed each run |
 | 2026-11-18 | npx guard `strutvane` 1e58faf, full gate re-run by the coordinator 3×; merged to `main` | 107 passed, 3 skipped, 0 failed each run |
 | 2026-11-18 | ui a9e8751, coordinator gate run 1 | 1 failed (timing-flaky debounce test under load), 495 passed; fixed in c375f7b, re-run pending |

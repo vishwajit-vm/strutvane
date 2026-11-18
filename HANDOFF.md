@@ -66,6 +66,19 @@ Template:
 - Next session should start with: …
 ```
 
+### 2026-11-18 ~10:00 UTC: account A — checkpoint before the 16:00 IST reset (agents still running)
+- **Did:**
+  - resumed at 08:20 UTC;
+  - verified ui `v2/behaviour` c375f7b 3× (499 tests, against a framework 0.2 tarball);
+  - verified and merged tooling `main` d91e087 (144/144) and npx `main` 10aa9b1 (107 passed);
+  - the framework release blockers are partly fixed on `fix/release-0.2` 2ec0b7a (compat, sandbox timeout);
+  - started the installer→skeleton switch, the log-viewer, the catalogue and docs agents;
+  - stopped agent-tools (the project lead: release-critical work first).
+- **Commits / branches:** all pushed. Agents in flight: STATE §2a.
+- **Next session should start with:** STATE §2a.
+  - Resume any stopped agent: its id is in memory `strutvane-resume-point`, or start a fresh one from the branch's NEXT.md.
+  - When framework `fix/release-0.2` is done and verified 3×, merge it to `main` and push; the release then stages 0.2.0-next.0.
+
 ### 2026-11-18 ~04:10 UTC: account A — stopped by the project lead ("stop now")
 - **Did:**
   - after the weekly reset ran 7 agents: framework CI fix, framework logging, auth codes, ui codes + RFC-0003, skeleton, npx guard, docs;

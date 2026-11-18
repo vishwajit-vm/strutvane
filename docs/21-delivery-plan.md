@@ -17,11 +17,11 @@
 
 ---
 
-## 0. Live status dashboard (updated 2026-11-18, 09:40 IST — ⏸ stopped by the project lead)
+## 0. Live status dashboard (updated 2026-11-18, 15:30 IST — checkpoint, agents working)
 
 This section is updated at every milestone and before every stop, together with the PDF copy. Every number comes from `STATE.md`; anything not re-run by the coordinator is marked *(agent-reported)*.
 
-> **⏸ Stopped 2026-11-18 ~09:40 IST** at the project lead's request. Every branch is committed and pushed, no agents are running and no worktrees are left. Resume with `STATE.md` §4 step 1. **Two release blockers in the framework** came from the skeleton's integration test: `strutvane.compat` still says `^0.1`, and the v2 Application opens no database connection. Fix them before staging 0.2.0-next.0.
+> **Checkpoint 2026-11-18 15:30 IST.** Agents are working on the framework release blockers (compat and sandbox timeout already fixed), the installer→skeleton switch, the log-viewer, the package catalogue and the docs. tooling and the npx guard are verified and merged; ui is verified (499 tests). Everything finished is pushed.
 
 **Definitions:**
 - **Built:** the code is written.
@@ -56,7 +56,8 @@ This section is updated at every milestone and before every stop, together with 
 | auth v2 (own engine) | ✅ | ⚠️ agent-reported | ✅ branch | ⏳ lowercase codes | ⏳ | ⏳ | 65% |
 | create-strutvane v2 | ✅ | ⚠️ agent-reported 473 | ✅ branch | ⏳ | ⏳ | ✅ | 65% |
 | 43 planned repos + log-viewer rename | ✅ | n/a | ✅ | ✅ | n/a | ✅ | **100%** |
-| **`strutvane` (npx guard) 0.2.0-next.0** | ✅ | ✅ 107 (3×) | ✅ | ✅ `main` | ⏳ tooling sync, then train | ⏳ | **~85%** |
+| **`strutvane` (npx guard) 0.2.0-next.0** | ✅ | ✅ 107 (3×) | ✅ | ✅ `main` + CI synced | ⏳ trusted publisher + train | ⏳ | **~90%** |
+| **strutvane-tooling** (app-template profile) | ✅ | ✅ 144 (3×) | ✅ | ✅ | n/a | ✅ | **100%** |
 | Plans, decisions, STATE.md, HANDOFF.md, state-check, identity-check | ✅ | ✅ | ✅ | ✅ | n/a | ✅ | **100%** |
 
 ### 0.3 ⏸ In progress (stopped; all pushed)
