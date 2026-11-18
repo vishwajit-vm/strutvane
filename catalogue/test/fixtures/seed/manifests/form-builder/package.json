@@ -1,0 +1,38 @@
+{
+  "name": "@strutvane/form-builder",
+  "version": "0.1.0",
+  "description": "Admin-designed forms and custom fields",
+  "license": "MIT",
+  "type": "module",
+  "peerDependencies": {
+    "@strutvane/framework": "^1.0"
+  },
+  "strutvane": {
+    "manifestVersion": 1,
+    "id": "form-builder",
+    "displayName": "Form builder",
+    "description": "Admin-designed forms and custom fields",
+    "category": "back-office",
+    "tags": [
+      "forms",
+      "custom-fields"
+    ],
+    "kind": "package",
+    "popular": false,
+    "docs": "https://github.com/vishwajit-vm/strutvane-form-builder#readme",
+    "framework": "^1.0",
+    "installs": {
+      "migrations": [
+        "create_forms_table",
+        "create_form_submissions_table",
+        "create_custom_fields_table"
+      ],
+      "screens": [
+        {
+          "path": "/forms",
+          "title": "Forms"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,81 @@
+{
+  "name": "@strutvane/files",
+  "version": "0.1.0",
+  "description": "S3 and Azure disks, resumable uploads, virus scan",
+  "license": "MIT",
+  "type": "module",
+  "peerDependencies": {
+    "@strutvane/framework": "^1.0"
+  },
+  "strutvane": {
+    "manifestVersion": 1,
+    "id": "files",
+    "displayName": "Cloud files",
+    "description": "S3 and Azure disks, resumable uploads, virus scan",
+    "category": "back-office",
+    "tags": [
+      "storage",
+      "s3",
+      "uploads"
+    ],
+    "kind": "package",
+    "popular": false,
+    "docs": "https://github.com/vishwajit-vm/strutvane-files#readme",
+    "framework": "^1.0",
+    "installs": {
+      "config": [
+        "config/storage.ts"
+      ],
+      "env": [
+        {
+          "key": "AWS_ACCESS_KEY_ID",
+          "description": "S3 access key id",
+          "secret": true
+        },
+        {
+          "key": "AWS_SECRET_ACCESS_KEY",
+          "description": "S3 secret access key",
+          "secret": true
+        },
+        {
+          "key": "AWS_REGION",
+          "description": "S3 region",
+          "secret": false,
+          "example": "us-east-1"
+        },
+        {
+          "key": "AWS_BUCKET",
+          "description": "S3 bucket name",
+          "secret": false,
+          "example": "my-app"
+        },
+        {
+          "key": "AZURE_STORAGE_CONNECTION_STRING",
+          "description": "Azure Storage connection string (contains a key)",
+          "secret": true
+        }
+      ],
+      "migrations": [
+        "create_uploads_table"
+      ]
+    },
+    "questions": [
+      {
+        "id": "disk",
+        "type": "select",
+        "label": "Files: which cloud storage?",
+        "choices": [
+          {
+            "value": "s3",
+            "label": "S3 or S3-compatible"
+          },
+          {
+            "value": "azure",
+            "label": "Azure Blob Storage"
+          }
+        ],
+        "default": "s3"
+      }
+    ]
+  }
+}

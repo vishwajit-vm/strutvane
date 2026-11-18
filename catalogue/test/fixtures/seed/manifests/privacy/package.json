@@ -1,0 +1,50 @@
+{
+  "name": "@strutvane/privacy",
+  "version": "0.1.0",
+  "description": "Personal data export and erasure (GDPR)",
+  "license": "MIT",
+  "type": "module",
+  "peerDependencies": {
+    "@strutvane/framework": "^1.0"
+  },
+  "strutvane": {
+    "manifestVersion": 1,
+    "id": "privacy",
+    "displayName": "Privacy tools",
+    "description": "Personal data export and erasure (GDPR)",
+    "category": "back-office",
+    "tags": [
+      "gdpr",
+      "consent"
+    ],
+    "kind": "package",
+    "popular": true,
+    "docs": "https://github.com/vishwajit-vm/strutvane-privacy#readme",
+    "framework": "^1.0",
+    "installs": {
+      "config": [
+        "config/privacy.ts"
+      ],
+      "migrations": [
+        "create_privacy_requests_table",
+        "create_consents_table"
+      ],
+      "screens": [
+        {
+          "path": "/privacy",
+          "title": "Privacy requests"
+        }
+      ],
+      "commands": [
+        {
+          "name": "privacy:export",
+          "description": "Export a person's data"
+        },
+        {
+          "name": "privacy:erase",
+          "description": "Erase or anonymise a person's data"
+        }
+      ]
+    }
+  }
+}

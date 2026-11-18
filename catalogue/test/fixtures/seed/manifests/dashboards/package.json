@@ -1,0 +1,63 @@
+{
+  "name": "@strutvane/dashboards",
+  "version": "0.1.0",
+  "description": "Home and role dashboards with weekly digests",
+  "license": "MIT",
+  "type": "module",
+  "peerDependencies": {
+    "@strutvane/framework": "^1.0"
+  },
+  "strutvane": {
+    "manifestVersion": 1,
+    "id": "dashboards",
+    "displayName": "Dashboards",
+    "description": "Home and role dashboards with weekly digests",
+    "category": "data",
+    "tags": [
+      "dashboard",
+      "digest"
+    ],
+    "kind": "package",
+    "popular": true,
+    "docs": "https://github.com/vishwajit-vm/strutvane-dashboards#readme",
+    "framework": "^1.0",
+    "installs": {
+      "config": [
+        "config/dashboards.ts"
+      ],
+      "migrations": [
+        "create_dashboard_layouts_table",
+        "create_dashboard_digests_table"
+      ],
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/api/_dashboards/:name"
+        }
+      ],
+      "screens": [
+        {
+          "path": "/",
+          "title": "Dashboard"
+        }
+      ],
+      "sidebar": [
+        {
+          "label": "Dashboard",
+          "path": "/",
+          "icon": "layout-dashboard"
+        }
+      ],
+      "commands": [
+        {
+          "name": "make:dashboard",
+          "description": "Create a dashboard"
+        },
+        {
+          "name": "dashboards:send-digests",
+          "description": "Email scheduled digests"
+        }
+      ]
+    }
+  }
+}

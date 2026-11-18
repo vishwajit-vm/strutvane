@@ -1,0 +1,55 @@
+{
+  "name": "@strutvane/workflows",
+  "version": "0.1.0",
+  "description": "Approval flows, timers and state machines",
+  "license": "MIT",
+  "type": "module",
+  "peerDependencies": {
+    "@strutvane/framework": "^1.0"
+  },
+  "strutvane": {
+    "manifestVersion": 1,
+    "id": "workflows",
+    "displayName": "Workflows",
+    "description": "Approval flows, timers and state machines",
+    "category": "back-office",
+    "tags": [
+      "approvals",
+      "state-machine"
+    ],
+    "kind": "package",
+    "popular": false,
+    "docs": "https://github.com/vishwajit-vm/strutvane-workflows#readme",
+    "framework": "^1.0",
+    "installs": {
+      "migrations": [
+        "create_workflow_runs_table",
+        "create_workflow_steps_table",
+        "create_workflow_approvals_table"
+      ],
+      "screens": [
+        {
+          "path": "/approvals",
+          "title": "Approvals"
+        }
+      ],
+      "sidebar": [
+        {
+          "label": "Approvals",
+          "path": "/approvals",
+          "icon": "check-check"
+        }
+      ],
+      "commands": [
+        {
+          "name": "make:workflow",
+          "description": "Create a workflow"
+        },
+        {
+          "name": "make:state-machine",
+          "description": "Create a state machine"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,51 @@
+{
+  "name": "@strutvane/charts",
+  "version": "0.1.0",
+  "description": "Chart and KPI widgets suggested from your models",
+  "license": "MIT",
+  "type": "module",
+  "peerDependencies": {
+    "@strutvane/framework": "^1.0"
+  },
+  "strutvane": {
+    "manifestVersion": 1,
+    "id": "charts",
+    "displayName": "Charts",
+    "description": "Chart and KPI widgets suggested from your models",
+    "category": "data",
+    "tags": [
+      "charts",
+      "kpi",
+      "widgets"
+    ],
+    "kind": "package",
+    "popular": true,
+    "docs": "https://github.com/vishwajit-vm/strutvane-charts#readme",
+    "framework": "^1.0",
+    "installs": {
+      "config": [
+        "config/charts.ts"
+      ],
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/api/_charts/metrics/:name"
+        }
+      ],
+      "commands": [
+        {
+          "name": "make:metric",
+          "description": "Create a custom metric"
+        },
+        {
+          "name": "charts:suggest",
+          "description": "Suggest charts from the schema"
+        },
+        {
+          "name": "charts:cache:clear",
+          "description": "Clear cached chart data"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "name": "@strutvane/feature-flags",
+  "version": "0.1.0",
+  "description": "Turn features on per user, team or plan",
+  "license": "MIT",
+  "type": "module",
+  "peerDependencies": {
+    "@strutvane/framework": "^1.0"
+  },
+  "strutvane": {
+    "manifestVersion": 1,
+    "id": "feature-flags",
+    "displayName": "Feature flags",
+    "description": "Turn features on per user, team or plan",
+    "category": "integrations",
+    "tags": [
+      "flags",
+      "rollout"
+    ],
+    "kind": "package",
+    "popular": true,
+    "docs": "https://github.com/vishwajit-vm/strutvane-feature-flags#readme",
+    "framework": "^1.0",
+    "installs": {
+      "config": [
+        "config/features.ts"
+      ],
+      "migrations": [
+        "create_features_table"
+      ],
+      "screens": [
+        {
+          "path": "/_strutvane/features",
+          "title": "Features"
+        }
+      ],
+      "commands": [
+        {
+          "name": "make:feature",
+          "description": "Create a feature flag"
+        }
+      ]
+    }
+  }
+}

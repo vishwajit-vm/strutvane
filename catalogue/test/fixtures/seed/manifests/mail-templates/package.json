@@ -1,0 +1,47 @@
+{
+  "name": "@strutvane/mail-templates",
+  "version": "0.1.0",
+  "description": "Editable per-team email templates with preview",
+  "license": "MIT",
+  "type": "module",
+  "peerDependencies": {
+    "@strutvane/framework": "^1.0"
+  },
+  "strutvane": {
+    "manifestVersion": 1,
+    "id": "mail-templates",
+    "displayName": "Mail templates",
+    "description": "Editable per-team email templates with preview",
+    "category": "integrations",
+    "tags": [
+      "email",
+      "templates"
+    ],
+    "kind": "package",
+    "popular": false,
+    "docs": "https://github.com/vishwajit-vm/strutvane-mail-templates#readme",
+    "framework": "^1.0",
+    "installs": {
+      "migrations": [
+        "create_mail_templates_table",
+        "create_mail_template_versions_table"
+      ],
+      "screens": [
+        {
+          "path": "/settings/mail-templates",
+          "title": "Mail templates"
+        }
+      ],
+      "commands": [
+        {
+          "name": "make:mail-template",
+          "description": "Create a mail template"
+        },
+        {
+          "name": "mail-templates:sync",
+          "description": "Sync templates from code"
+        }
+      ]
+    }
+  }
+}

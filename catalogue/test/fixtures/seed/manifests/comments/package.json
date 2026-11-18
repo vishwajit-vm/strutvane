@@ -1,0 +1,31 @@
+{
+  "name": "@strutvane/comments",
+  "version": "0.1.0",
+  "description": "Comment threads, mentions and reactions on records",
+  "license": "MIT",
+  "type": "module",
+  "peerDependencies": {
+    "@strutvane/framework": "^1.0"
+  },
+  "strutvane": {
+    "manifestVersion": 1,
+    "id": "comments",
+    "displayName": "Comments",
+    "description": "Comment threads, mentions and reactions on records",
+    "category": "content",
+    "tags": [
+      "comments",
+      "mentions"
+    ],
+    "kind": "package",
+    "popular": false,
+    "docs": "https://github.com/vishwajit-vm/strutvane-comments#readme",
+    "framework": "^1.0",
+    "installs": {
+      "migrations": [
+        "create_comments_table",
+        "create_comment_reactions_table"
+      ]
+    }
+  }
+}

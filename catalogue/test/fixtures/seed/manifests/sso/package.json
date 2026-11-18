@@ -1,0 +1,59 @@
+{
+  "name": "@strutvane/sso",
+  "version": "0.1.0",
+  "description": "Per-team SAML/OIDC sign-in, SCIM and domains",
+  "license": "MIT",
+  "type": "module",
+  "peerDependencies": {
+    "@strutvane/framework": "^1.0"
+  },
+  "strutvane": {
+    "manifestVersion": 1,
+    "id": "sso",
+    "displayName": "Enterprise SSO",
+    "description": "Per-team SAML/OIDC sign-in, SCIM and domains",
+    "category": "identity",
+    "tags": [
+      "saml",
+      "oidc",
+      "scim"
+    ],
+    "kind": "package",
+    "popular": false,
+    "docs": "https://github.com/vishwajit-vm/strutvane-sso#readme",
+    "framework": "^1.0",
+    "installs": {
+      "config": [
+        "config/sso.ts"
+      ],
+      "migrations": [
+        "create_sso_connections_table",
+        "create_sso_domains_table",
+        "create_scim_tokens_table"
+      ],
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/sso/:tenant/login"
+        },
+        {
+          "method": "POST",
+          "path": "/sso/:tenant/acs"
+        },
+        {
+          "method": "GET",
+          "path": "/scim/v2/Users"
+        }
+      ],
+      "screens": [
+        {
+          "path": "/settings/sso",
+          "title": "Single sign-on"
+        }
+      ]
+    },
+    "requires": [
+      "auth"
+    ]
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "name": "hub-catalogue",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "The Strutvane package catalogue: source.json (hub-curated list of every package and repo) merged with live npm data into catalogue.json, the one index the installer, node strut install, the docs site and the catalogue page read (blueprint 18 §3.3).",
+  "license": "MIT",
+  "engines": {
+    "node": ">=24.3"
+  },
+  "devEngines": {
+    "packageManager": {
+      "name": "npm",
+      "version": ">=11.19.0",
+      "onFail": "error"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p .",
+    "test": "vitest run",
+    "ci": "tsc --noEmit -p . && vitest run",
+    "build": "node src/cli/catalogue.ts build",
+    "build:offline": "node src/cli/catalogue.ts build --offline",
+    "check": "node src/cli/catalogue.ts check",
+    "check:offline": "node src/cli/catalogue.ts check --offline",
+    "check-manifest": "node src/cli/catalogue.ts check-manifest",
+    "generate-schema": "node src/cli/generate-schema.ts"
+  },
+  "dependencies": {
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "24.10.1",
+    "fast-check": "4.10.2",
+    "typescript": "6.0.3",
+    "vitest": "5.1.0"
+  }
+}

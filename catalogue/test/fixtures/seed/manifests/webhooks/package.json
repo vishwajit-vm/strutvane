@@ -1,0 +1,48 @@
+{
+  "name": "@strutvane/webhooks",
+  "version": "0.1.0",
+  "description": "Send and receive signed webhooks",
+  "license": "MIT",
+  "type": "module",
+  "peerDependencies": {
+    "@strutvane/framework": "^1.0"
+  },
+  "strutvane": {
+    "manifestVersion": 1,
+    "id": "webhooks",
+    "displayName": "Webhooks",
+    "description": "Send and receive signed webhooks",
+    "category": "integrations",
+    "tags": [
+      "webhooks",
+      "events"
+    ],
+    "kind": "package",
+    "popular": true,
+    "docs": "https://github.com/vishwajit-vm/strutvane-webhooks#readme",
+    "framework": "^1.0",
+    "installs": {
+      "config": [
+        "config/webhooks.ts"
+      ],
+      "env": [
+        {
+          "key": "WEBHOOK_SIGNING_SECRET",
+          "description": "Signs outgoing webhook payloads",
+          "secret": true
+        }
+      ],
+      "migrations": [
+        "create_webhook_endpoints_table",
+        "create_webhook_deliveries_table",
+        "create_webhook_receipts_table"
+      ],
+      "screens": [
+        {
+          "path": "/settings/webhooks",
+          "title": "Webhooks"
+        }
+      ]
+    }
+  }
+}

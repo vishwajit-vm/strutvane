@@ -1,0 +1,729 @@
+{
+  "snapshotVersion": 1,
+  "registry": "https://registry.npmjs.org",
+  "packages": {
+    "@strutvane/activity-log": {
+      "distTags": {
+        "latest": "0.0.0-reserved.0",
+        "reserved": "0.0.0-reserved.0"
+      },
+      "versions": {
+        "0.0.0-stage": {},
+        "0.0.0-reserved.0": {
+          "repository": "git+https://github.com/vishwajit-vm/strutvane-activity-log.git"
+        }
+      }
+    },
+    "@strutvane/agent-tools": {
+      "distTags": {
+        "latest": "0.0.0-reserved.0",
+        "reserved": "0.0.0-reserved.0"
+      },
+      "versions": {
+        "0.0.0-stage": {},
+        "0.0.0-reserved.0": {
+          "repository": "git+https://github.com/vishwajit-vm/strutvane-agent-tools.git"
+        }
+      }
+    },
+    "@strutvane/ai": {
+      "distTags": {
+        "latest": "0.0.0-reserved.0",
+        "reserved": "0.0.0-reserved.0"
+      },
+      "versions": {
+        "0.0.0-stage": {},
+        "0.0.0-reserved.0": {
+          "repository": "git+https://github.com/vishwajit-vm/strutvane-ai.git"
+        }
+      }
+    },
+    "@strutvane/api-explorer": {
+      "distTags": {
+        "latest": "0.0.0-reserved.0",
+        "reserved": "0.0.0-reserved.0"
+      },
+      "versions": {
+        "0.0.0-stage": {},
+        "0.0.0-reserved.0": {
+          "repository": "git+https://github.com/vishwajit-vm/strutvane-api-explorer.git"
+        }
+      }
+    },
+    "@strutvane/auth": {
+      "distTags": {
+        "latest": "0.0.0-reserved.0",
+        "next": "0.1.0-next.0",
+        "reserved": "0.0.0-reserved.0"
+      },
+      "versions": {
+        "0.1.0-next.0": {
+          "peerDependencies": {
+            "better-auth": "1.7.23",
+            "hono": "^4.13.0",
+            "pg": "^8.23.0",
+            "vitest": "^5.1.0"
+          },
+          "repository": "git+https://github.com/vishwajit-vm/strutvane-auth.git"
+        },
+        "0.0.0-stage": {},
+        "0.0.0-reserved.0": {
+          "repository": "git+https://github.com/vishwajit-vm/strutvane-auth.git"
+        }
+      }
+    },
+    "@strutvane/backup": {
+      "distTags": {
+        "latest": "0.0.0-reserved.0",
+        "reserved": "0.0.0-reserved.0"
+      },
+      "versions": {
+        "0.0.0-stage": {},
+        "0.0.0-reserved.0": {
+          "repository": "git+https://github.com/vishwajit-vm/strutvane-backup.git"
+        }
+      }
+    },
+    "@strutvane/billing": {
+      "distTags": {
+        "latest": "0.0.0-reserved.0",
+        "reserved": "0.0.0-reserved.0"
+      },
+      "versions": {
+        "0.0.0-stage": {},
+        "0.0.0-reserved.0": {
+          "repository": "git+https://github.com/vishwajit-vm/strutvane-billing.git"
+        }
+      }
+    },
+    "@strutvane/browser-testing": {
+      "distTags": {
+        "latest": "0.0.0-reserved.0",
+        "reserved": "0.0.0-reserved.0"
+      },
+      "versions": {
+        "0.0.0-stage": {},
+        "0.0.0-reserved.0": {
+          "repository": "git+https://github.com/vishwajit-vm/strutvane-browser-testing.git"
+        }
+      }
+    },
+    "@strutvane/charts": {
+      "distTags": {
+        "latest": "0.0.0-reserved.0",
+        "reserved": "0.0.0-reserved.0"
+      },
+      "versions": {
+        "0.0.0-stage": {},
+        "0.0.0-reserved.0": {
+          "repository": "git+https://github.com/vishwajit-vm/strutvane-charts.git"
+        }
+      }
+    },
+    "@strutvane/cli": {
+      "distTags": {
+        "latest": "0.0.0-reserved.0",
+        "next": "0.1.0-next.0",
+        "reserved": "0.0.0-reserved.0"
+      },
+      "versions": {
+        "0.1.0-next.0": {
+          "repository": "git+https://github.com/vishwajit-vm/strutvane-cli.git"
+        },
+        "0.0.0-stage": {},
+        "0.0.0-reserved.0": {
+          "repository": "git+https://github.com/vishwajit-vm/strutvane-cli.git"
+        }
+      }
+    },
+    "@strutvane/cms": {
+      "distTags": {
+        "latest": "0.0.0-reserved.0",
+        "reserved": "0.0.0-reserved.0"
+      },
+      "versions": {
+        "0.0.0-stage": {},
+        "0.0.0-reserved.0": {
+          "repository": "git+https://github.com/vishwajit-vm/strutvane-cms.git"
+        }
+      }
+    },
+    "@strutvane/comments": {
+      "distTags": {
+        "latest": "0.0.0-reserved.0",
+        "reserved": "0.0.0-reserved.0"
+      },
+      "versions": {
+        "0.0.0-stage": {},
+        "0.0.0-reserved.0": {
+          "repository": "git+https://github.com/vishwajit-vm/strutvane-comments.git"
+        }
+      }
+    },
+    "@strutvane/contracts": {
+      "distTags": {
+        "latest": "0.0.0-reserved.0",
+        "next": "0.1.0-next.0",
+        "reserved": "0.0.0-reserved.0"
+      },
+      "versions": {
+        "0.1.0-next.0": {
+          "repository": "git+https://github.com/vishwajit-vm/strutvane-contracts.git"
+        },
+        "0.0.0-stage": {},
+        "0.0.0-reserved.0": {
+          "repository": "git+https://github.com/vishwajit-vm/strutvane-contracts.git"
+        }
+      }
+    },
+    "@strutvane/core": {
+      "distTags": {
+        "latest": "0.0.0-reserved.0",
+        "next": "0.1.0-next.0",
+        "reserved": "0.0.0-reserved.0"
+      },
+      "versions": {
+        "0.1.0-next.0": {
+          "repository": "git+https://github.com/vishwajit-vm/strutvane-core.git"
+        },
+        "0.0.0-stage": {},
+        "0.0.0-reserved.0": {
+          "repository": "git+https://github.com/vishwajit-vm/strutvane-core.git"
+        }
+      }
+    },
+    "@strutvane/dashboards": {
+      "distTags": {
+        "latest": "0.0.0-reserved.0",
+        "reserved": "0.0.0-reserved.0"
+      },
+      "versions": {
+        "0.0.0-stage": {},
+        "0.0.0-reserved.0": {
+          "repository": "git+https://github.com/vishwajit-vm/strutvane-dashboards.git"
+        }
+      }
+    },
+    "@strutvane/design-crisp": {
+      "distTags": {
+        "latest": "0.0.0-reserved.0",
+        "reserved": "0.0.0-reserved.0"
+      },
+      "versions": {
+        "0.0.0-stage": {},
+        "0.0.0-reserved.0": {
+          "repository": "git+https://github.com/vishwajit-vm/strutvane-design-crisp.git"
+        }
+      }
+    },
+    "@strutvane/design-glass": {
+      "distTags": {
+        "latest": "0.0.0-reserved.0",
+        "reserved": "0.0.0-reserved.0"
+      },
+      "versions": {
+        "0.0.0-stage": {},
+        "0.0.0-reserved.0": {
+          "repository": "git+https://github.com/vishwajit-vm/strutvane-design-glass.git"
+        }
+      }
+    },
+    "@strutvane/design-vivid": {
+      "distTags": {
+        "latest": "0.0.0-reserved.0",
+        "reserved": "0.0.0-reserved.0"
+      },
+      "versions": {
+        "0.0.0-stage": {},
+        "0.0.0-reserved.0": {
+          "repository": "git+https://github.com/vishwajit-vm/strutvane-design-vivid.git"
+        }
+      }
+    },
+    "@strutvane/devkit": {
+      "distTags": {
+        "latest": "0.0.0-reserved.0",
+        "next": "0.1.0-next.0",
+        "reserved": "0.0.0-reserved.0"
+      },
+      "versions": {
+        "0.1.0-next.0": {
+          "repository": "git+https://github.com/vishwajit-vm/strutvane-devkit.git"
+        },
+        "0.0.0-stage": {},
+        "0.0.0-reserved.0": {
+          "repository": "git+https://github.com/vishwajit-vm/strutvane-devkit.git"
+        }
+      }
+    },
+    "@strutvane/feature-flags": {
+      "distTags": {
+        "latest": "0.0.0-reserved.0",
+        "reserved": "0.0.0-reserved.0"
+      },
+      "versions": {
+        "0.0.0-stage": {},
+        "0.0.0-reserved.0": {
+          "repository": "git+https://github.com/vishwajit-vm/strutvane-feature-flags.git"
+        }
+      }
+    },
+    "@strutvane/files": {
+      "distTags": {
+        "latest": "0.0.0-reserved.0",
+        "reserved": "0.0.0-reserved.0"
+      },
+      "versions": {
+        "0.0.0-stage": {},
+        "0.0.0-reserved.0": {
+          "repository": "git+https://github.com/vishwajit-vm/strutvane-files.git"
+        }
+      }
+    },
+    "@strutvane/form-builder": {
+      "distTags": {
+        "latest": "0.0.0-reserved.0",
+        "reserved": "0.0.0-reserved.0"
+      },
+      "versions": {
+        "0.0.0-stage": {},
+        "0.0.0-reserved.0": {
+          "repository": "git+https://github.com/vishwajit-vm/strutvane-form-builder.git"
+        }
+      }
+    },
+    "@strutvane/framework": {
+      "distTags": {
+        "latest": "0.0.0-reserved.0",
+        "next": "0.1.0-next.0",
+        "reserved": "0.0.0-reserved.0"
+      },
+      "versions": {
+        "0.1.0-next.0": {
+          "peerDependencies": {
+            "@electric-sql/pglite": ">=0.5.16",
+            "@libsql/client": ">=0.18.0",
+            "pg": ">=8.23.0"
+          },
+          "strutvane": {
+            "compat": "^0.1.0-next.0",
+            "commands": "./dist/commands.mjs"
+          },
+          "repository": "git+https://github.com/vishwajit-vm/strutvane-framework.git"
+        },
+        "0.0.0-stage": {},
+        "0.0.0-reserved.0": {
+          "repository": "git+https://github.com/vishwajit-vm/strutvane-framework.git"
+        }
+      }
+    },
+    "@strutvane/geo": {
+      "distTags": {
+        "latest": "0.0.0-reserved.0",
+        "reserved": "0.0.0-reserved.0"
+      },
+      "versions": {
+        "0.0.0-stage": {},
+        "0.0.0-reserved.0": {
+          "repository": "git+https://github.com/vishwajit-vm/strutvane-geo.git"
+        }
+      }
+    },
+    "@strutvane/graphql": {
+      "distTags": {
+        "latest": "0.0.0-reserved.0",
+        "reserved": "0.0.0-reserved.0"
+      },
+      "versions": {
+        "0.0.0-stage": {},
+        "0.0.0-reserved.0": {
+          "repository": "git+https://github.com/vishwajit-vm/strutvane-graphql.git"
+        }
+      }
+    },
+    "@strutvane/health": {
+      "distTags": {
+        "latest": "0.0.0-reserved.0",
+        "reserved": "0.0.0-reserved.0"
+      },
+      "versions": {
+        "0.0.0-stage": {},
+        "0.0.0-reserved.0": {
+          "repository": "git+https://github.com/vishwajit-vm/strutvane-health.git"
+        }
+      }
+    },
+    "@strutvane/import-export": {
+      "distTags": {
+        "latest": "0.0.0-reserved.0",
+        "reserved": "0.0.0-reserved.0"
+      },
+      "versions": {
+        "0.0.0-stage": {},
+        "0.0.0-reserved.0": {
+          "repository": "git+https://github.com/vishwajit-vm/strutvane-import-export.git"
+        }
+      }
+    },
+    "@strutvane/inspector": {
+      "distTags": {
+        "latest": "0.0.0-reserved.0",
+        "reserved": "0.0.0-reserved.0"
+      },
+      "versions": {
+        "0.0.0-stage": {},
+        "0.0.0-reserved.0": {
+          "repository": "git+https://github.com/vishwajit-vm/strutvane-inspector.git"
+        }
+      }
+    },
+    "@strutvane/invoicing": {
+      "distTags": {
+        "latest": "0.0.0-reserved.0",
+        "reserved": "0.0.0-reserved.0"
+      },
+      "versions": {
+        "0.0.0-stage": {},
+        "0.0.0-reserved.0": {
+          "repository": "git+https://github.com/vishwajit-vm/strutvane-invoicing.git"
+        }
+      }
+    },
+    "@strutvane/log-viewer": {
+      "distTags": {
+        "latest": "0.0.0-reserved.0",
+        "reserved": "0.0.0-reserved.0"
+      },
+      "versions": {
+        "0.0.0-stage": {},
+        "0.0.0-reserved.0": {
+          "repository": "git+https://github.com/vishwajit-vm/strutvane-log-viewer.git"
+        }
+      }
+    },
+    "@strutvane/logs": {
+      "distTags": {
+        "latest": "0.0.0-reserved.0",
+        "next": "0.1.0-next.0",
+        "reserved": "0.0.0-reserved.0"
+      },
+      "versions": {
+        "0.1.0-next.0": {
+          "peerDependencies": {
+            "express": "^5.0.0",
+            "hono": "^4.6.0"
+          },
+          "repository": "git+https://github.com/vishwajit-vm/strutvane-logs.git"
+        },
+        "0.0.0-stage": {},
+        "0.0.0-reserved.0": {
+          "repository": "git+https://github.com/vishwajit-vm/strutvane-logs.git"
+        }
+      }
+    },
+    "@strutvane/mail-templates": {
+      "distTags": {
+        "latest": "0.0.0-reserved.0",
+        "reserved": "0.0.0-reserved.0"
+      },
+      "versions": {
+        "0.0.0-stage": {},
+        "0.0.0-reserved.0": {
+          "repository": "git+https://github.com/vishwajit-vm/strutvane-mail-templates.git"
+        }
+      }
+    },
+    "@strutvane/mcp-server": {
+      "distTags": {
+        "latest": "0.0.0-reserved.0",
+        "reserved": "0.0.0-reserved.0"
+      },
+      "versions": {
+        "0.0.0-stage": {},
+        "0.0.0-reserved.0": {
+          "repository": "git+https://github.com/vishwajit-vm/strutvane-mcp-server.git"
+        }
+      }
+    },
+    "@strutvane/media-library": {
+      "distTags": {
+        "latest": "0.0.0-reserved.0",
+        "reserved": "0.0.0-reserved.0"
+      },
+      "versions": {
+        "0.0.0-stage": {},
+        "0.0.0-reserved.0": {
+          "repository": "git+https://github.com/vishwajit-vm/strutvane-media-library.git"
+        }
+      }
+    },
+    "@strutvane/notification-channels": {
+      "distTags": {
+        "latest": "0.0.0-reserved.0",
+        "reserved": "0.0.0-reserved.0"
+      },
+      "versions": {
+        "0.0.0-stage": {},
+        "0.0.0-reserved.0": {
+          "repository": "git+https://github.com/vishwajit-vm/strutvane-notification-channels.git"
+        }
+      }
+    },
+    "@strutvane/oauth-server": {
+      "distTags": {
+        "latest": "0.0.0-reserved.0",
+        "reserved": "0.0.0-reserved.0"
+      },
+      "versions": {
+        "0.0.0-stage": {},
+        "0.0.0-reserved.0": {
+          "repository": "git+https://github.com/vishwajit-vm/strutvane-oauth-server.git"
+        }
+      }
+    },
+    "@strutvane/observability": {
+      "distTags": {
+        "latest": "0.0.0-reserved.0",
+        "reserved": "0.0.0-reserved.0"
+      },
+      "versions": {
+        "0.0.0-stage": {},
+        "0.0.0-reserved.0": {
+          "repository": "git+https://github.com/vishwajit-vm/strutvane-observability.git"
+        }
+      }
+    },
+    "@strutvane/payments": {
+      "distTags": {
+        "latest": "0.0.0-reserved.0",
+        "reserved": "0.0.0-reserved.0"
+      },
+      "versions": {
+        "0.0.0-stage": {},
+        "0.0.0-reserved.0": {
+          "repository": "git+https://github.com/vishwajit-vm/strutvane-payments.git"
+        }
+      }
+    },
+    "@strutvane/pdf": {
+      "distTags": {
+        "latest": "0.0.0-reserved.0",
+        "reserved": "0.0.0-reserved.0"
+      },
+      "versions": {
+        "0.0.0-stage": {},
+        "0.0.0-reserved.0": {
+          "repository": "git+https://github.com/vishwajit-vm/strutvane-pdf.git"
+        }
+      }
+    },
+    "@strutvane/privacy": {
+      "distTags": {
+        "latest": "0.0.0-reserved.0",
+        "reserved": "0.0.0-reserved.0"
+      },
+      "versions": {
+        "0.0.0-stage": {},
+        "0.0.0-reserved.0": {
+          "repository": "git+https://github.com/vishwajit-vm/strutvane-privacy.git"
+        }
+      }
+    },
+    "@strutvane/queue-dashboard": {
+      "distTags": {
+        "latest": "0.0.0-reserved.0",
+        "reserved": "0.0.0-reserved.0"
+      },
+      "versions": {
+        "0.0.0-stage": {},
+        "0.0.0-reserved.0": {
+          "repository": "git+https://github.com/vishwajit-vm/strutvane-queue-dashboard.git"
+        }
+      }
+    },
+    "@strutvane/realtime": {
+      "distTags": {
+        "latest": "0.0.0-reserved.0",
+        "reserved": "0.0.0-reserved.0"
+      },
+      "versions": {
+        "0.0.0-stage": {},
+        "0.0.0-reserved.0": {
+          "repository": "git+https://github.com/vishwajit-vm/strutvane-realtime.git"
+        }
+      }
+    },
+    "@strutvane/redis": {
+      "distTags": {
+        "latest": "0.0.0-reserved.0",
+        "reserved": "0.0.0-reserved.0"
+      },
+      "versions": {
+        "0.0.0-stage": {},
+        "0.0.0-reserved.0": {
+          "repository": "git+https://github.com/vishwajit-vm/strutvane-redis.git"
+        }
+      }
+    },
+    "@strutvane/resource-views": {
+      "distTags": {
+        "latest": "0.0.0-reserved.0",
+        "reserved": "0.0.0-reserved.0"
+      },
+      "versions": {
+        "0.0.0-stage": {},
+        "0.0.0-reserved.0": {
+          "repository": "git+https://github.com/vishwajit-vm/strutvane-resource-views.git"
+        }
+      }
+    },
+    "@strutvane/search": {
+      "distTags": {
+        "latest": "0.0.0-reserved.0",
+        "reserved": "0.0.0-reserved.0"
+      },
+      "versions": {
+        "0.0.0-stage": {},
+        "0.0.0-reserved.0": {
+          "repository": "git+https://github.com/vishwajit-vm/strutvane-search.git"
+        }
+      }
+    },
+    "@strutvane/settings": {
+      "distTags": {
+        "latest": "0.0.0-reserved.0",
+        "reserved": "0.0.0-reserved.0"
+      },
+      "versions": {
+        "0.0.0-stage": {},
+        "0.0.0-reserved.0": {
+          "repository": "git+https://github.com/vishwajit-vm/strutvane-settings.git"
+        }
+      }
+    },
+    "@strutvane/social-login": {
+      "distTags": {
+        "latest": "0.0.0-reserved.0",
+        "reserved": "0.0.0-reserved.0"
+      },
+      "versions": {
+        "0.0.0-stage": {},
+        "0.0.0-reserved.0": {
+          "repository": "git+https://github.com/vishwajit-vm/strutvane-social-login.git"
+        }
+      }
+    },
+    "@strutvane/sso": {
+      "distTags": {
+        "latest": "0.0.0-reserved.0",
+        "reserved": "0.0.0-reserved.0"
+      },
+      "versions": {
+        "0.0.0-stage": {},
+        "0.0.0-reserved.0": {
+          "repository": "git+https://github.com/vishwajit-vm/strutvane-sso.git"
+        }
+      }
+    },
+    "@strutvane/tags": {
+      "distTags": {
+        "latest": "0.0.0-reserved.0",
+        "reserved": "0.0.0-reserved.0"
+      },
+      "versions": {
+        "0.0.0-stage": {},
+        "0.0.0-reserved.0": {
+          "repository": "git+https://github.com/vishwajit-vm/strutvane-tags.git"
+        }
+      }
+    },
+    "@strutvane/translations": {
+      "distTags": {
+        "latest": "0.0.0-reserved.0",
+        "reserved": "0.0.0-reserved.0"
+      },
+      "versions": {
+        "0.0.0-stage": {},
+        "0.0.0-reserved.0": {
+          "repository": "git+https://github.com/vishwajit-vm/strutvane-translations.git"
+        }
+      }
+    },
+    "@strutvane/ui": {
+      "distTags": {
+        "latest": "0.0.0-reserved.0",
+        "next": "0.1.0-next.0",
+        "reserved": "0.0.0-reserved.0"
+      },
+      "versions": {
+        "0.1.0-next.0": {
+          "peerDependencies": {
+            "@tanstack/react-form": "^1.33.5",
+            "@tanstack/react-query": "^5.107.1",
+            "@tanstack/react-table": "^9.3.1",
+            "@tanstack/react-virtual": "^3.14.26",
+            "react": "^19.2.0",
+            "react-dom": "^19.2.0"
+          },
+          "repository": "git+https://github.com/vishwajit-vm/strutvane-ui.git"
+        },
+        "0.0.0-stage": {},
+        "0.0.0-reserved.0": {
+          "repository": "git+https://github.com/vishwajit-vm/strutvane-ui.git"
+        }
+      }
+    },
+    "@strutvane/webhooks": {
+      "distTags": {
+        "latest": "0.0.0-reserved.0",
+        "reserved": "0.0.0-reserved.0"
+      },
+      "versions": {
+        "0.0.0-stage": {},
+        "0.0.0-reserved.0": {
+          "repository": "git+https://github.com/vishwajit-vm/strutvane-webhooks.git"
+        }
+      }
+    },
+    "@strutvane/workflows": {
+      "distTags": {
+        "latest": "0.0.0-reserved.0",
+        "reserved": "0.0.0-reserved.0"
+      },
+      "versions": {
+        "0.0.0-stage": {},
+        "0.0.0-reserved.0": {
+          "repository": "git+https://github.com/vishwajit-vm/strutvane-workflows.git"
+        }
+      }
+    },
+    "create-strutvane": {
+      "distTags": {
+        "latest": "0.0.0-reserved.0",
+        "reserved": "0.0.0-reserved.0"
+      },
+      "versions": {
+        "0.0.0-stage": {},
+        "0.0.0-reserved.0": {
+          "repository": "git+https://github.com/vishwajit-vm/create-strutvane.git"
+        }
+      }
+    },
+    "strutvane": {
+      "distTags": {
+        "latest": "0.0.0-reserved.0",
+        "next": "0.1.0-next.0",
+        "reserved": "0.0.0-reserved.0"
+      },
+      "versions": {
+        "0.1.0-next.0": {
+          "repository": "git+https://github.com/vishwajit-vm/strutvane-cli.git"
+        },
+        "0.0.0-stage": {},
+        "0.0.0-reserved.0": {
+          "repository": "git+https://github.com/vishwajit-vm/strutvane-cli.git"
+        }
+      }
+    }
+  }
+}

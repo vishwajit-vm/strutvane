@@ -1,0 +1,57 @@
+{
+  "name": "@strutvane/realtime",
+  "version": "0.1.0",
+  "description": "Live updates in the UI when data changes",
+  "license": "MIT",
+  "type": "module",
+  "peerDependencies": {
+    "@strutvane/framework": "^1.0"
+  },
+  "strutvane": {
+    "manifestVersion": 1,
+    "id": "realtime",
+    "displayName": "Realtime",
+    "description": "Live updates in the UI when data changes",
+    "category": "integrations",
+    "tags": [
+      "websockets",
+      "live"
+    ],
+    "kind": "package",
+    "popular": true,
+    "docs": "https://github.com/vishwajit-vm/strutvane-realtime#readme",
+    "framework": "^1.0",
+    "installs": {
+      "config": [
+        "config/broadcasting.ts",
+        "routes/channels.ts"
+      ],
+      "env": [
+        {
+          "key": "REALTIME_PORT",
+          "description": "Port of the WebSocket server",
+          "secret": false,
+          "example": "6001"
+        }
+      ]
+    },
+    "questions": [
+      {
+        "id": "transport",
+        "type": "select",
+        "label": "Realtime: how should updates reach the browser?",
+        "choices": [
+          {
+            "value": "websockets",
+            "label": "WebSockets"
+          },
+          {
+            "value": "sse",
+            "label": "Server-sent events (no extra service)"
+          }
+        ],
+        "default": "websockets"
+      }
+    ]
+  }
+}

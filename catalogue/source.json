@@ -1,0 +1,1196 @@
+{
+  "$schema": "./schema/catalogue-source.v1.schema.json",
+  "sourceVersion": 1,
+  "org": "vishwajit-vm",
+  "categories": [
+    {
+      "id": "operations",
+      "name": "Operations",
+      "pickable": true
+    },
+    {
+      "id": "data",
+      "name": "Data",
+      "pickable": true
+    },
+    {
+      "id": "back-office",
+      "name": "Back office",
+      "pickable": true
+    },
+    {
+      "id": "integrations",
+      "name": "Integrations",
+      "pickable": true
+    },
+    {
+      "id": "money",
+      "name": "Money",
+      "pickable": true
+    },
+    {
+      "id": "ai",
+      "name": "AI",
+      "pickable": true
+    },
+    {
+      "id": "identity",
+      "name": "Sign-in and identity",
+      "pickable": true
+    },
+    {
+      "id": "content",
+      "name": "Content",
+      "pickable": true
+    },
+    {
+      "id": "developer",
+      "name": "Developer tools",
+      "pickable": true
+    },
+    {
+      "id": "app",
+      "name": "App essentials",
+      "pickable": true
+    },
+    {
+      "id": "design",
+      "name": "Designs",
+      "pickable": false
+    },
+    {
+      "id": "core",
+      "name": "Core",
+      "pickable": false
+    }
+  ],
+  "framework": {
+    "lines": [
+      "0.2",
+      "0.3",
+      "1.0"
+    ]
+  },
+  "packages": [
+    {
+      "id": "activity-log",
+      "name": "Activity log",
+      "description": "Who changed what, and when",
+      "kind": "package",
+      "npm": "@strutvane/activity-log",
+      "repo": "strutvane-activity-log",
+      "status": "planned",
+      "phase": 4,
+      "category": "back-office",
+      "tags": [
+        "audit",
+        "history"
+      ],
+      "popular": true,
+      "docs": "https://github.com/vishwajit-vm/strutvane-activity-log#readme",
+      "framework": "^1.0"
+    },
+    {
+      "id": "agent-tools",
+      "name": "AI coding assistants",
+      "description": "AGENTS.md, skills and a local docs MCP server",
+      "kind": "package",
+      "npm": "@strutvane/agent-tools",
+      "repo": "strutvane-agent-tools",
+      "status": "planned",
+      "phase": 2,
+      "category": "developer",
+      "tags": [
+        "ai",
+        "mcp",
+        "agents"
+      ],
+      "popular": false,
+      "docs": "https://github.com/vishwajit-vm/strutvane-agent-tools#readme",
+      "framework": "^1.0"
+    },
+    {
+      "id": "ai",
+      "name": "AI SDK",
+      "description": "Call AI models from your app, with policies",
+      "kind": "package",
+      "npm": "@strutvane/ai",
+      "repo": "strutvane-ai",
+      "status": "planned",
+      "phase": 7,
+      "category": "ai",
+      "tags": [
+        "llm",
+        "embeddings",
+        "agents"
+      ],
+      "popular": true,
+      "docs": "https://github.com/vishwajit-vm/strutvane-ai#readme",
+      "framework": "^1.0"
+    },
+    {
+      "id": "api-explorer",
+      "name": "API explorer",
+      "description": "Try your API in the browser (OpenAPI)",
+      "kind": "package",
+      "npm": "@strutvane/api-explorer",
+      "repo": "strutvane-api-explorer",
+      "status": "planned",
+      "phase": 4,
+      "category": "data",
+      "tags": [
+        "openapi",
+        "api"
+      ],
+      "popular": true,
+      "docs": "https://github.com/vishwajit-vm/strutvane-api-explorer#readme",
+      "framework": "^1.0"
+    },
+    {
+      "id": "auth",
+      "name": "Auth",
+      "description": "Sign-in, 2FA, passkeys, tokens, teams, impersonation",
+      "kind": "package",
+      "npm": "@strutvane/auth",
+      "repo": "strutvane-auth",
+      "status": "in-development",
+      "phase": 1,
+      "since": "0.2",
+      "category": "app",
+      "tags": [
+        "login",
+        "two-factor",
+        "passkeys",
+        "teams"
+      ],
+      "popular": false,
+      "docs": "https://github.com/vishwajit-vm/strutvane-auth#readme",
+      "framework": "^0.2"
+    },
+    {
+      "id": "backup",
+      "name": "Backups",
+      "description": "Encrypted database and file backups",
+      "kind": "package",
+      "npm": "@strutvane/backup",
+      "repo": "strutvane-backup",
+      "status": "planned",
+      "phase": 4,
+      "category": "operations",
+      "tags": [
+        "backup",
+        "restore"
+      ],
+      "popular": true,
+      "docs": "https://github.com/vishwajit-vm/strutvane-backup#readme",
+      "framework": "^1.0"
+    },
+    {
+      "id": "billing",
+      "name": "Billing",
+      "description": "Subscriptions, seats and a customer portal",
+      "kind": "package",
+      "npm": "@strutvane/billing",
+      "repo": "strutvane-billing",
+      "status": "planned",
+      "phase": 6,
+      "category": "money",
+      "tags": [
+        "subscriptions",
+        "stripe",
+        "paddle"
+      ],
+      "popular": true,
+      "docs": "https://github.com/vishwajit-vm/strutvane-billing#readme",
+      "framework": "^1.0"
+    },
+    {
+      "id": "browser-testing",
+      "name": "Browser tests",
+      "description": "Playwright fixtures for the real UI",
+      "kind": "package",
+      "npm": "@strutvane/browser-testing",
+      "repo": "strutvane-browser-testing",
+      "status": "planned",
+      "phase": 7,
+      "category": "developer",
+      "tags": [
+        "playwright",
+        "testing"
+      ],
+      "popular": false,
+      "docs": "https://github.com/vishwajit-vm/strutvane-browser-testing#readme",
+      "framework": "^1.0"
+    },
+    {
+      "id": "charts",
+      "name": "Charts",
+      "description": "Chart and KPI widgets suggested from your models",
+      "kind": "package",
+      "npm": "@strutvane/charts",
+      "repo": "strutvane-charts",
+      "status": "planned",
+      "phase": 3,
+      "category": "data",
+      "tags": [
+        "charts",
+        "kpi",
+        "widgets"
+      ],
+      "popular": true,
+      "docs": "https://github.com/vishwajit-vm/strutvane-charts#readme",
+      "framework": "^1.0"
+    },
+    {
+      "id": "cms",
+      "name": "CMS",
+      "description": "Pages, menus, redirects, SEO and sitemap",
+      "kind": "package",
+      "npm": "@strutvane/cms",
+      "repo": "strutvane-cms",
+      "status": "planned",
+      "phase": 7,
+      "category": "content",
+      "tags": [
+        "pages",
+        "seo",
+        "sitemap"
+      ],
+      "popular": false,
+      "docs": "https://github.com/vishwajit-vm/strutvane-cms#readme",
+      "framework": "^1.0"
+    },
+    {
+      "id": "comments",
+      "name": "Comments",
+      "description": "Comment threads, mentions and reactions on records",
+      "kind": "package",
+      "npm": "@strutvane/comments",
+      "repo": "strutvane-comments",
+      "status": "planned",
+      "phase": 4,
+      "category": "content",
+      "tags": [
+        "comments",
+        "mentions"
+      ],
+      "popular": false,
+      "docs": "https://github.com/vishwajit-vm/strutvane-comments#readme",
+      "framework": "^1.0"
+    },
+    {
+      "id": "create-strutvane",
+      "name": "Project installer",
+      "description": "npm create strutvane@latest: asks, installs, runs",
+      "kind": "package",
+      "npm": "create-strutvane",
+      "repo": "create-strutvane",
+      "status": "in-development",
+      "phase": 1,
+      "since": "0.2",
+      "category": "core",
+      "tags": [
+        "installer"
+      ],
+      "popular": false,
+      "docs": "https://github.com/vishwajit-vm/create-strutvane#readme",
+      "framework": "^0.2"
+    },
+    {
+      "id": "crisp",
+      "name": "Crisp",
+      "description": "Clean, minimal and business-first (default)",
+      "kind": "design",
+      "npm": "@strutvane/design-crisp",
+      "repo": "strutvane-design-crisp",
+      "status": "in-development",
+      "phase": 1,
+      "since": "0.2",
+      "category": "design",
+      "tags": [
+        "minimal",
+        "dense"
+      ],
+      "popular": false,
+      "docs": "https://github.com/vishwajit-vm/strutvane-design-crisp#readme",
+      "framework": "^0.2"
+    },
+    {
+      "id": "dashboards",
+      "name": "Dashboards",
+      "description": "Home and role dashboards with weekly digests",
+      "kind": "package",
+      "npm": "@strutvane/dashboards",
+      "repo": "strutvane-dashboards",
+      "status": "planned",
+      "phase": 3,
+      "category": "data",
+      "tags": [
+        "dashboard",
+        "digest"
+      ],
+      "popular": true,
+      "docs": "https://github.com/vishwajit-vm/strutvane-dashboards#readme",
+      "framework": "^1.0"
+    },
+    {
+      "id": "feature-flags",
+      "name": "Feature flags",
+      "description": "Turn features on per user, team or plan",
+      "kind": "package",
+      "npm": "@strutvane/feature-flags",
+      "repo": "strutvane-feature-flags",
+      "status": "planned",
+      "phase": 5,
+      "category": "integrations",
+      "tags": [
+        "flags",
+        "rollout"
+      ],
+      "popular": true,
+      "docs": "https://github.com/vishwajit-vm/strutvane-feature-flags#readme",
+      "framework": "^1.0"
+    },
+    {
+      "id": "files",
+      "name": "Cloud files",
+      "description": "S3 and Azure disks, resumable uploads, virus scan",
+      "kind": "package",
+      "npm": "@strutvane/files",
+      "repo": "strutvane-files",
+      "status": "planned",
+      "phase": 3,
+      "category": "back-office",
+      "tags": [
+        "storage",
+        "s3",
+        "uploads"
+      ],
+      "popular": false,
+      "docs": "https://github.com/vishwajit-vm/strutvane-files#readme",
+      "framework": "^1.0"
+    },
+    {
+      "id": "form-builder",
+      "name": "Form builder",
+      "description": "Admin-designed forms and custom fields",
+      "kind": "package",
+      "npm": "@strutvane/form-builder",
+      "repo": "strutvane-form-builder",
+      "status": "planned",
+      "phase": 7,
+      "category": "back-office",
+      "tags": [
+        "forms",
+        "custom-fields"
+      ],
+      "popular": false,
+      "docs": "https://github.com/vishwajit-vm/strutvane-form-builder#readme",
+      "framework": "^1.0"
+    },
+    {
+      "id": "framework",
+      "name": "Framework",
+      "description": "Kernel, HTTP, ORM, migrations, auth, tenancy, console",
+      "kind": "package",
+      "npm": "@strutvane/framework",
+      "repo": "strutvane-framework",
+      "status": "in-development",
+      "phase": 1,
+      "since": "0.2",
+      "category": "core",
+      "tags": [
+        "kernel",
+        "orm",
+        "http"
+      ],
+      "popular": false,
+      "docs": "https://github.com/vishwajit-vm/strutvane-framework#readme",
+      "framework": "^0.2"
+    },
+    {
+      "id": "geo",
+      "name": "Geo",
+      "description": "Map fields, distance queries and geocoding",
+      "kind": "package",
+      "npm": "@strutvane/geo",
+      "repo": "strutvane-geo",
+      "status": "planned",
+      "phase": 8,
+      "category": "data",
+      "tags": [
+        "maps",
+        "spatial"
+      ],
+      "popular": false,
+      "docs": "https://github.com/vishwajit-vm/strutvane-geo#readme",
+      "framework": "^1.0"
+    },
+    {
+      "id": "graphql",
+      "name": "GraphQL",
+      "description": "A GraphQL API next to the REST API",
+      "kind": "package",
+      "npm": "@strutvane/graphql",
+      "repo": "strutvane-graphql",
+      "status": "planned",
+      "phase": 5,
+      "category": "integrations",
+      "tags": [
+        "graphql",
+        "api"
+      ],
+      "popular": true,
+      "docs": "https://github.com/vishwajit-vm/strutvane-graphql#readme",
+      "framework": "^1.0"
+    },
+    {
+      "id": "health",
+      "name": "Health checks",
+      "description": "Scheduled checks, history and alerts",
+      "kind": "package",
+      "npm": "@strutvane/health",
+      "repo": "strutvane-health",
+      "status": "planned",
+      "phase": 3,
+      "category": "operations",
+      "tags": [
+        "uptime",
+        "monitoring"
+      ],
+      "popular": true,
+      "docs": "https://github.com/vishwajit-vm/strutvane-health#readme",
+      "framework": "^1.0"
+    },
+    {
+      "id": "import-export",
+      "name": "Import and export",
+      "description": "CSV and Excel import/export for any model",
+      "kind": "package",
+      "npm": "@strutvane/import-export",
+      "repo": "strutvane-import-export",
+      "status": "planned",
+      "phase": 3,
+      "category": "data",
+      "tags": [
+        "csv",
+        "xlsx"
+      ],
+      "popular": true,
+      "docs": "https://github.com/vishwajit-vm/strutvane-import-export#readme",
+      "framework": "^1.0"
+    },
+    {
+      "id": "inspector",
+      "name": "Request inspector",
+      "description": "See requests, queries and mail while you develop",
+      "kind": "package",
+      "npm": "@strutvane/inspector",
+      "repo": "strutvane-inspector",
+      "status": "planned",
+      "phase": 3,
+      "category": "operations",
+      "tags": [
+        "debug",
+        "dev"
+      ],
+      "popular": true,
+      "docs": "https://github.com/vishwajit-vm/strutvane-inspector#readme",
+      "framework": "^1.0"
+    },
+    {
+      "id": "invoicing",
+      "name": "Invoicing",
+      "description": "Numbered invoices, credit notes and PDFs",
+      "kind": "package",
+      "npm": "@strutvane/invoicing",
+      "repo": "strutvane-invoicing",
+      "status": "planned",
+      "phase": 6,
+      "category": "money",
+      "tags": [
+        "invoices",
+        "tax"
+      ],
+      "popular": true,
+      "docs": "https://github.com/vishwajit-vm/strutvane-invoicing#readme",
+      "framework": "^1.0"
+    },
+    {
+      "id": "log-viewer",
+      "name": "Log viewer",
+      "description": "Browse and search app logs at /_strutvane/logs",
+      "kind": "package",
+      "npm": "@strutvane/log-viewer",
+      "repo": "strutvane-log-viewer",
+      "status": "in-development",
+      "phase": 1,
+      "since": "0.2",
+      "category": "operations",
+      "tags": [
+        "logs",
+        "operator-panel"
+      ],
+      "popular": true,
+      "docs": "https://github.com/vishwajit-vm/strutvane-log-viewer#readme",
+      "framework": "^0.2"
+    },
+    {
+      "id": "mail-templates",
+      "name": "Mail templates",
+      "description": "Editable per-team email templates with preview",
+      "kind": "package",
+      "npm": "@strutvane/mail-templates",
+      "repo": "strutvane-mail-templates",
+      "status": "planned",
+      "phase": 6,
+      "category": "integrations",
+      "tags": [
+        "email",
+        "templates"
+      ],
+      "popular": false,
+      "docs": "https://github.com/vishwajit-vm/strutvane-mail-templates#readme",
+      "framework": "^1.0"
+    },
+    {
+      "id": "mcp-server",
+      "name": "MCP server",
+      "description": "Let AI assistants use your app through MCP",
+      "kind": "package",
+      "npm": "@strutvane/mcp-server",
+      "repo": "strutvane-mcp-server",
+      "status": "planned",
+      "phase": 5,
+      "category": "ai",
+      "tags": [
+        "mcp",
+        "agents"
+      ],
+      "popular": true,
+      "docs": "https://github.com/vishwajit-vm/strutvane-mcp-server#readme",
+      "framework": "^1.0"
+    },
+    {
+      "id": "media-library",
+      "name": "Media library",
+      "description": "Uploads, images and files attached to records",
+      "kind": "package",
+      "npm": "@strutvane/media-library",
+      "repo": "strutvane-media-library",
+      "status": "planned",
+      "phase": 4,
+      "category": "back-office",
+      "tags": [
+        "media",
+        "images"
+      ],
+      "popular": true,
+      "docs": "https://github.com/vishwajit-vm/strutvane-media-library#readme",
+      "framework": "^1.0"
+    },
+    {
+      "id": "notification-channels",
+      "name": "Notification channels",
+      "description": "Slack, SMS, Teams and push next to email",
+      "kind": "package",
+      "npm": "@strutvane/notification-channels",
+      "repo": "strutvane-notification-channels",
+      "status": "planned",
+      "phase": 6,
+      "category": "integrations",
+      "tags": [
+        "sms",
+        "slack",
+        "push"
+      ],
+      "popular": true,
+      "docs": "https://github.com/vishwajit-vm/strutvane-notification-channels#readme",
+      "framework": "^1.0"
+    },
+    {
+      "id": "oauth-server",
+      "name": "OAuth server",
+      "description": "Be an OAuth 2.1 provider for other apps",
+      "kind": "package",
+      "npm": "@strutvane/oauth-server",
+      "repo": "strutvane-oauth-server",
+      "status": "planned",
+      "phase": 5,
+      "category": "identity",
+      "tags": [
+        "oauth",
+        "api"
+      ],
+      "popular": false,
+      "docs": "https://github.com/vishwajit-vm/strutvane-oauth-server#readme",
+      "framework": "^1.0"
+    },
+    {
+      "id": "observability",
+      "name": "Observability",
+      "description": "OpenTelemetry export and a metrics dashboard",
+      "kind": "package",
+      "npm": "@strutvane/observability",
+      "repo": "strutvane-observability",
+      "status": "planned",
+      "phase": 3,
+      "category": "operations",
+      "tags": [
+        "opentelemetry",
+        "metrics"
+      ],
+      "popular": false,
+      "docs": "https://github.com/vishwajit-vm/strutvane-observability#readme",
+      "framework": "^1.0"
+    },
+    {
+      "id": "payments",
+      "name": "Payments",
+      "description": "One-off payments, payment links and refunds",
+      "kind": "package",
+      "npm": "@strutvane/payments",
+      "repo": "strutvane-payments",
+      "status": "planned",
+      "phase": 8,
+      "category": "money",
+      "tags": [
+        "checkout",
+        "refunds"
+      ],
+      "popular": false,
+      "docs": "https://github.com/vishwajit-vm/strutvane-payments#readme",
+      "framework": "^1.0"
+    },
+    {
+      "id": "pdf",
+      "name": "PDF",
+      "description": "Generate PDFs from React templates",
+      "kind": "package",
+      "npm": "@strutvane/pdf",
+      "repo": "strutvane-pdf",
+      "status": "planned",
+      "phase": 4,
+      "category": "back-office",
+      "tags": [
+        "pdf",
+        "documents"
+      ],
+      "popular": true,
+      "docs": "https://github.com/vishwajit-vm/strutvane-pdf#readme",
+      "framework": "^1.0"
+    },
+    {
+      "id": "privacy",
+      "name": "Privacy tools",
+      "description": "Personal data export and erasure (GDPR)",
+      "kind": "package",
+      "npm": "@strutvane/privacy",
+      "repo": "strutvane-privacy",
+      "status": "planned",
+      "phase": 4,
+      "category": "back-office",
+      "tags": [
+        "gdpr",
+        "consent"
+      ],
+      "popular": true,
+      "docs": "https://github.com/vishwajit-vm/strutvane-privacy#readme",
+      "framework": "^1.0"
+    },
+    {
+      "id": "queue-dashboard",
+      "name": "Queue dashboard",
+      "description": "Watch jobs, retries, failures and schedules",
+      "kind": "package",
+      "npm": "@strutvane/queue-dashboard",
+      "repo": "strutvane-queue-dashboard",
+      "status": "planned",
+      "phase": 2,
+      "category": "operations",
+      "tags": [
+        "queue",
+        "jobs",
+        "scheduler"
+      ],
+      "popular": true,
+      "docs": "https://github.com/vishwajit-vm/strutvane-queue-dashboard#readme",
+      "framework": "^0.3"
+    },
+    {
+      "id": "realtime",
+      "name": "Realtime",
+      "description": "Live updates in the UI when data changes",
+      "kind": "package",
+      "npm": "@strutvane/realtime",
+      "repo": "strutvane-realtime",
+      "status": "planned",
+      "phase": 6,
+      "category": "integrations",
+      "tags": [
+        "websockets",
+        "live"
+      ],
+      "popular": true,
+      "docs": "https://github.com/vishwajit-vm/strutvane-realtime#readme",
+      "framework": "^1.0"
+    },
+    {
+      "id": "redis",
+      "name": "Redis",
+      "description": "Redis/Valkey for cache, queue, locks and sessions",
+      "kind": "package",
+      "npm": "@strutvane/redis",
+      "repo": "strutvane-redis",
+      "status": "planned",
+      "phase": 2,
+      "category": "operations",
+      "tags": [
+        "cache",
+        "queue",
+        "valkey"
+      ],
+      "popular": false,
+      "docs": "https://github.com/vishwajit-vm/strutvane-redis#readme",
+      "framework": "^0.3"
+    },
+    {
+      "id": "resource-views",
+      "name": "Board and calendar views",
+      "description": "Kanban board and calendar views for any model",
+      "kind": "package",
+      "npm": "@strutvane/resource-views",
+      "repo": "strutvane-resource-views",
+      "status": "planned",
+      "phase": 6,
+      "category": "data",
+      "tags": [
+        "kanban",
+        "calendar"
+      ],
+      "popular": false,
+      "docs": "https://github.com/vishwajit-vm/strutvane-resource-views#readme",
+      "framework": "^1.0"
+    },
+    {
+      "id": "search",
+      "name": "Search",
+      "description": "Meilisearch or Typesense search across your models",
+      "kind": "package",
+      "npm": "@strutvane/search",
+      "repo": "strutvane-search",
+      "status": "planned",
+      "phase": 3,
+      "category": "data",
+      "tags": [
+        "full-text",
+        "meilisearch",
+        "typesense"
+      ],
+      "popular": true,
+      "docs": "https://github.com/vishwajit-vm/strutvane-search#readme",
+      "framework": "^1.0"
+    },
+    {
+      "id": "settings",
+      "name": "Settings",
+      "description": "App, team and user settings screens",
+      "kind": "package",
+      "npm": "@strutvane/settings",
+      "repo": "strutvane-settings",
+      "status": "planned",
+      "phase": 4,
+      "category": "back-office",
+      "tags": [
+        "settings",
+        "preferences"
+      ],
+      "popular": true,
+      "docs": "https://github.com/vishwajit-vm/strutvane-settings#readme",
+      "framework": "^1.0"
+    },
+    {
+      "id": "social-login",
+      "name": "Social login",
+      "description": "Sign in with Google, Microsoft, GitHub, Apple",
+      "kind": "package",
+      "npm": "@strutvane/social-login",
+      "repo": "strutvane-social-login",
+      "status": "planned",
+      "phase": 2,
+      "category": "identity",
+      "tags": [
+        "oauth",
+        "google",
+        "github"
+      ],
+      "popular": false,
+      "docs": "https://github.com/vishwajit-vm/strutvane-social-login#readme",
+      "framework": "^1.0"
+    },
+    {
+      "id": "sso",
+      "name": "Enterprise SSO",
+      "description": "Per-team SAML/OIDC sign-in, SCIM and domains",
+      "kind": "package",
+      "npm": "@strutvane/sso",
+      "repo": "strutvane-sso",
+      "status": "planned",
+      "phase": 5,
+      "category": "identity",
+      "tags": [
+        "saml",
+        "oidc",
+        "scim"
+      ],
+      "popular": false,
+      "docs": "https://github.com/vishwajit-vm/strutvane-sso#readme",
+      "framework": "^1.0"
+    },
+    {
+      "id": "strutvane",
+      "name": "npx guard",
+      "description": "Safe npx strutvane outside a project",
+      "kind": "package",
+      "npm": "strutvane",
+      "repo": "strutvane-npx",
+      "status": "in-development",
+      "phase": 1,
+      "since": "0.2",
+      "category": "core",
+      "tags": [
+        "cli"
+      ],
+      "popular": false,
+      "docs": "https://github.com/vishwajit-vm/strutvane-npx#readme",
+      "framework": "^0.2"
+    },
+    {
+      "id": "tags",
+      "name": "Tags",
+      "description": "Tag any record and filter by tags",
+      "kind": "package",
+      "npm": "@strutvane/tags",
+      "repo": "strutvane-tags",
+      "status": "planned",
+      "phase": 4,
+      "category": "content",
+      "tags": [
+        "tags",
+        "labels"
+      ],
+      "popular": false,
+      "docs": "https://github.com/vishwajit-vm/strutvane-tags#readme",
+      "framework": "^1.0"
+    },
+    {
+      "id": "translations",
+      "name": "Translations",
+      "description": "Edit UI strings and translate record fields",
+      "kind": "package",
+      "npm": "@strutvane/translations",
+      "repo": "strutvane-translations",
+      "status": "planned",
+      "phase": 7,
+      "category": "content",
+      "tags": [
+        "i18n",
+        "languages"
+      ],
+      "popular": false,
+      "docs": "https://github.com/vishwajit-vm/strutvane-translations#readme",
+      "framework": "^1.0"
+    },
+    {
+      "id": "ui",
+      "name": "Admin UI",
+      "description": "React kit, app shell and auto CRUD admin screens",
+      "kind": "package",
+      "npm": "@strutvane/ui",
+      "repo": "strutvane-ui",
+      "status": "in-development",
+      "phase": 1,
+      "since": "0.2",
+      "category": "app",
+      "tags": [
+        "react",
+        "admin",
+        "crud"
+      ],
+      "popular": false,
+      "docs": "https://github.com/vishwajit-vm/strutvane-ui#readme",
+      "framework": "^0.2"
+    },
+    {
+      "id": "vivid",
+      "name": "Vivid",
+      "description": "Colourful, modern dashboards",
+      "kind": "design",
+      "npm": "@strutvane/design-vivid",
+      "repo": "strutvane-design-vivid",
+      "status": "in-development",
+      "phase": 1,
+      "since": "0.2",
+      "category": "design",
+      "tags": [
+        "colourful",
+        "dashboards"
+      ],
+      "popular": false,
+      "docs": "https://github.com/vishwajit-vm/strutvane-design-vivid#readme",
+      "framework": "^0.2"
+    },
+    {
+      "id": "webhooks",
+      "name": "Webhooks",
+      "description": "Send and receive signed webhooks",
+      "kind": "package",
+      "npm": "@strutvane/webhooks",
+      "repo": "strutvane-webhooks",
+      "status": "planned",
+      "phase": 5,
+      "category": "integrations",
+      "tags": [
+        "webhooks",
+        "events"
+      ],
+      "popular": true,
+      "docs": "https://github.com/vishwajit-vm/strutvane-webhooks#readme",
+      "framework": "^1.0"
+    },
+    {
+      "id": "workflows",
+      "name": "Workflows",
+      "description": "Approval flows, timers and state machines",
+      "kind": "package",
+      "npm": "@strutvane/workflows",
+      "repo": "strutvane-workflows",
+      "status": "planned",
+      "phase": 7,
+      "category": "back-office",
+      "tags": [
+        "approvals",
+        "state-machine"
+      ],
+      "popular": false,
+      "docs": "https://github.com/vishwajit-vm/strutvane-workflows#readme",
+      "framework": "^1.0"
+    },
+    {
+      "id": "cli",
+      "name": "CLI (merged)",
+      "description": "v1's command line (the sv command).",
+      "kind": "package",
+      "npm": "@strutvane/cli",
+      "repo": "strutvane-cli",
+      "status": "retired",
+      "since": "0.2",
+      "date": "2026-11-15",
+      "note": "Merged into the framework; the repo was archived on 2026-11-15. npm deprecation waits for framework v2.",
+      "replacement": {
+        "packages": [
+          "@strutvane/framework"
+        ],
+        "import": "@strutvane/framework/cli",
+        "note": "Import from @strutvane/framework/cli instead."
+      }
+    },
+    {
+      "id": "contracts",
+      "name": "Contracts (merged)",
+      "description": "v1's shared types and wire protocols.",
+      "kind": "package",
+      "npm": "@strutvane/contracts",
+      "repo": "strutvane-contracts",
+      "status": "retired",
+      "since": "0.2",
+      "date": "2026-11-15",
+      "note": "Merged into the framework; the repo was archived on 2026-11-15. npm deprecation waits for framework v2.",
+      "replacement": {
+        "packages": [
+          "@strutvane/framework"
+        ],
+        "import": "@strutvane/framework/contracts",
+        "note": "Import from @strutvane/framework/contracts instead."
+      }
+    },
+    {
+      "id": "core",
+      "name": "Core (merged)",
+      "description": "v1's kernel: container, providers, config and errors",
+      "kind": "package",
+      "npm": "@strutvane/core",
+      "repo": "strutvane-core",
+      "status": "retired",
+      "since": "0.2",
+      "date": "2026-11-15",
+      "note": "Merged into the framework; the repo was archived on 2026-11-15. npm deprecation waits for framework v2.",
+      "replacement": {
+        "packages": [
+          "@strutvane/framework"
+        ],
+        "import": "@strutvane/framework/core",
+        "note": "Import from @strutvane/framework/core instead."
+      }
+    },
+    {
+      "id": "devkit",
+      "name": "Devkit (merged)",
+      "description": "v1's SDK for installers, generators and plugins.",
+      "kind": "package",
+      "npm": "@strutvane/devkit",
+      "repo": "strutvane-devkit",
+      "status": "retired",
+      "since": "0.2",
+      "date": "2026-11-15",
+      "note": "Merged into the framework; the repo was archived on 2026-11-15. npm deprecation waits for framework v2.",
+      "replacement": {
+        "packages": [
+          "@strutvane/framework"
+        ],
+        "import": "@strutvane/framework/devkit",
+        "note": "Import from @strutvane/framework/devkit instead."
+      }
+    },
+    {
+      "id": "glass",
+      "name": "Glass design",
+      "description": "A glass-style admin design (shelved for now)",
+      "kind": "design",
+      "npm": "@strutvane/design-glass",
+      "repo": "strutvane-design-glass",
+      "status": "shelved",
+      "note": "Design direction from spike 18, shelved in favour of Crisp and Vivid; the first candidate for a third design."
+    },
+    {
+      "id": "logs",
+      "name": "Logs (split)",
+      "description": "v1's logging package: the pipeline and the viewer in one.",
+      "kind": "package",
+      "npm": "@strutvane/logs",
+      "repo": "strutvane-log-viewer",
+      "status": "retired",
+      "since": "0.2",
+      "note": "Logging moves into the framework (ADR-0022); the log viewer UI becomes @strutvane/log-viewer.",
+      "replacement": {
+        "packages": [
+          "@strutvane/framework",
+          "@strutvane/log-viewer"
+        ],
+        "note": "Use framework logging channels, and install log-viewer for the UI."
+      }
+    },
+    {
+      "id": "better-auth-default",
+      "name": "Better Auth as the default",
+      "description": "Better Auth as v1's default identity engine.",
+      "kind": "feature",
+      "npm": null,
+      "repo": null,
+      "status": "retired",
+      "since": "0.2",
+      "note": "The superseding ADR (for ADR-0005 and ADR-0013) is still to be written.",
+      "replacement": {
+        "packages": [
+          "@strutvane/auth"
+        ],
+        "note": "@strutvane/auth's own engine, with its tables as ordinary migrations in your app"
+      }
+    },
+    {
+      "id": "docs",
+      "name": "Docs site",
+      "description": "The public documentation site, one build per version line",
+      "kind": "repo",
+      "npm": null,
+      "repo": "strutvane-docs",
+      "status": "in-development"
+    },
+    {
+      "id": "field-spec-parser",
+      "name": "Field specs on the CLI",
+      "description": "v1's command-line field specs for generating models",
+      "kind": "feature",
+      "npm": null,
+      "repo": null,
+      "status": "retired",
+      "since": "0.2",
+      "note": "v1's command-line field specs (title:string(120)) for generating models.",
+      "replacement": {
+        "packages": [
+          "@strutvane/framework"
+        ],
+        "note": "Columns written in migrations with the Schema builder (node strut make:migration)"
+      }
+    },
+    {
+      "id": "launcher",
+      "name": "Launcher and channels",
+      "description": "v1's separate launcher and release-channel logic",
+      "kind": "feature",
+      "npm": null,
+      "repo": null,
+      "status": "retired",
+      "since": "0.2",
+      "note": "v1's separate launcher and release-channel logic (pnpm sv, @next-only starter).",
+      "replacement": {
+        "packages": [
+          "@strutvane/framework"
+        ],
+        "note": "node strut (strut.js in the app) and npm create strutvane@latest"
+      }
+    },
+    {
+      "id": "registry-compiler",
+      "name": "Registry compiler",
+      "description": "v1's compiler that built the app from model files",
+      "kind": "feature",
+      "npm": null,
+      "repo": null,
+      "status": "retired",
+      "since": "0.2",
+      "note": "v1's registry compiler, which built the app from model files.",
+      "replacement": {
+        "packages": [
+          "@strutvane/framework"
+        ],
+        "note": "Migrations as the source of truth, replayed into types and resources.json by node strut migrate"
+      }
+    },
+    {
+      "id": "skeleton",
+      "name": "App skeleton",
+      "description": "The app template that npm create strutvane installs",
+      "kind": "repo",
+      "npm": null,
+      "repo": "strutvane-skeleton",
+      "status": "in-development"
+    },
+    {
+      "id": "tooling",
+      "name": "Tooling",
+      "description": "Canonical configs, CI and release workflows, config sync",
+      "kind": "repo",
+      "npm": null,
+      "repo": "strutvane-tooling",
+      "status": "in-development"
+    },
+    {
+      "id": "upgrade-merge",
+      "name": "Upgrade and three-way merge",
+      "description": "v1's upgrade command and its three-way merge",
+      "kind": "feature",
+      "npm": null,
+      "repo": null,
+      "status": "retired",
+      "since": "0.2",
+      "note": "v1's upgrade command and its three-way merge of generated files.",
+      "replacement": {
+        "packages": [
+          "@strutvane/framework"
+        ],
+        "note": "Owned files are never overwritten: auto() picks up new columns, and the upgrade guide lists every change"
+      }
+    }
+  ]
+}

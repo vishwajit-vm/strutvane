@@ -1,0 +1,162 @@
+# The package catalogue (catalogue/, blueprint 18 §3.3): one index of every Strutvane package,
+# read by the installer, `node strut install`, the docs site and the catalogue page.
+#
+#   offline  Pull requests and pushes that touch the catalogue. No registry calls: it replays the
+#            recorded npm and GitHub state in catalogue/snapshots/, so the result is deterministic.
+#            Typecheck + tests, then "catalogue.json is exactly what source.json builds", then
+#            every check (manifest conformance, npm, repos, docs drift).
+#   online   Nightly and on demand. Reads npm and the org's repo list live, rebuilds
+#            catalogue.json and the snapshots, runs every check, and commits the files only when
+#            they changed AND the repo variable CATALOGUE_AUTOCOMMIT is "true" (off until the
+#            project lead turns it on, like RELEASE_ENABLED). Failing checks still fail the job,
+#            after the commit, so drift is loud but never blocks the index from updating.
+#
+# npm only. Actions are pinned to full commit SHAs, copied from strutvane-tooling's canonical
+# ci.yml (tag in the trailing comment; SHAs checked there 2026-11-15).
+name: Catalogue
+
+on:
+  pull_request:
+    paths:
+      - 'catalogue/**'
+      - '.github/workflows/catalogue.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'catalogue/**'
+      - '.github/workflows/catalogue.yml'
+  schedule:
+    # 03:17 UTC every night (off the hour, when GitHub's scheduler is less crowded).
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: catalogue-${{ github.ref }}-${{ github.event_name == 'pull_request' || github.event_name == 'push' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  NODE_OPTIONS: --unhandled-rejections=strict
+
+defaults:
+  run:
+    working-directory: catalogue
+
+jobs:
+  offline:
+    name: offline (tests, index up to date, drift checks)
+    if: github.event_name == 'pull_request' || github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out the hub
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # The docs site's package pages are compared with the catalogue (public repo, read only).
+      - name: Check out strutvane-docs
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: vishwajit-vm/strutvane-docs
+          path: _docs
+          persist-credentials: false
+
+      - name: Set up Node 24 (npm cache keyed on catalogue/package-lock.json)
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: catalogue/package-lock.json
+
+      # The .npmrc guards need npm >= 11.19; an older npm ignores them silently.
+      - name: Use npm 11.19.0
+        run: npm install --global npm@11.19.0
+
+      - name: Install (exactly the lockfile)
+        run: npm ci
+
+      - name: Verify registry signatures of installed packages
+        run: npm audit signatures
+
+      - name: Typecheck and tests
+        run: npm run ci
+
+      - name: catalogue.json is exactly what source.json and the npm snapshot build
+        run: node src/cli/catalogue.ts build --offline --check
+
+      - name: Drift checks (manifests, npm, repos, docs) against the recorded snapshots
+        run: node src/cli/catalogue.ts check --offline --docs ../_docs
+
+  online:
+    name: online (live npm + GitHub, nightly)
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    steps:
+      - name: Check out the hub (main)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          # Kept only in this job, which may push the refreshed index (see the commit step).
+          persist-credentials: true
+
+      - name: Check out strutvane-docs
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: vishwajit-vm/strutvane-docs
+          path: _docs
+          persist-credentials: false
+
+      - name: Set up Node 24
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: catalogue/package-lock.json
+
+      - name: Use npm 11.19.0
+        run: npm install --global npm@11.19.0
+
+      - name: Install (exactly the lockfile)
+        run: npm ci
+
+      # Fails closed: an invalid manifest or a status that npm contradicts stops here, and
+      # nothing is written or committed.
+      - name: Build catalogue.json from live npm
+        run: node src/cli/catalogue.ts build
+
+      - name: Read the org's repositories and run every check
+        id: checks
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node src/cli/catalogue.ts check --docs ../_docs
+
+      - name: Commit the refreshed index (only when it changed and CATALOGUE_AUTOCOMMIT is true)
+        env:
+          AUTOCOMMIT: ${{ vars.CATALOGUE_AUTOCOMMIT }}
+        run: |
+          git add catalogue.json snapshots/npm.json snapshots/repos.json
+          if git diff --cached --quiet; then
+            echo "catalogue.json and the snapshots are unchanged."
+            exit 0
+          fi
+          git diff --cached --stat
+          if [ "$AUTOCOMMIT" != "true" ]; then
+            echo "::notice::The catalogue changed. Set the repo variable CATALOGUE_AUTOCOMMIT=true to commit nightly updates."
+            exit 0
+          fi
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit -s -m "chore(catalogue): nightly refresh from npm and GitHub"
+          git push origin HEAD:main
+
+      - name: Fail when a check failed (after the index was refreshed)
+        if: steps.checks.outcome == 'failure'
+        run: |
+          echo "::error::Catalogue drift checks failed; see the 'Read the org's repositories and run every check' step."
+          exit 1

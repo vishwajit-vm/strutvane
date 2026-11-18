@@ -1,0 +1,63 @@
+{
+  "name": "@strutvane/translations",
+  "version": "0.1.0",
+  "description": "Edit UI strings and translate record fields",
+  "license": "MIT",
+  "type": "module",
+  "peerDependencies": {
+    "@strutvane/framework": "^1.0"
+  },
+  "strutvane": {
+    "manifestVersion": 1,
+    "id": "translations",
+    "displayName": "Translations",
+    "description": "Edit UI strings and translate record fields",
+    "category": "content",
+    "tags": [
+      "i18n",
+      "languages"
+    ],
+    "kind": "package",
+    "popular": false,
+    "docs": "https://github.com/vishwajit-vm/strutvane-translations#readme",
+    "framework": "^1.0",
+    "installs": {
+      "migrations": [
+        "create_translations_table"
+      ],
+      "screens": [
+        {
+          "path": "/translations",
+          "title": "Translations"
+        }
+      ],
+      "commands": [
+        {
+          "name": "translations:import",
+          "description": "Import translation files"
+        },
+        {
+          "name": "translations:export",
+          "description": "Export translation files"
+        },
+        {
+          "name": "translations:missing",
+          "description": "List missing translations"
+        }
+      ]
+    },
+    "questions": [
+      {
+        "id": "locales",
+        "type": "text",
+        "label": "Translations: extra languages (comma-separated codes)",
+        "placeholder": "de,fr,hi",
+        "maxLength": 60,
+        "pattern": {
+          "regex": "^[a-z][a-z,-]{1,59}$",
+          "message": "Use language codes separated by commas, like de,fr,hi"
+        }
+      }
+    ]
+  }
+}

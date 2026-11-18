@@ -1,0 +1,36 @@
+{
+  "name": "@strutvane/resource-views",
+  "version": "0.1.0",
+  "description": "Kanban board and calendar views for any model",
+  "license": "MIT",
+  "type": "module",
+  "peerDependencies": {
+    "@strutvane/framework": "^1.0"
+  },
+  "strutvane": {
+    "manifestVersion": 1,
+    "id": "resource-views",
+    "displayName": "Board and calendar views",
+    "description": "Kanban board and calendar views for any model",
+    "category": "data",
+    "tags": [
+      "kanban",
+      "calendar"
+    ],
+    "kind": "package",
+    "popular": false,
+    "docs": "https://github.com/vishwajit-vm/strutvane-resource-views#readme",
+    "framework": "^1.0",
+    "installs": {
+      "commands": [
+        {
+          "name": "views:suggest",
+          "description": "Suggest board and calendar views"
+        }
+      ]
+    },
+    "requires": [
+      "ui"
+    ]
+  }
+}

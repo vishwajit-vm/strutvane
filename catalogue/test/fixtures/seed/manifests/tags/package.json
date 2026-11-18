@@ -1,0 +1,37 @@
+{
+  "name": "@strutvane/tags",
+  "version": "0.1.0",
+  "description": "Tag any record and filter by tags",
+  "license": "MIT",
+  "type": "module",
+  "peerDependencies": {
+    "@strutvane/framework": "^1.0"
+  },
+  "strutvane": {
+    "manifestVersion": 1,
+    "id": "tags",
+    "displayName": "Tags",
+    "description": "Tag any record and filter by tags",
+    "category": "content",
+    "tags": [
+      "tags",
+      "labels"
+    ],
+    "kind": "package",
+    "popular": false,
+    "docs": "https://github.com/vishwajit-vm/strutvane-tags#readme",
+    "framework": "^1.0",
+    "installs": {
+      "migrations": [
+        "create_tags_table",
+        "create_taggables_table"
+      ],
+      "screens": [
+        {
+          "path": "/tags",
+          "title": "Tags"
+        }
+      ]
+    }
+  }
+}

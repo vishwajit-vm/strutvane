@@ -1,0 +1,33 @@
+{
+  "name": "@strutvane/design-crisp",
+  "version": "0.2.0",
+  "description": "Clean, minimal and business-first (default)",
+  "license": "MIT",
+  "type": "module",
+  "peerDependencies": {
+    "@strutvane/framework": "^0.2"
+  },
+  "strutvane": {
+    "manifestVersion": 1,
+    "id": "crisp",
+    "displayName": "Crisp",
+    "description": "Clean, minimal and business-first (default)",
+    "category": "design",
+    "tags": [
+      "minimal",
+      "dense"
+    ],
+    "kind": "design",
+    "popular": false,
+    "docs": "https://github.com/vishwajit-vm/strutvane-design-crisp#readme",
+    "framework": "^0.2",
+    "installs": {
+      "config": [
+        "resources/ui/theme.css"
+      ]
+    },
+    "requires": [
+      "ui"
+    ]
+  }
+}

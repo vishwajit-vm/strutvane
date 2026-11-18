@@ -1,0 +1,106 @@
+{
+  "name": "@strutvane/social-login",
+  "version": "0.1.0",
+  "description": "Sign in with Google, Microsoft, GitHub, Apple",
+  "license": "MIT",
+  "type": "module",
+  "peerDependencies": {
+    "@strutvane/framework": "^1.0"
+  },
+  "strutvane": {
+    "manifestVersion": 1,
+    "id": "social-login",
+    "displayName": "Social login",
+    "description": "Sign in with Google, Microsoft, GitHub, Apple",
+    "category": "identity",
+    "tags": [
+      "oauth",
+      "google",
+      "github"
+    ],
+    "kind": "package",
+    "popular": false,
+    "docs": "https://github.com/vishwajit-vm/strutvane-social-login#readme",
+    "framework": "^1.0",
+    "installs": {
+      "config": [
+        "config/social-login.ts"
+      ],
+      "env": [
+        {
+          "key": "GOOGLE_CLIENT_ID",
+          "description": "Google OAuth client id",
+          "secret": false,
+          "example": ""
+        },
+        {
+          "key": "GOOGLE_CLIENT_SECRET",
+          "description": "Google OAuth client secret",
+          "secret": true
+        },
+        {
+          "key": "GITHUB_CLIENT_ID",
+          "description": "GitHub OAuth client id",
+          "secret": false,
+          "example": ""
+        },
+        {
+          "key": "GITHUB_CLIENT_SECRET",
+          "description": "GitHub OAuth client secret",
+          "secret": true
+        }
+      ],
+      "migrations": [
+        "create_social_accounts_table"
+      ],
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/auth/:provider/redirect"
+        },
+        {
+          "method": "GET",
+          "path": "/auth/:provider/callback"
+        }
+      ],
+      "screens": [
+        {
+          "path": "/settings/connected-accounts",
+          "title": "Connected accounts"
+        }
+      ]
+    },
+    "questions": [
+      {
+        "id": "providers",
+        "type": "multiselect",
+        "label": "Social login: which providers?",
+        "choices": [
+          {
+            "value": "google",
+            "label": "Google"
+          },
+          {
+            "value": "microsoft",
+            "label": "Microsoft"
+          },
+          {
+            "value": "github",
+            "label": "GitHub"
+          },
+          {
+            "value": "apple",
+            "label": "Apple"
+          }
+        ],
+        "default": [
+          "google"
+        ],
+        "min": 1
+      }
+    ],
+    "requires": [
+      "auth"
+    ]
+  }
+}

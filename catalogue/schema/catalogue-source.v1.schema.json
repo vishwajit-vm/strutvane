@@ -1,0 +1,243 @@
+{
+  "title": "Strutvane catalogue source (format 1)",
+  "description": "catalogue/source.json in the hub: every package, feature and repository, curated by hand. Generated from src/source/schema.ts; the Zod schema is the authority.",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "maxLength": 200
+    },
+    "sourceVersion": {
+      "type": "number",
+      "const": 1
+    },
+    "org": {
+      "type": "string",
+      "maxLength": 39,
+      "pattern": "^[a-z0-9][a-z0-9-]*$",
+      "description": "The GitHub organisation that owns every repo."
+    },
+    "categories": {
+      "minItems": 1,
+      "maxItems": 50,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 40,
+            "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 30
+          },
+          "pickable": {
+            "type": "boolean",
+            "description": "false for categories never offered in pickers (core packages, designs)."
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "pickable"
+        ],
+        "additionalProperties": false
+      },
+      "description": "Picker groups, in display order."
+    },
+    "framework": {
+      "type": "object",
+      "properties": {
+        "lines": {
+          "minItems": 1,
+          "maxItems": 100,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^(?:0|[1-9]\\d{0,8})\\.(?:0|[1-9]\\d{0,8})$"
+          },
+          "description": "Framework lines on the roadmap (like 0.2). Released framework versions from npm are added automatically."
+        }
+      },
+      "required": [
+        "lines"
+      ],
+      "additionalProperties": false,
+      "description": "Framework release lines the compatibility table is computed for."
+    },
+    "packages": {
+      "minItems": 1,
+      "maxItems": 2000,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 40,
+            "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$",
+            "description": "The catalogue id: node strut install:<id>. Designs use the short name (\"crisp\")."
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 30,
+            "description": "Display name, at most 30 characters."
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 60,
+            "description": "One line, at most 60 characters."
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "package",
+              "design",
+              "feature",
+              "repo"
+            ]
+          },
+          "npm": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 60
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The npm package name, or null for features and non-package repos."
+          },
+          "repo": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100,
+                "pattern": "^[a-z0-9][a-z0-9.-]*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The repository in the org, or null when there is none."
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "planned",
+              "in-development",
+              "released",
+              "shelved",
+              "retired"
+            ]
+          },
+          "phase": {
+            "description": "Roadmap phase (docs/14-roadmap.md, blueprint 18 §10).",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 20
+          },
+          "since": {
+            "description": "The framework line the current status started with, like 0.2.",
+            "type": "string",
+            "pattern": "^(?:0|[1-9]\\d{0,8})\\.(?:0|[1-9]\\d{0,8})$"
+          },
+          "date": {
+            "description": "When a retirement or shelving happened (YYYY-MM-DD).",
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "category": {
+            "description": "A category id from `categories`; required while listed.",
+            "type": "string",
+            "maxLength": 40,
+            "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
+          },
+          "tags": {
+            "default": [],
+            "maxItems": 8,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 24,
+              "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+            }
+          },
+          "popular": {
+            "default": false,
+            "description": "Shown in the installer's short popular list.",
+            "type": "boolean"
+          },
+          "docs": {
+            "description": "Documentation URL (https); required while listed.",
+            "type": "string",
+            "maxLength": 300
+          },
+          "framework": {
+            "description": "The framework range the package targets until it publishes its own; required while listed.",
+            "type": "string",
+            "maxLength": 100
+          },
+          "note": {
+            "description": "Why it was shelved or retired; required for those.",
+            "type": "string",
+            "maxLength": 200
+          },
+          "replacement": {
+            "description": "What to use instead; required when retired.",
+            "type": "object",
+            "properties": {
+              "packages": {
+                "minItems": 1,
+                "maxItems": 5,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "maxLength": 60
+                },
+                "description": "npm names to use instead (each must be listed in the catalogue)."
+              },
+              "import": {
+                "description": "The new import path, e.g. @strutvane/framework/<name>.",
+                "type": "string",
+                "maxLength": 80,
+                "pattern": "^@strutvane\\/[a-z0-9-]+(?:\\/[a-z0-9<>-]+)*$"
+              },
+              "note": {
+                "type": "string",
+                "maxLength": 200
+              }
+            },
+            "required": [
+              "packages",
+              "note"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "description",
+          "kind",
+          "npm",
+          "repo",
+          "status"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "sourceVersion",
+    "org",
+    "categories",
+    "framework",
+    "packages"
+  ],
+  "additionalProperties": false
+}

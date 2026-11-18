@@ -1,0 +1,21 @@
+{
+  "name": "strutvane",
+  "version": "0.2.0",
+  "description": "Safe npx strutvane outside a project",
+  "license": "MIT",
+  "type": "module",
+  "strutvane": {
+    "manifestVersion": 1,
+    "id": "strutvane",
+    "displayName": "npx guard",
+    "description": "Safe npx strutvane outside a project",
+    "category": "core",
+    "tags": [
+      "cli"
+    ],
+    "kind": "package",
+    "popular": false,
+    "docs": "https://github.com/vishwajit-vm/strutvane#readme",
+    "framework": "^0.2"
+  }
+}

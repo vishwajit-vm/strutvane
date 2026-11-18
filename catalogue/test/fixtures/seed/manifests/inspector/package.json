@@ -1,0 +1,44 @@
+{
+  "name": "@strutvane/inspector",
+  "version": "0.1.0",
+  "description": "See requests, queries and mail while you develop",
+  "license": "MIT",
+  "type": "module",
+  "peerDependencies": {
+    "@strutvane/framework": "^1.0"
+  },
+  "strutvane": {
+    "manifestVersion": 1,
+    "id": "inspector",
+    "displayName": "Request inspector",
+    "description": "See requests, queries and mail while you develop",
+    "category": "operations",
+    "tags": [
+      "debug",
+      "dev"
+    ],
+    "kind": "package",
+    "popular": true,
+    "docs": "https://github.com/vishwajit-vm/strutvane-inspector#readme",
+    "framework": "^1.0",
+    "installs": {
+      "config": [
+        "config/inspector.ts"
+      ],
+      "screens": [
+        {
+          "path": "/_strutvane/inspector",
+          "title": "Inspector"
+        }
+      ]
+    },
+    "questions": [
+      {
+        "id": "production",
+        "type": "confirm",
+        "label": "Inspector: also allow it in production (operators only)?",
+        "default": false
+      }
+    ]
+  }
+}

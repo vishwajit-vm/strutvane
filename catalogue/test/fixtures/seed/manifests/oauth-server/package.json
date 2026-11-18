@@ -1,0 +1,60 @@
+{
+  "name": "@strutvane/oauth-server",
+  "version": "0.1.0",
+  "description": "Be an OAuth 2.1 provider for other apps",
+  "license": "MIT",
+  "type": "module",
+  "peerDependencies": {
+    "@strutvane/framework": "^1.0"
+  },
+  "strutvane": {
+    "manifestVersion": 1,
+    "id": "oauth-server",
+    "displayName": "OAuth server",
+    "description": "Be an OAuth 2.1 provider for other apps",
+    "category": "identity",
+    "tags": [
+      "oauth",
+      "api"
+    ],
+    "kind": "package",
+    "popular": false,
+    "docs": "https://github.com/vishwajit-vm/strutvane-oauth-server#readme",
+    "framework": "^1.0",
+    "installs": {
+      "config": [
+        "config/oauth-server.ts"
+      ],
+      "env": [
+        {
+          "key": "OAUTH_PRIVATE_KEY",
+          "description": "Signing key for issued tokens",
+          "secret": true
+        }
+      ],
+      "migrations": [
+        "create_oauth_clients_table",
+        "create_oauth_grants_table"
+      ],
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/oauth/authorize"
+        },
+        {
+          "method": "POST",
+          "path": "/oauth/token"
+        }
+      ],
+      "screens": [
+        {
+          "path": "/settings/oauth-clients",
+          "title": "OAuth clients"
+        }
+      ]
+    },
+    "requires": [
+      "auth"
+    ]
+  }
+}

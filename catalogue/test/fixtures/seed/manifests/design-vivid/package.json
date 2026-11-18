@@ -1,0 +1,33 @@
+{
+  "name": "@strutvane/design-vivid",
+  "version": "0.2.0",
+  "description": "Colourful, modern dashboards",
+  "license": "MIT",
+  "type": "module",
+  "peerDependencies": {
+    "@strutvane/framework": "^0.2"
+  },
+  "strutvane": {
+    "manifestVersion": 1,
+    "id": "vivid",
+    "displayName": "Vivid",
+    "description": "Colourful, modern dashboards",
+    "category": "design",
+    "tags": [
+      "colourful",
+      "dashboards"
+    ],
+    "kind": "design",
+    "popular": false,
+    "docs": "https://github.com/vishwajit-vm/strutvane-design-vivid#readme",
+    "framework": "^0.2",
+    "installs": {
+      "config": [
+        "resources/ui/theme.css"
+      ]
+    },
+    "requires": [
+      "ui"
+    ]
+  }
+}

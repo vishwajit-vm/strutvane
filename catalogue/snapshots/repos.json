@@ -1,0 +1,246 @@
+{
+  "snapshotVersion": 1,
+  "org": "vishwajit-vm",
+  "repos": [
+    {
+      "name": ".github",
+      "archived": false
+    },
+    {
+      "name": "create-strutvane",
+      "archived": false
+    },
+    {
+      "name": "free-claude-code",
+      "archived": false
+    },
+    {
+      "name": "strutvane",
+      "archived": false
+    },
+    {
+      "name": "strutvane-activity-log",
+      "archived": false
+    },
+    {
+      "name": "strutvane-agent-tools",
+      "archived": false
+    },
+    {
+      "name": "strutvane-ai",
+      "archived": false
+    },
+    {
+      "name": "strutvane-api-explorer",
+      "archived": false
+    },
+    {
+      "name": "strutvane-auth",
+      "archived": false
+    },
+    {
+      "name": "strutvane-backup",
+      "archived": false
+    },
+    {
+      "name": "strutvane-billing",
+      "archived": false
+    },
+    {
+      "name": "strutvane-browser-testing",
+      "archived": false
+    },
+    {
+      "name": "strutvane-charts",
+      "archived": false
+    },
+    {
+      "name": "strutvane-cli",
+      "archived": true
+    },
+    {
+      "name": "strutvane-cms",
+      "archived": false
+    },
+    {
+      "name": "strutvane-comments",
+      "archived": false
+    },
+    {
+      "name": "strutvane-contracts",
+      "archived": true
+    },
+    {
+      "name": "strutvane-core",
+      "archived": true
+    },
+    {
+      "name": "strutvane-dashboards",
+      "archived": false
+    },
+    {
+      "name": "strutvane-design-crisp",
+      "archived": false
+    },
+    {
+      "name": "strutvane-design-glass",
+      "archived": false
+    },
+    {
+      "name": "strutvane-design-vivid",
+      "archived": false
+    },
+    {
+      "name": "strutvane-devkit",
+      "archived": true
+    },
+    {
+      "name": "strutvane-docs",
+      "archived": false
+    },
+    {
+      "name": "strutvane-feature-flags",
+      "archived": false
+    },
+    {
+      "name": "strutvane-files",
+      "archived": false
+    },
+    {
+      "name": "strutvane-form-builder",
+      "archived": false
+    },
+    {
+      "name": "strutvane-framework",
+      "archived": false
+    },
+    {
+      "name": "strutvane-geo",
+      "archived": false
+    },
+    {
+      "name": "strutvane-graphql",
+      "archived": false
+    },
+    {
+      "name": "strutvane-health",
+      "archived": false
+    },
+    {
+      "name": "strutvane-import-export",
+      "archived": false
+    },
+    {
+      "name": "strutvane-inspector",
+      "archived": false
+    },
+    {
+      "name": "strutvane-invoicing",
+      "archived": false
+    },
+    {
+      "name": "strutvane-log-viewer",
+      "archived": false
+    },
+    {
+      "name": "strutvane-mail-templates",
+      "archived": false
+    },
+    {
+      "name": "strutvane-mcp-server",
+      "archived": false
+    },
+    {
+      "name": "strutvane-media-library",
+      "archived": false
+    },
+    {
+      "name": "strutvane-notification-channels",
+      "archived": false
+    },
+    {
+      "name": "strutvane-npx",
+      "archived": false
+    },
+    {
+      "name": "strutvane-oauth-server",
+      "archived": false
+    },
+    {
+      "name": "strutvane-observability",
+      "archived": false
+    },
+    {
+      "name": "strutvane-payments",
+      "archived": false
+    },
+    {
+      "name": "strutvane-pdf",
+      "archived": false
+    },
+    {
+      "name": "strutvane-privacy",
+      "archived": false
+    },
+    {
+      "name": "strutvane-queue-dashboard",
+      "archived": false
+    },
+    {
+      "name": "strutvane-realtime",
+      "archived": false
+    },
+    {
+      "name": "strutvane-redis",
+      "archived": false
+    },
+    {
+      "name": "strutvane-resource-views",
+      "archived": false
+    },
+    {
+      "name": "strutvane-search",
+      "archived": false
+    },
+    {
+      "name": "strutvane-settings",
+      "archived": false
+    },
+    {
+      "name": "strutvane-skeleton",
+      "archived": false
+    },
+    {
+      "name": "strutvane-social-login",
+      "archived": false
+    },
+    {
+      "name": "strutvane-sso",
+      "archived": false
+    },
+    {
+      "name": "strutvane-tags",
+      "archived": false
+    },
+    {
+      "name": "strutvane-tooling",
+      "archived": false
+    },
+    {
+      "name": "strutvane-translations",
+      "archived": false
+    },
+    {
+      "name": "strutvane-ui",
+      "archived": false
+    },
+    {
+      "name": "strutvane-webhooks",
+      "archived": false
+    },
+    {
+      "name": "strutvane-workflows",
+      "archived": false
+    }
+  ]
+}

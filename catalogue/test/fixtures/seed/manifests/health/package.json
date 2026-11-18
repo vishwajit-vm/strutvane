@@ -1,0 +1,62 @@
+{
+  "name": "@strutvane/health",
+  "version": "0.1.0",
+  "description": "Scheduled checks, history and alerts",
+  "license": "MIT",
+  "type": "module",
+  "peerDependencies": {
+    "@strutvane/framework": "^1.0"
+  },
+  "strutvane": {
+    "manifestVersion": 1,
+    "id": "health",
+    "displayName": "Health checks",
+    "description": "Scheduled checks, history and alerts",
+    "category": "operations",
+    "tags": [
+      "uptime",
+      "monitoring"
+    ],
+    "kind": "package",
+    "popular": true,
+    "docs": "https://github.com/vishwajit-vm/strutvane-health#readme",
+    "framework": "^1.0",
+    "installs": {
+      "config": [
+        "config/health.ts"
+      ],
+      "env": [
+        {
+          "key": "HEALTH_CHECK_TOKEN",
+          "description": "Shared secret for the uptime JSON endpoint",
+          "secret": true
+        }
+      ],
+      "migrations": [
+        "create_health_check_results_table"
+      ],
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/health.json"
+        }
+      ],
+      "screens": [
+        {
+          "path": "/_strutvane/health",
+          "title": "Health"
+        }
+      ],
+      "commands": [
+        {
+          "name": "health:check",
+          "description": "Run every health check now"
+        },
+        {
+          "name": "health:list",
+          "description": "List the health checks"
+        }
+      ]
+    }
+  }
+}
