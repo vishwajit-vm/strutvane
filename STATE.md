@@ -7,7 +7,7 @@
 > - **Run `node scripts/state-check.mjs` at the start of every session and before reporting status.** It fails if any repo has uncommitted or unpushed work, or if this file names a commit that doesn't exist.
 > - Details live elsewhere and are linked, not copied: decisions in `spikes/CONSISTENCY-2026-11-15.md`, the plan in `docs/21-delivery-plan.md`, rules in `docs/19-production-readiness.md`, each branch's `NEXT.md`.
 
-_Last updated: 2026-11-18 ~10:00 UTC (15:30 IST). Checkpoint before the 16:00 IST 5-hour reset; agents still running (§2a); every finished commit is pushed._
+_Last updated: 2026-11-18 ~10:12 UTC (15:42 IST). Stopped at 84% of the 5-hour window, before the 16:00 IST reset. Every branch is committed and pushed, no agents are running and no worktrees are left. Auto-resume at 16:07 IST starts 10 packages in parallel (memory `strutvane-resume-point`)._
 
 ## 1. Release status
 | Item | State |
@@ -36,18 +36,15 @@ _Last updated: 2026-11-18 ~10:00 UTC (15:30 IST). Checkpoint before the 16:00 IS
 | 43 planned repos (README + LICENSE only) | created 2026-11-17: strutvane-skeleton, strutvane-npx, strutvane-design-glass and 40 add-ons (`strutvane-<id>` for every planned catalogue id) | — | planned | — |
 | core, contracts, cli, devkit | archived (moved into the framework) | — | — | — |
 
-## 2a. Agents running right now (checkpoint 2026-11-18 ~10:00 UTC)
-| Work | Repo / branch | Head at checkpoint |
+## 2a. Agents running right now (updated 2026-11-18 ~10:12 UTC)
+None (stopped for the reset). Resume from each branch's `NEXT.md`:
+| Branch | Head | State |
 |---|---|---|
-| Framework release blockers (on top of the Windows/macOS fix) | framework `fix/release-0.2` | 2ec0b7a (pushed): compat fixed (8e88e94) and sandbox timeout configurable (2ec0b7a); the database connection, resources.json and exports are in progress |
-| Installer switched to the skeleton, plus the 7 template bugs | create-strutvane `v2/installer` | 52cebb1 (started 09:50; no commits yet) |
-| log-viewer: UI + read API on the framework's logging | logs `v2/log-viewer` | 2607bff (no commits yet) |
-| Package catalogue: index, builder, checks, hub CI | hub `feat/catalogue` | ✅ d15a218 pushed; 279 tests *(agent-reported)*; waits on decisions 8–10 |
-| Docs: framework 0.2 pages | docs `docs/framework-0.2` | ✅ 51f7120 pushed; verify 3× *(agent-reported)*. **Must be ported to hub `spikes/15-versioned-docs-site/` before the next docs sync** (the docs repo is a deploy mirror) |
+| framework `fix/release-0.2` | 2492d9f | Fixed (targeted tests pass): compat (8e88e94), database connection in the Application (2cd9d0b; HTTP read/write on all 4 engines), `ConfigOf`/`RoutesOf` exports (e937372), replay timeout (2ec0b7a). resources.json is WIP; its new test has not run yet. **The full gate has not run on this branch.** |
+| create-strutvane `v2/installer` | 62bbf28 | Skeleton vendored at ea31741 (14722fe) and the installer renders from it; the 7 bugs are fixed in code (62bbf28). **Tests need updating; the suite fails until then.** |
+| logs `v2/log-viewer` | 8d85229 | ✅ done: UI + read API on framework logging; 163 tests 3× *(agent-reported)*; `npm ci` blocked until the framework is on npm |
 
-Stopped on purpose: `@strutvane/agent-tools`. The project lead put release-critical work first; agent-tools waits for 0.3.
-
-**Lesson (2026-11-18):** at most 2–3 heavy test gates at once on this machine.
+At 16:07 IST: resume the 2 above and start 7 new packages: social-login, files, charts, health, redis, search, import-export. **Keep at least 10 packages in development.** Run heavy gates late and staggered.
 
 ## 3. Open decisions (waiting on the project lead)
 | # | Question | Coordinator's recommendation |
@@ -62,6 +59,8 @@ Stopped on purpose: `@strutvane/agent-tools`. The project lead put release-criti
 | 8 | Catalogue manifest: one `strutvane` block with both dialects (runtime keys + `manifestVersion: 1`), or a nested `strutvane.catalogue` | nested `strutvane.catalogue` (keeps runtime keys clean) |
 | 9 | Docs site: hand-fix `src/data/packages.json` drift (48 errors), or have the site read the hub's `catalogue.json` | read `catalogue.json` (one source of truth) |
 | 10 | Catalogue nightly autocommit to the hub's `main` by `github-actions[bot]` (new way of pushing to main) | open a PR instead of pushing; review the first nightly run |
+| 12 | `users` and `teams` are in the framework's `INTERNAL_TABLES` (security finding F-01), so they're hidden from `resources.json` and the sidebar; the skeleton expects `users` in the sidebar | keep them hidden from the generic CRUD API (F-01); auth provides its own users screen |
+| 13 | The installer's first-admin seeder calls `firstAdmin` from `@strutvane/auth`, which auth v2 doesn't have (`openIdentityAdmin` in `/admin` only supports PostgreSQL + database sessions) | auth adds a driver-neutral `createFirstAdmin()` for all engines |
 | 11 | `node strut upgrade` and `registry:build/watch` still ship in 0.2.0-next.0 but the docs catalogue lists them as retired | keep them in 0.2.x, mark deprecated, remove in 0.3 |
 
 ## 4. Next steps (in order)
@@ -86,6 +85,7 @@ Tracked privately in `docs/research/2026-11-15-audit-findings.md` (git-excluded)
 ## 6. Verification log (newest first)
 | Date | What | Result |
 |---|---|---|
+| 2026-11-18 | log-viewer `v2/log-viewer` 8d85229 | 163 tests 3× *(agent-reported)*; pushed |
 | 2026-11-18 | tooling `feat/npx-and-app-template` d91e087 3×; merged to `main` | 144/144 each run |
 | 2026-11-18 | npx `chore/tooling-sync` 10aa9b1 3×; merged to `main` | 107 passed, 3 skipped each run |
 | 2026-11-18 | ui `v2/behaviour` c375f7b, full gate 3× against a framework 0.2.0-next.0 tarball (`npm install --no-save`) | 499 passed, 0 failed each run |

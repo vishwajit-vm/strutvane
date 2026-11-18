@@ -66,6 +66,22 @@ Template:
 - Next session should start with: …
 ```
 
+### 2026-11-18 ~10:12 UTC: account A — stopped at 84% before the 16:00 IST reset
+- **Did:**
+  - framework `fix/release-0.2` 2492d9f: 4 of 5 blockers fixed (compat, database connection, exports, timeout); resources.json is WIP; the gate hasn't run;
+  - installer `v2/installer` 62bbf28: renders from the skeleton, the 7 bugs fixed in code; tests still to update;
+  - log-viewer `v2/log-viewer` 8d85229 done;
+  - catalogue `feat/catalogue` d15a218 and docs `docs/framework-0.2` 51f7120 done, waiting on decisions or a port to the hub;
+  - tooling d91e087 and npx 10aa9b1 verified and merged;
+  - ui verified (499 tests).
+- **All pushed.** No agents and no worktrees left.
+- **Next session:**
+  - 16:07 IST auto-resume: resume framework + installer, start 7 new packages (social-login, files, charts, health, redis, search, import-export), keep ≥10 in development;
+  - verify framework `fix/release-0.2` 3×, then merge it to `main` and push, which stages the npm release;
+  - the npx CI fails on macOS: fix it;
+  - framework gaps from the docs agent (STATE §4);
+  - storage gaps: `config/filesystems.ts` not read, no public disk / `storage:link`.
+
 ### 2026-11-18 ~10:00 UTC: account A — checkpoint before the 16:00 IST reset (agents still running)
 - **Did:**
   - resumed at 08:20 UTC;

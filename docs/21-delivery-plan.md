@@ -17,11 +17,18 @@
 
 ---
 
-## 0. Live status dashboard (updated 2026-11-18, 15:30 IST — checkpoint, agents working)
+## 0. Live status dashboard (updated 2026-11-18, 15:42 IST — paused for the 16:00 reset; 10 packages resume at 16:07)
 
 This section is updated at every milestone and before every stop, together with the PDF copy. Every number comes from `STATE.md`; anything not re-run by the coordinator is marked *(agent-reported)*.
 
-> **Checkpoint 2026-11-18 15:30 IST.** Agents are working on the framework release blockers (compat and sandbox timeout already fixed), the installer→skeleton switch, the log-viewer, the package catalogue and the docs. tooling and the npx guard are verified and merged; ui is verified (499 tests). Everything finished is pushed.
+> **Paused 15:42 IST for the 5-hour reset; auto-resume at 16:07 with 10 packages in parallel.** Since the morning:
+> - the framework release blockers are mostly fixed (compat, database connection, exports, timeout);
+> - the installer now renders from the skeleton;
+> - log-viewer, catalogue and docs are done (on their branches);
+> - tooling and the npx guard are merged;
+> - ui is verified.
+>
+> Everything is pushed.
 
 **Definitions:**
 - **Built:** the code is written.
@@ -35,7 +42,7 @@ This section is updated at every milestone and before every stop, together with 
 ### 0.1 Overall progress
 | Measure | Value |
 |---|---|
-| Release 0.2 (full flow) | **~60% done**: ~50 of ~84 planned agent-hours; **~40 hours left** (plus ~3 h for the newly found framework blockers) |
+| Release 0.2 (full flow) | **~68% done**: ~57 of ~84 planned agent-hours; **~30 hours left** |
 | Whole ecosystem (60 repos: 47 packages + designs + skeleton + tooling) | **~8% done** of ~546 agent-hours; ~510 left |
 | Released on npm (v2) | **0%**. npm is unlocked. Framework 0.2.0-next.0 stages as soon as the Windows/macOS CI fix is merged; the project lead approves it on npmjs.com |
 | GitHub | **60 repos**, including 43 planned-package placeholders created 2026-11-17 (`strutvane-logs` renamed to `strutvane-log-viewer`) |
