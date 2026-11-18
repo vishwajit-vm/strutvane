@@ -17,11 +17,9 @@
 
 ---
 
-## 0. Live status dashboard (updated 2026-11-17 — work paused for the weekly usage limit)
+## 0. Live status dashboard (updated 2026-11-18, 06:20 IST — 7 agents working)
 
-This section is updated at every milestone and before every stop, together with the PDF copy. Every number comes from `STATE.md` and was checked by the coordinator.
-
-> **⏸ Paused on 2026-11-17** because the account's weekly usage reached 85% (it resets 2026-11-18 00:00 UTC). On 2026-11-17 the hub's commit identities were corrected (see HANDOFF §5) and work resumed briefly: two agents were started on the framework branches and stopped before changing anything. Everything is committed and pushed; nothing lives only on this machine. **Resume: after 2026-11-18 00:00 UTC.** At resume: read `STATE.md`, run `node scripts/state-check.mjs`, then continue with §0.3 (each framework branch has a `NEXT.md` saying exactly where it stopped).
+This section is updated at every milestone and before every stop, together with the PDF copy. Every number comes from `STATE.md`; anything not re-run by the coordinator is marked *(agent-reported)*.
 
 **Definitions:**
 - **Built:** the code is written.
@@ -35,62 +33,64 @@ This section is updated at every milestone and before every stop, together with 
 ### 0.1 Overall progress
 | Measure | Value |
 |---|---|
-| Release 0.2 (full flow) | **~45% done**: ~38 of ~84 planned agent-hours completed; ~46 hours left |
-| Whole ecosystem (47 packages + 2 designs) | **~7% done** of ~546 agent-hours |
-| Released on npm so far | **0% of v2**: npm unlocked 2026-11-17 08:35 UTC (v1 0.1.0-next.0 packages are on npm under `next`); the framework 0.1.0-next.1 release is staged first, with the project lead present for 2FA |
-| Time spent so far | **~4 days** (13–16 Nov 2026), about 100–130 agent-hours *(estimate)* |
-| Time left to 0.2 | **~9 working days** after the resume (~5 agent-hours/day); **~12** with buffer |
-| Test cases passing in finished packages | ~3,600 (framework 1,466 · auth 819 + 63 integration · ui 488 · installer 473 · logs 573 · Crisp 105 · Vivid 233 · tooling 129); plus 2,205 on the framework data-layer branch *(agent-reported, WIP)* |
+| Release 0.2 (full flow) | **~55% done**: ~46 of ~84 planned agent-hours; **~45 hours left** |
+| Whole ecosystem (60 repos: 47 packages + designs + skeleton + tooling) | **~8% done** of ~546 agent-hours; ~510 left |
+| Released on npm (v2) | **0%**. npm is unlocked. Framework 0.2.0-next.0 stages as soon as the Windows/macOS CI fix is merged; the project lead approves it on npmjs.com |
+| GitHub | **60 repos**, including 43 planned-package placeholders created 2026-11-17 (`strutvane-logs` renamed to `strutvane-log-viewer`) |
+| npm names | `@strutvane` scope owned; 45 names to reserve with `scripts/reserve-npm-names.mjs` (the project lead runs it) |
+| Time spent | ~6 days (13–18 Nov 2026), about 150–180 agent-hours *(estimate)* |
+| Tests passing, verified by the coordinator | framework `main` **2,981** (3×) · ui 488 · logs 573 · Crisp 105 · Vivid 233 · tooling 129; auth 819 + 63 and installer 473 *(agent-reported)* |
 
 ### 0.2 ✅ Done list
 | Item | Built | Tested | Pushed | Merged | Released | Docs | Done |
 |---|---|---|---|---|---|---|---|
 | Tooling: npm CI and the R1–R9 production checks | ✅ | ✅ 129 | ✅ | ✅ | n/a | ✅ | **100%** |
-| Docs site v2 (live, 522 pages) | ✅ | ✅ 0 broken links | ✅ | ✅ | ✅ live | ✅ | **100%** |
+| Docs site v2 (live) | ✅ | ✅ 0 broken links | ✅ | ✅ | ✅ live | ✅ | **100%** (framework 0.2 pages being added) |
 | Old repos archived (core, contracts, cli, devkit) | ✅ | n/a | ✅ | ✅ | npm deprecation after 0.2 | ✅ | 90% |
-| Framework v2 (consolidation, 4 audits, fix pass) | ✅ | ✅ 1,466 | ✅ | ✅ | ⏳ npm unlock | ✅ | 85% |
-| auth v2 (native engine) | ✅ | ⚠️ agent-reported 819 + 63 | ✅ | ⏳ after framework publish | ⏳ | ⏳ | 65% |
-| ui v2 (behaviour + design contract) | ✅ | ✅ 488 | ✅ | ⏳ | ⏳ | ⏳ | 65% |
-| create-strutvane v2 (installer) | ✅ | ⚠️ agent-reported 473 | ✅ | ⏳ | ⏳ | ✅ | 65% |
-| design-crisp (default) | ✅ | ✅ 105 | ✅ new repo | ✅ | ⏳ | ⏳ | 70% |
-| design-vivid | ✅ | ✅ 233 | ✅ new repo | ✅ | ⏳ | ⏳ | 70% |
-| logging channels (`v2/channels`) | ✅ | ✅ 573 | ✅ | ⏳ fold into framework | ⏳ | ✅ | 60% |
-| Prototypes 10–21 (schema, ORM, MVC, installer, UI, charts, designs, auth, catalogue) | ✅ | ✅ | ✅ | ✅ (hub) | n/a | n/a | **100%** (as prototypes) |
-| Plans and decisions (docs 18–21, ADRs to 0023, decisions #1–129, STATE.md, state-check) | ✅ | ✅ | ✅ | ✅ | n/a | ✅ | **100%** |
+| **Framework 0.2.0-next.0** (app core + data layer + security fixes) | ✅ | ✅ 2,981 (3×) | ✅ | ✅ `main` | ⏳ CI fix, then approval | 🔄 | **~90%** |
+| design-crisp (default) | ✅ | ✅ 105 | ✅ | ✅ | ⏳ after ui | ⏳ | 70% |
+| design-vivid | ✅ | ✅ 233 | ✅ | ✅ | ⏳ after ui | ⏳ | 70% |
+| ui v2 | ✅ | ✅ 488 | ✅ branch | ⏳ lowercase codes | ⏳ | ⏳ | 65% |
+| auth v2 (own engine) | ✅ | ⚠️ agent-reported | ✅ branch | ⏳ lowercase codes | ⏳ | ⏳ | 65% |
+| create-strutvane v2 | ✅ | ⚠️ agent-reported 473 | ✅ branch | ⏳ | ⏳ | ✅ | 65% |
+| 43 planned repos + log-viewer rename | ✅ | n/a | ✅ | ✅ | n/a | ✅ | **100%** |
+| Plans, decisions, STATE.md, HANDOFF.md, state-check, identity-check | ✅ | ✅ | ✅ | ✅ | n/a | ✅ | **100%** |
 
-### 0.3 🔄 Working on now (⏸ paused)
-| Item | Progress | Hours left | Where it stopped |
+### 0.3 🔄 Working on now (7 agents in parallel)
+| Package | Task | Progress | Hours left |
 |---|---|---|---|
-| Framework database layer (ORM, migrations, sandbox) on `v2/data-layer` | ~60% | ~6 | built; one full gate green *(agent-reported)*; **2 critical + 2 high security findings to fix first**; then gate 3×, generated CRUD API |
-| Framework app core (MVC, commands, security kit, facades) on `v2/app-core` | ~45% | ~7 | built; targeted tests green; command tests, lowercase codes, exports, CLI wiring and the full gate still to do |
-| Merge both into framework `main` → 0.2.0-next.0 | 0% | ~1 | expect one conflict in `make:migration` |
+| `@strutvane/framework` | Windows/macOS CI fix (Docker must run Linux containers; real-path project root) | ~70% | ~0.5 |
+| `@strutvane/framework` | Logging built in (ADR-0022): `.env` channels, `storage/logs`, `Log` facade, `log:*` commands | ~50% | ~3 |
+| `@strutvane/auth` | Lowercase error codes and the issue `field` (#123, #69) | ~10% | ~2 |
+| `@strutvane/ui` | The same, plus hub RFC-0003 | ~10% | ~2 |
+| strutvane-skeleton | The app template `npm create strutvane` installs | ~10% | ~4 |
+| `strutvane` (npx guard) | The `npx strutvane` command | ~10% | ~1 |
+| strutvane-docs | Pages for everything framework 0.2 ships | ~10% | ~3 |
 
-### 0.4 ⏭ Next (after the current work)
+### 0.4 ⏭ Next
 | Order | Item | Hours |
 |---|---|---|
-| 1 | npm unlock: stage framework 0.1.0-next.1, refresh lockfiles, apply the release patches | 2 |
-| 2 | Logging folded into the framework, then log-viewer | 8 |
+| 1 | Release framework 0.2.0-next.0 (CI stages it, the lead approves), then auth → ui → designs → installer at 0.2.0-next.0 | 3 |
+| 2 | log-viewer (UI only, on top of the framework's logging) | 4 |
 | 3 | Package installers (`node strut install:<x>`) | 8 |
-| 4 | strutvane-skeleton, catalogue CI, npx guard | 8 |
+| 4 | Installer switched to the skeleton; catalogue CI | 5 |
 | 5 | Security reviews (R3) and soak tests (R4) for auth, ui and the installer | 6 |
 | 6 | Demo app end to end, docs labels removed, **release 0.2.0** | 8 |
 
 ### 0.5 🗓 After that
 | Release | Packages | Hours | Target |
 |---|---|---|---|
-| 0.3 | queues, mail, notifications, scheduler, cache, Redis, queue dashboard, social login, agent tools | ~60 | late Dec 2026 |
-| 1.0 | files, search, import/export, inspector, observability, health, charts, dashboards + external audit | ~82 | Feb 2027 |
-| 1.x | back-office → identity → money/realtime → content/AI → on demand | ~320 | Feb–Apr 2027 |
+| 0.3 | queues, mail, notifications, scheduler, cache (framework) · redis · queue-dashboard · social-login · agent-tools | ~60 | mid–late Dec 2026 |
+| 1.0 | files · charts · dashboards · search · import-export · inspector · observability · health + external audit | ~82 | Feb 2027 |
+| 1.x | back-office → identity → money/realtime → content/AI → on demand (29 packages) | ~320 | Feb–Apr 2027 |
 
-### 0.6 Release timeline (pace ~5 agent-hours/working day, counted from the resume on ~21 Nov 2026)
+### 0.6 Release timeline (~5 agent-hours/working day; faster with more agents in parallel)
 | Release | Hours left | Working days | Expected | With 30% buffer |
 |---|---|---|---|---|
-| 0.2 | ~46 | ~9 | **1 Dec 2026** | **3 Dec 2026** |
-| 0.3 | ~106 | ~21 | 12 Dec 2026 | 18 Dec 2026 |
-| 1.0 (build) | ~188 | ~38 | 28 Dec 2026 | 8 Jan 2027 (+ external audit → Feb 2027) |
-| Everything | ~508 | ~102 | 2 Mar 2027 | **2 Apr 2027** |
-
-The pause (17–20 Nov) moved every date by about 5 days. If work only happens at weekends, the calendar stretches roughly 3× (see §6.3); the hours stay the same.
+| 0.2 | ~45 | ~9 | **29 Nov 2026** | **2 Dec 2026** |
+| 0.3 | ~105 | ~21 | 10 Dec 2026 | 17 Dec 2026 |
+| 1.0 (build) | ~187 | ~37 | 26 Dec 2026 | 6 Jan 2027 (+ external audit → Feb 2027) |
+| Everything | ~507 | ~101 | 28 Feb 2027 | **31 Mar 2027** |
 
 ---
 
