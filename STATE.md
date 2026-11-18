@@ -23,7 +23,7 @@ _Last updated: 2026-11-18 ~04:10 UTC. **Stopped by the project lead** ("stop now
 | strutvane (hub) | blueprint, docs 18–21, ADRs to 0023, spikes, decisions 1–129 | — | — | pushed |
 | strutvane-framework | **0.2.0-next.0** (6dfc239): app core + data layer + TruffleHog fix | `fix/ci-cross-platform` bf2fa91 (Windows Docker + macOS real-path fix; final gate not run) · `v2/logging` f3e28b8 (ADR-0022 logging, code complete; gate not yet green: timeouts under machine overload) | 🔄 pushed WIP | `main`: 2,981 passed 3× (coordinator, 2026-11-17). **Release blockers:** see §4 step 1 |
 | strutvane-auth | v1 + 6 audit fixes | `v2/native-engine` 9e4bf38: lowercase codes + `field` (2d3a47a, 247e02f) + WIP | 🔄 pushed; its gate timed out under machine load | not verified |
-| strutvane-ui | v1 + 17 audit fixes | `v2/behaviour` c375f7b: lowercase codes + `field` (a9e8751) + deterministic debounce tests (c375f7b) | 🔄 pushed | coordinator run on a9e8751: 1 of 3 failed (timing-flaky debounce test, since fixed in c375f7b); c375f7b gate 2/3 green *(agent-reported)*, re-run needed |
+| strutvane-ui | v1 + 17 audit fixes | `v2/behaviour` c375f7b: lowercase codes + `field` + deterministic debounce tests | ✅ verified; waits for the framework on npm (then lockfile refresh, `changeset version`, merge) | **499 passed, 3×**, against a framework 0.2.0-next.0 tarball (coordinator, 2026-11-18) |
 | create-strutvane | v1 | `v2/installer` at **0.2.0-next.0** | ✅ done and **pushed** (52cebb1, 2026-11-16, lead approved) | 473 tests, 3× green *(agent-reported; the coordinator's re-run is pending)* |
 | strutvane-log-viewer (renamed from strutvane-logs 2026-11-17; old URL redirects) | v1 | `v2/channels` (ADR-0022) | ✅ audited and pushed; logging folds into the framework next | 573 tests |
 | strutvane-tooling | npm + R1–R9 CI | — | — | 129 tests |
@@ -40,7 +40,6 @@ _Last updated: 2026-11-18 ~04:10 UTC. **Stopped by the project lead** ("stop now
 | Work | Repo / branch (worktree in the scratchpad) | Expected result |
 |---|---|---|
 | Framework release blockers (compat `^0.2`, database connection in the Application, resources.json internals, `ConfigOf`/`RoutesOf`, sandbox timeout), built on the Windows/macOS fix | framework `fix/release-0.2` (`fw-rel`) | gate 3×, then merge to `main`; the npm release stages |
-| ui verification against framework 0.2 (coordinator) | ui `v2/behaviour` c375f7b (`ui-verify`) | 3× green, then ui is verified |
 | Docs: framework 0.2 pages | docs `docs/framework-0.2` (`docs-fw2`) | build and link check 3× |
 | Tooling: `npx` library target, new `app-template` profile for the skeleton, sync into both | tooling `feat/npx-and-app-template`; npx `chore/tooling-sync`; skeleton `v2/skeleton` | the gates green; list of repo settings to apply |
 | log-viewer: UI + read API only, on top of the framework's logging | logs (strutvane-log-viewer) `v2/log-viewer` (`logviewer-wt`) | gate 3× |
@@ -81,6 +80,7 @@ Tracked privately in `docs/research/2026-11-15-audit-findings.md` (git-excluded)
 ## 6. Verification log (newest first)
 | Date | What | Result |
 |---|---|---|
+| 2026-11-18 | ui `v2/behaviour` c375f7b, full gate 3× against a framework 0.2.0-next.0 tarball (`npm install --no-save`) | 499 passed, 0 failed each run |
 | 2026-11-18 | npx guard `strutvane` 1e58faf, full gate re-run by the coordinator 3×; merged to `main` | 107 passed, 3 skipped, 0 failed each run |
 | 2026-11-18 | ui a9e8751, coordinator gate run 1 | 1 failed (timing-flaky debounce test under load), 495 passed; fixed in c375f7b, re-run pending |
 | 2026-11-17 | framework `v2/merge-0.2` b9a23ab (both v2 branches merged, 0.2.0-next.0), full gate re-run by the coordinator 3× in a row; then fast-forwarded to `main` and pushed | 2,981 passed, 16 skipped, 0 failed each run |
