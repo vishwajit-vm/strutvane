@@ -21,7 +21,7 @@ _Last updated: 2026-11-18 ~14:10 UTC (19:40 IST). Agents are stopped for the usa
 | Repo | `main` | Work branch | Branch state | Verified by coordinator |
 |---|---|---|---|---|
 | strutvane (hub) | blueprint, docs 18–21, ADRs to 0023, spikes, decisions 1–129 | — | — | pushed |
-| strutvane-framework | **0.2.0-next.1** (d7efea4, 2026-11-18): all 5 release blockers fixed (compat, database connection, resources.json internals, `ConfigOf`/`RoutesOf`, replay timeout) + Windows/macOS CI fixes | `v2/logging` f3e28b8 (logging, not merged) | ✅ merged and pushed; **release workflow running** → stages 0.2.0-next.1 for the lead's approval | **3,121 passed, 17 skipped, 3×** (coordinator, 2026-11-18); publint OK; audit (prod) OK |
+| strutvane-framework | **0.2.0-next.1** (8b896f0, 2026-11-18): all 5 release blockers fixed + Windows/macOS CI fixes | `v2/logging` f3e28b8 (logging, not merged) | ✅ **STAGED on npm** with provenance (stage id e096e4e2…, tag `next`). **Waiting for the lead's approval** on npmjs.com → Staged Packages | 3,121 passed 3× (coordinator); GitHub CI all green on Linux/Windows/macOS × Node 24/26 (run 44325605819) |
 | strutvane-auth | v1 + 6 audit fixes | `v2/native-engine` 9e4bf38: lowercase codes + `field` (2d3a47a, 247e02f) + WIP | 🔄 pushed; its gate timed out under machine load | not verified |
 | strutvane-ui | v1 + 17 audit fixes | `v2/behaviour` c375f7b: lowercase codes + `field` + deterministic debounce tests | ✅ verified; waits for the framework on npm (then lockfile refresh, `changeset version`, merge) | **499 passed, 3×**, against a framework 0.2.0-next.0 tarball (coordinator, 2026-11-18) |
 | create-strutvane | v1 | `v2/installer` at **0.2.0-next.0** | ✅ done and **pushed** (52cebb1, 2026-11-16, lead approved) | 473 tests, 3× green *(agent-reported; the coordinator's re-run is pending)* |
@@ -92,6 +92,7 @@ Tracked privately in `docs/research/2026-11-15-audit-findings.md` (git-excluded)
 ## 6. Verification log (newest first)
 | Date | What | Result |
 |---|---|---|
+| 2026-11-18 | framework `main` 8b896f0 (macOS test fixed to compare real paths), release run 44325605819 | all CI green (one macOS job re-run after GitHub never assigned a runner); **0.2.0-next.1 staged** with provenance |
 | 2026-11-18 | framework `fix/release-0.2` f658430, full gate 3× + publint + prod audit; versioned 0.2.0-next.1; merged to `main` (d7efea4) and pushed | 3,121 passed, 17 skipped, 0 failed each run |
 | 2026-11-18 | log-viewer `v2/log-viewer` 8d85229 | 163 tests 3× *(agent-reported)*; pushed |
 | 2026-11-18 | tooling `feat/npx-and-app-template` d91e087 3×; merged to `main` | 144/144 each run |
