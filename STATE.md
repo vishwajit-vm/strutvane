@@ -24,7 +24,7 @@ _Last updated: 2026-11-18 ~14:10 UTC (19:40 IST). Agents are stopped for the usa
 | strutvane-framework | **0.2.0-next.1 — LIVE on npm** (`next` tag, 2026-11-18, approved by the lead; provenance) | `v2/logging` f3e28b8 (logging, not merged) | ✅ **released** | 3,121 passed 3× (coordinator); CI green on Linux/Windows/macOS × Node 24/26 |
 | strutvane-auth | v1 + 6 audit fixes | `v2/native-engine` 9e4bf38: lowercase codes + `field` (2d3a47a, 247e02f) + WIP | 🔄 pushed; its gate timed out under machine load | not verified |
 | strutvane-ui | v1 + 17 audit fixes | `v2/behaviour` c375f7b: lowercase codes + `field` + deterministic debounce tests | ✅ verified; waits for the framework on npm (then lockfile refresh, `changeset version`, merge) | **499 passed, 3×**, against a framework 0.2.0-next.0 tarball (coordinator, 2026-11-18) |
-| create-strutvane | v1 | `v2/installer` at **0.2.0-next.0** | ✅ done and **pushed** (52cebb1, 2026-11-16, lead approved) | 473 tests, 3× green *(agent-reported; the coordinator's re-run is pending)* |
+| create-strutvane | **0.2.0-next.1** (3e279d8, merged 2026-11-18): v2 installer built from the skeleton; 7 template bugs + Docker-mode TLS + graceful SIGTERM fixed | — | ✅ merged; **release workflow running** → stages for approval (replaces the v1 `0.1.0-next.0` that was accidentally approved on `next`) | **513 passed, 3 skipped, 3×** incl. real Docker apps (coordinator, 2026-11-18) |
 | strutvane-log-viewer (renamed from strutvane-logs 2026-11-17; old URL redirects) | v1 | `v2/channels` (ADR-0022) | ✅ audited and pushed; logging folds into the framework next | 573 tests |
 | strutvane-tooling | **d91e087** (2026-11-18): `app-template` profile; npx (library) and skeleton targets | — | ✅ merged | **144/144, 3×** (coordinator, 2026-11-18) |
 | strutvane-docs | v2 site, live at https://vishwajit-vm.github.io/strutvane-docs/ | `docs/framework-0.2` 2c9b4a1 (framework 0.2 pages, WIP, not build-checked) | 🔄 pushed WIP | — |
@@ -92,6 +92,7 @@ Tracked privately in `docs/research/2026-11-15-audit-findings.md` (git-excluded)
 ## 6. Verification log (newest first)
 | Date | What | Result |
 |---|---|---|
+| 2026-11-18 | create-strutvane `v2/installer` full gate (first run caught 2 real bugs: Docker-mode TLS, SIGTERM in the prod image; fixed), then 3× | 513 passed, 3 skipped, 0 failed each run; merged as 0.2.0-next.1 |
 | 2026-11-18 | `npm view @strutvane/framework dist-tags` after the lead's approval | `next` = **0.2.0-next.1** (first v2 release live) |
 | 2026-11-18 | framework `main` 8b896f0 (macOS test fixed to compare real paths), release run 44325605819 | all CI green (one macOS job re-run after GitHub never assigned a runner); **0.2.0-next.1 staged** with provenance |
 | 2026-11-18 | framework `fix/release-0.2` f658430, full gate 3× + publint + prod audit; versioned 0.2.0-next.1; merged to `main` (d7efea4) and pushed | 3,121 passed, 17 skipped, 0 failed each run |
