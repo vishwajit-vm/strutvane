@@ -21,7 +21,7 @@ _Last updated: 2026-11-18 ~14:10 UTC (19:40 IST). Agents are stopped for the usa
 | Repo | `main` | Work branch | Branch state | Verified by coordinator |
 |---|---|---|---|---|
 | strutvane (hub) | blueprint, docs 18–21, ADRs to 0023, spikes, decisions 1–129 | — | — | pushed |
-| strutvane-framework | **0.2.0-next.0** (6dfc239): app core + data layer + TruffleHog fix | `fix/ci-cross-platform` bf2fa91 (Windows Docker + macOS real-path fix; final gate not run) · `v2/logging` f3e28b8 (ADR-0022 logging, code complete; gate not yet green: timeouts under machine overload) | 🔄 pushed WIP | `main`: 2,981 passed 3× (coordinator, 2026-11-17). **Release blockers:** see §4 step 1 |
+| strutvane-framework | **0.2.0-next.1** (d7efea4, 2026-11-18): all 5 release blockers fixed (compat, database connection, resources.json internals, `ConfigOf`/`RoutesOf`, replay timeout) + Windows/macOS CI fixes | `v2/logging` f3e28b8 (logging, not merged) | ✅ merged and pushed; **release workflow running** → stages 0.2.0-next.1 for the lead's approval | **3,121 passed, 17 skipped, 3×** (coordinator, 2026-11-18); publint OK; audit (prod) OK |
 | strutvane-auth | v1 + 6 audit fixes | `v2/native-engine` 9e4bf38: lowercase codes + `field` (2d3a47a, 247e02f) + WIP | 🔄 pushed; its gate timed out under machine load | not verified |
 | strutvane-ui | v1 + 17 audit fixes | `v2/behaviour` c375f7b: lowercase codes + `field` + deterministic debounce tests | ✅ verified; waits for the framework on npm (then lockfile refresh, `changeset version`, merge) | **499 passed, 3×**, against a framework 0.2.0-next.0 tarball (coordinator, 2026-11-18) |
 | create-strutvane | v1 | `v2/installer` at **0.2.0-next.0** | ✅ done and **pushed** (52cebb1, 2026-11-16, lead approved) | 473 tests, 3× green *(agent-reported; the coordinator's re-run is pending)* |
@@ -39,7 +39,7 @@ _Last updated: 2026-11-18 ~14:10 UTC (19:40 IST). Agents are stopped for the usa
 ## 2a. Work in flight (updated 2026-11-18 ~14:10 UTC; agents stopped, all pushed)
 | Package | Branch | Head | State |
 |---|---|---|---|
-| `@strutvane/framework` | `fix/release-0.2` | f658430 | all 5 blockers fixed. **Coordinator gate run 1: 3,121 passed, 17 skipped, 0 failed**; runs 2–3 and R1/R5 in progress (worktree `fw-verify`) → merge to `main` → stage 0.2.0-next.0 |
+| `@strutvane/framework` | `main` | d7efea4 | ✅ verified 3× (3,121 passed), versioned **0.2.0-next.1**, merged and pushed; release workflow running |
 | `create-strutvane` | `v2/installer` | 0dc67c0 | skeleton switch done; tests for the 7 bugs + 3 apps + tarball integration (focused runs green); full gate not run. Skeleton `user.policy.ts` is rejected by `registry:build` (follow-up) |
 | `@strutvane/social-login` | `v2/social-login` | 299a67a | code + 246 tests (agent-reported, older framework build); gate, publint and attw left |
 | `@strutvane/search` | `v2/search` | e94a5fc | 4 engines, sync, commands; 93 tests (agent-reported); more tests, README, changeset, gate left |
@@ -92,6 +92,7 @@ Tracked privately in `docs/research/2026-11-15-audit-findings.md` (git-excluded)
 ## 6. Verification log (newest first)
 | Date | What | Result |
 |---|---|---|
+| 2026-11-18 | framework `fix/release-0.2` f658430, full gate 3× + publint + prod audit; versioned 0.2.0-next.1; merged to `main` (d7efea4) and pushed | 3,121 passed, 17 skipped, 0 failed each run |
 | 2026-11-18 | log-viewer `v2/log-viewer` 8d85229 | 163 tests 3× *(agent-reported)*; pushed |
 | 2026-11-18 | tooling `feat/npx-and-app-template` d91e087 3×; merged to `main` | 144/144 each run |
 | 2026-11-18 | npx `chore/tooling-sync` 10aa9b1 3×; merged to `main` | 107 passed, 3 skipped each run |
