@@ -92,6 +92,8 @@ Tracked privately in `docs/research/2026-11-15-audit-findings.md` (git-excluded)
 ## 6. Verification log (newest first)
 | Date | What | Result |
 |---|---|---|
+| 2026-11-18 | social-login `v2/social-login` (allowScripts fix added by the coordinator) against published framework 0.2.0-next.1 | npm ci OK; 247 passed 3× + 1 after the fix |
+| 2026-11-18 | ui `main` f747c8b (0.2.0-next.1) against published framework | npm ci OK; 499 passed 3×; prod audit 0; release workflow running |
 | 2026-11-18 | create-strutvane `v2/installer` full gate (first run caught 2 real bugs: Docker-mode TLS, SIGTERM in the prod image; fixed), then 3× | 513 passed, 3 skipped, 0 failed each run; merged as 0.2.0-next.1 |
 | 2026-11-18 | `npm view @strutvane/framework dist-tags` after the lead's approval | `next` = **0.2.0-next.1** (first v2 release live) |
 | 2026-11-18 | framework `main` 8b896f0 (macOS test fixed to compare real paths), release run 44325605819 | all CI green (one macOS job re-run after GitHub never assigned a runner); **0.2.0-next.1 staged** with provenance |
