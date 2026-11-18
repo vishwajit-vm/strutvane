@@ -42,8 +42,8 @@ _Last updated: 2026-11-18 ~10:00 UTC (15:30 IST). Checkpoint before the 16:00 IS
 | Framework release blockers (on top of the Windows/macOS fix) | framework `fix/release-0.2` | 2ec0b7a (pushed): compat fixed (8e88e94) and sandbox timeout configurable (2ec0b7a); the database connection, resources.json and exports are in progress |
 | Installer switched to the skeleton, plus the 7 template bugs | create-strutvane `v2/installer` | 52cebb1 (started 09:50; no commits yet) |
 | log-viewer: UI + read API on the framework's logging | logs `v2/log-viewer` | 2607bff (no commits yet) |
-| Package catalogue: index, builder, checks, hub CI | hub `feat/catalogue` | 4d8ba9e (no commits yet) |
-| Docs: framework 0.2 pages | docs `docs/framework-0.2` | 51f7120 (pushed) |
+| Package catalogue: index, builder, checks, hub CI | hub `feat/catalogue` | ✅ d15a218 pushed; 279 tests *(agent-reported)*; waits on decisions 8–10 |
+| Docs: framework 0.2 pages | docs `docs/framework-0.2` | ✅ 51f7120 pushed; verify 3× *(agent-reported)*. **Must be ported to hub `spikes/15-versioned-docs-site/` before the next docs sync** (the docs repo is a deploy mirror) |
 
 Stopped on purpose: `@strutvane/agent-tools`. The project lead put release-critical work first; agent-tools waits for 0.3.
 
@@ -59,6 +59,10 @@ Stopped on purpose: `@strutvane/agent-tools`. The project lead put release-criti
 | 5 | Request logging (node/hono/express adapters): a framework hook, or stays in log-viewer? | framework hook; log-viewer only reads |
 | 6 | `log:clear` in production | refuse without `--force` in production |
 | 7 | Apps log to `storage/logs` by default instead of stdout (ADR-0022) | accept; the production Dockerfile sets `LOG_CHANNEL=stderr` |
+| 8 | Catalogue manifest: one `strutvane` block with both dialects (runtime keys + `manifestVersion: 1`), or a nested `strutvane.catalogue` | nested `strutvane.catalogue` (keeps runtime keys clean) |
+| 9 | Docs site: hand-fix `src/data/packages.json` drift (48 errors), or have the site read the hub's `catalogue.json` | read `catalogue.json` (one source of truth) |
+| 10 | Catalogue nightly autocommit to the hub's `main` by `github-actions[bot]` (new way of pushing to main) | open a PR instead of pushing; review the first nightly run |
+| 11 | `node strut upgrade` and `registry:build/watch` still ship in 0.2.0-next.0 but the docs catalogue lists them as retired | keep them in 0.2.x, mark deprecated, remove in 0.3 |
 
 ## 4. Next steps (in order)
 1. **Framework release blockers** (found by the skeleton's integration test):
@@ -74,7 +78,7 @@ Stopped on purpose: `@strutvane/agent-tools`. The project lead put release-criti
 5. npx guard: add to `packages/tooling/manifest.json` as a library, sync, set `RELEASE_ENABLED`, release with the train.
 6. Skeleton: decisions 2–4, a tooling `app-template` profile, merge; then switch create-strutvane to the skeleton (INSTALLER.md lists 7 template bugs to fix).
 7. log-viewer (UI only) → installers (`node strut install:x`) → catalogue CI → R3/R4 → demo app → **0.2.0**.
-8. The project lead: run `node scripts/reserve-npm-names.mjs` after `npm login`; reject the stale staged `create-strutvane@0.1.0-next.0`.
+8. ✅ All 55 npm names exist (reserved, `0.0.0-reserved.0`), confirmed 2026-11-18 by the catalogue check. The project lead: still deprecate the retired `core`, `contracts`, `cli`, `devkit` and `logs` names after the framework release; reject the stale staged `create-strutvane@0.1.0-next.0`.
 
 ## 5. Open security items
 Tracked privately in `docs/research/2026-11-15-audit-findings.md` (git-excluded), never in this public file.
