@@ -34,8 +34,16 @@ _Last updated: 2026-11-17. **Work is PAUSED** until the weekly usage limit reset
 | 43 planned repos (README + LICENSE only) | created 2026-11-17: strutvane-skeleton, strutvane-npx, strutvane-design-glass and 40 add-ons (`strutvane-<id>` for every planned catalogue id) | — | planned | — |
 | core, contracts, cli, devkit | archived (moved into the framework) | — | — | — |
 
-## 2a. Agents running right now (updated 2026-11-17)
-None.
+## 2a. Agents running right now (updated 2026-11-18 00:40 UTC)
+| Work | Repo / branch | Expected result |
+|---|---|---|
+| Windows/macOS CI fix (Docker must run Linux containers; real-path project root) | framework `fix/ci-cross-platform` | gate 3× green, then merged; the release stages 0.2.0-next.0 |
+| Logging folded into the framework (ADR-0022) | framework `v2/logging` | channels from `.env`, `Log` facade, `log:*` commands, gate 3× |
+| auth: lowercase error codes and issue `field` (#123, #69) | auth `v2/native-engine` | gate 3× against framework 0.2.0-next.0 (local tarball) |
+| ui: lowercase codes and `field`; hub RFC-0003 amended | ui `v2/behaviour` + hub | same |
+| strutvane-skeleton: the app template plus a manifest for the installer | skeleton `v2/skeleton` | template, tests, installer plan |
+
+When an agent finishes: re-run its gate, update §2 and §6, push, and remove it from this table.
 
 ## 3. Open decisions (waiting on the project lead)
 | # | Question | Coordinator's recommendation |
