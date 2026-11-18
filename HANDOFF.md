@@ -66,6 +66,18 @@ Template:
 - Next session should start with: …
 ```
 
+### 2026-11-18 ~14:10 UTC: account A — agents stopped at 71% (5-hour window), all pushed
+- **Did:**
+  - after the lead fixed the git email, pushed the pending status update (1fcbfcd);
+  - resumed 8 package agents; 3 stalled under machine load (files, charts, health) and were WIP-committed;
+  - the others were stopped and committed at the usage limit;
+  - verifying framework `fix/release-0.2` myself: run 1 is 3,121 passed.
+- **All branches are pushed:** heads in STATE §2a.
+- **Next:**
+  1. Finish the framework verification (runs 2–3, R1/R5), then merge to `main`, push and stage the npm release.
+  2. Resume the package agents a few at a time; overload stalls them.
+  3. Framework extension points that the package agents keep hitting (STATE §2a).
+
 ### 2026-11-18 ~11:35 UTC: account A — stopped by the project lead ("stop things")
 - **Did:**
   - after the 16:00 IST reset ran 9 agents: framework blockers, the installer, and 7 new packages (social-login, files, charts, health, redis, search, import-export);

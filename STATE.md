@@ -7,7 +7,7 @@
 > - **Run `node scripts/state-check.mjs` at the start of every session and before reporting status.** It fails if any repo has uncommitted or unpushed work, or if this file names a commit that doesn't exist.
 > - Details live elsewhere and are linked, not copied: decisions in `spikes/CONSISTENCY-2026-11-15.md`, the plan in `docs/21-delivery-plan.md`, rules in `docs/19-production-readiness.md`, each branch's `NEXT.md`.
 
-_Last updated: 2026-11-18 ~11:35 UTC (17:05 IST). **Stopped by the project lead** ("stop things"). Every branch is committed and pushed, no agents are running, no worktrees are left, and no auto-resume is scheduled (resume when the lead says "continue")._
+_Last updated: 2026-11-18 ~14:10 UTC (19:40 IST). Agents are stopped for the usage limit (5-hour window at 71%); every branch is committed and pushed. The coordinator is verifying framework `fix/release-0.2` (run 1: 3,121 passed). Auto-resume at 21:07 IST._
 
 ## 1. Release status
 | Item | State |
@@ -36,22 +36,22 @@ _Last updated: 2026-11-18 ~11:35 UTC (17:05 IST). **Stopped by the project lead*
 | 43 planned repos (README + LICENSE only) | created 2026-11-17: strutvane-skeleton, strutvane-npx, strutvane-design-glass and 40 add-ons (`strutvane-<id>` for every planned catalogue id) | — | planned | — |
 | core, contracts, cli, devkit | archived (moved into the framework) | — | — | — |
 
-## 2a. Agents running right now (updated 2026-11-18 ~11:35 UTC)
-None. Stopped by the project lead. Resume each from its branch `NEXT.md`:
-| Package | Repo / branch | Head (pushed) | State |
+## 2a. Work in flight (updated 2026-11-18 ~14:10 UTC; agents stopped, all pushed)
+| Package | Branch | Head | State |
 |---|---|---|---|
-| `@strutvane/framework` | `fix/release-0.2` | f658430 | All 5 release blockers fixed; users/teams stay internal (F-01). Gate **3× green: 3,121 passed, 17 skipped, coverage 96.4/90.9/97.2/97.4** *(agent-reported)*. Left: R1/R5 checks, then my 3× → merge to `main` → push → stage 0.2.0-next.0 |
-| `create-strutvane` | `v2/installer` | 15d0eb2 | Skeleton switch; tests for the 7 bugs and 3 generated apps (b15070e); gate not run |
-| `@strutvane/files` | strutvane-files `v2/files` | c977fe6 | WIP: cloud disks; was writing resumable uploads |
-| `@strutvane/social-login` | `v2/social-login` | 61110a5 | WIP: providers written; unit tests next |
-| `@strutvane/charts` | `v2/charts` | b5ed7f9 | WIP: scaffold; server/provider/installer next |
-| `@strutvane/health` | `v2/health` | 081ece3 | WIP: checks written; end-to-end endpoint tests next |
-| `@strutvane/redis` | `v2/redis` | 1944434 | WIP: drivers written; real-container integration suite next |
-| `@strutvane/search` | `v2/search` | d6906d7 | WIP: engines; the builder next |
-| `@strutvane/import-export` | `v2/import-export` | 60b5a8b | WIP: import/export; test helpers next |
-| `@strutvane/log-viewer` | `v2/log-viewer` | 8d85229 | ✅ done (163 tests *(agent-reported)*) |
+| `@strutvane/framework` | `fix/release-0.2` | f658430 | all 5 blockers fixed. **Coordinator gate run 1: 3,121 passed, 17 skipped, 0 failed**; runs 2–3 and R1/R5 in progress (worktree `fw-verify`) → merge to `main` → stage 0.2.0-next.0 |
+| `create-strutvane` | `v2/installer` | 0dc67c0 | skeleton switch done; tests for the 7 bugs + 3 apps + tarball integration (focused runs green); full gate not run. Skeleton `user.policy.ts` is rejected by `registry:build` (follow-up) |
+| `@strutvane/social-login` | `v2/social-login` | 299a67a | code + 246 tests (agent-reported, older framework build); gate, publint and attw left |
+| `@strutvane/search` | `v2/search` | e94a5fc | 4 engines, sync, commands; 93 tests (agent-reported); more tests, README, changeset, gate left |
+| `@strutvane/import-export` | `v2/import-export` | 5e7b3a7 | own XLSX/CSV (no SheetJS/ExcelJS), import engine, export, service; CLI, installer, gate left |
+| `@strutvane/redis` | `v2/redis` | 6357d64 | all code written; 2 integration files fail to load; Biome errors; gate left |
+| `@strutvane/files` | `v2/files` | 1ca9aff | WIP: resumable uploads (agent stalled) |
+| `@strutvane/charts` | `v2/charts` | 9ea007f | WIP: server/provider/installer (agent stalled) |
+| `@strutvane/health` | `v2/health` | 5663cc7 | WIP: end-to-end tests (agent stalled) |
 
-Agent ids for SendMessage are in memory `strutvane-resume-point`. WIP commits made at the stop are labelled `wip:`. **Weekly usage:** 37% used by 2026-11-18 (resets 2026-11-25); pace it.
+**Repeated finding from the package agents (framework gaps):** no model events or after-commit hook; `RateLimitStoreToken`, `UsedSignatureStoreToken`, policy registry and `allows()` not exported; providers can't read env; no package message-catalog registration; no shared helper to edit `bootstrap/providers.ts` (each package duplicates one); no `install:<name>` built-in. These belong in the framework's next work item (installers + extension points).
+
+**Housekeeping for the project lead:** a stray `C:\personal_projects\package.json.redis.bak` (left by an agent outside the project; its delete was blocked) can be removed by hand.
 
 ## 3. Open decisions (waiting on the project lead)
 | # | Question | Coordinator's recommendation |

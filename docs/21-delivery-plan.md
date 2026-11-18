@@ -17,14 +17,13 @@
 
 ---
 
-## 0. Live status dashboard (updated 2026-11-18, 17:05 IST — ⏸ stopped by the project lead)
+## 0. Live status dashboard (updated 2026-11-18, 19:40 IST — agents paused for the usage limit)
 
 This section is updated at every milestone and before every stop, together with the PDF copy. Every number comes from `STATE.md`; anything not re-run by the coordinator is marked *(agent-reported)*.
 
-> **⏸ Stopped 17:05 IST by the project lead.** Everything is committed and pushed.
-> - **Framework:** all 5 release blockers are fixed and the gate is green 3× (3,121 tests, agent-reported). Next: my verification, merge, then the npm release for approval.
-> - **Seven new packages started** (social-login, files, charts, health, redis, search, import-export), all WIP on branches.
-> - **Done:** the installer skeleton switch has its tests; log-viewer is done.
+> **19:40 IST.** Agents are paused for the 5-hour limit; everything is pushed.
+> - **Framework release fix:** run 1 of the coordinator's verification is green (3,121 tests); runs 2–3 are in progress, then merge and the npm release for approval.
+> - **Packages in progress on branches:** the installer (skeleton switch, nearly done), social-login (246 tests), search (93 tests), import-export, redis, files, charts and health.
 
 **Definitions:**
 - **Built:** the code is written.
@@ -38,8 +37,8 @@ This section is updated at every milestone and before every stop, together with 
 ### 0.1 Overall progress
 | Measure | Value |
 |---|---|
-| Release 0.2 (full flow) | **~72% done**: ~60 of ~84 planned agent-hours; **~25 hours left** |
-| Whole ecosystem (60 repos: 47 packages + designs + skeleton + tooling) | **~8% done** of ~546 agent-hours; ~510 left |
+| Release 0.2 (full flow) | **~75% done**: ~63 of ~84 planned agent-hours; **~21 hours left** |
+| Whole ecosystem (60 repos: 47 packages + designs + skeleton + tooling) | **~12% done** of ~546 agent-hours; ~480 left (7 add-on packages started 2026-11-18) |
 | Released on npm (v2) | **0%**. npm is unlocked. Framework 0.2.0-next.0 stages as soon as the Windows/macOS CI fix is merged; the project lead approves it on npmjs.com |
 | GitHub | **60 repos**, including 43 planned-package placeholders created 2026-11-17 (`strutvane-logs` renamed to `strutvane-log-viewer`) |
 | npm names | `@strutvane` scope owned; 45 names to reserve with `scripts/reserve-npm-names.mjs` (the project lead runs it) |
