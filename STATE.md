@@ -36,10 +36,17 @@ _Last updated: 2026-11-18 ~04:10 UTC. **Stopped by the project lead** ("stop now
 | 43 planned repos (README + LICENSE only) | created 2026-11-17: strutvane-skeleton, strutvane-npx, strutvane-design-glass and 40 add-ons (`strutvane-<id>` for every planned catalogue id) | — | planned | — |
 | core, contracts, cli, devkit | archived (moved into the framework) | — | — | — |
 
-## 2a. Agents running right now (updated 2026-11-18)
-None. Stopped by the project lead. No worktrees are left; resume from each branch's `NEXT.md`.
+## 2a. Agents running right now (updated 2026-11-18 08:45 UTC)
+| Work | Repo / branch (worktree in the scratchpad) | Expected result |
+|---|---|---|
+| Framework release blockers (compat `^0.2`, database connection in the Application, resources.json internals, `ConfigOf`/`RoutesOf`, sandbox timeout), built on the Windows/macOS fix | framework `fix/release-0.2` (`fw-rel`) | gate 3×, then merge to `main`; the npm release stages |
+| ui verification against framework 0.2 (coordinator) | ui `v2/behaviour` c375f7b (`ui-verify`) | 3× green, then ui is verified |
+| Docs: framework 0.2 pages | docs `docs/framework-0.2` (`docs-fw2`) | build and link check 3× |
+| Tooling: `npx` library target, new `app-template` profile for the skeleton, sync into both | tooling `feat/npx-and-app-template`; npx `chore/tooling-sync`; skeleton `v2/skeleton` | the gates green; list of repo settings to apply |
+| log-viewer: UI + read API only, on top of the framework's logging | logs (strutvane-log-viewer) `v2/log-viewer` (`logviewer-wt`) | gate 3× |
+| Package catalogue: index, builder, conformance and drift checks, hub CI | hub `feat/catalogue` (`hub-catalogue`) | tests 3×; real drift report |
 
-**Lesson (2026-11-18):** at most 2–3 agents running heavy test gates at once on this machine. Seven at once overloaded it (99% CPU): tests timed out and three agents stalled.
+**Lesson (2026-11-18):** at most 2–3 agents running heavy test gates at once on this machine. Seven at once overloaded it (99% CPU): tests timed out and three agents stalled. Today only the framework job is heavy.
 
 ## 3. Open decisions (waiting on the project lead)
 | # | Question | Coordinator's recommendation |
