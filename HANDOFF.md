@@ -66,6 +66,22 @@ Template:
 - Next session should start with: …
 ```
 
+### 2026-11-18 ~17:20 UTC: account A — stopped by the project lead ("stop everything")
+- **Did:**
+  - **released `@strutvane/framework` 0.2.0-next.1 and `@strutvane/ui` 0.2.0-next.1 to npm** (approved by the lead; CI green on all platforms);
+  - installer v2 merged (0.2.0-next.1; its GitHub CI fix on `fix/ci-linux`);
+  - social-login verified and synced;
+  - search done (agent-reported);
+  - tooling has 6 new targets.
+- **All pushed.** No agents, no worktrees, no scheduled resume.
+- **Note:** the old v1 `create-strutvane@0.1.0-next.0` was published to `next` by a batch approval; the v2 installer release replaces it.
+- **Next session:** see STATE §2a, top rows first:
+  1. installer CI fix → stage;
+  2. auth → stage;
+  3. designs → stage;
+  4. trusted publishers + `RELEASE_ENABLED` for the new packages (the lead clicks on npmjs.com);
+  5. framework gaps.
+
 ### 2026-11-18 ~14:10 UTC: account A — agents stopped at 71% (5-hour window), all pushed
 - **Did:**
   - after the lead fixed the git email, pushed the pending status update (1fcbfcd);

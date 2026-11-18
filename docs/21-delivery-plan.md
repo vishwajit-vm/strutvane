@@ -17,13 +17,11 @@
 
 ---
 
-## 0. Live status dashboard (updated 2026-11-18, 19:40 IST — agents paused for the usage limit)
+## 0. Live status dashboard (updated 2026-11-18, 22:50 IST — ⏸ stopped by the project lead)
 
 This section is updated at every milestone and before every stop, together with the PDF copy. Every number comes from `STATE.md`; anything not re-run by the coordinator is marked *(agent-reported)*.
 
-> **19:40 IST.** Agents are paused for the 5-hour limit; everything is pushed.
-> - **Framework release fix:** run 1 of the coordinator's verification is green (3,121 tests); runs 2–3 are in progress, then merge and the npm release for approval.
-> - **Packages in progress on branches:** the installer (skeleton switch, nearly done), social-login (246 tests), search (93 tests), import-export, redis, files, charts and health.
+> **⏸ Stopped 22:50 IST.** **Released today: `@strutvane/framework` 0.2.0-next.1 and `@strutvane/ui` 0.2.0-next.1 (live on npm, `next`).** Merged: installer v2 (CI fix in progress). Verified: social-login, tooling. On branches: auth, designs, framework gaps, search, health, redis, import-export, charts, files. Everything is pushed.
 
 **Definitions:**
 - **Built:** the code is written.
@@ -37,9 +35,9 @@ This section is updated at every milestone and before every stop, together with 
 ### 0.1 Overall progress
 | Measure | Value |
 |---|---|
-| Release 0.2 (full flow) | **~75% done**: ~63 of ~84 planned agent-hours; **~21 hours left** |
-| Whole ecosystem (60 repos: 47 packages + designs + skeleton + tooling) | **~12% done** of ~546 agent-hours; ~480 left (7 add-on packages started 2026-11-18) |
-| Released on npm (v2) | **0%**. npm is unlocked. Framework 0.2.0-next.0 stages as soon as the Windows/macOS CI fix is merged; the project lead approves it on npmjs.com |
+| Release 0.2 (full flow) | **~80% done**: ~66 of ~84 planned agent-hours; **~18 hours left** |
+| Whole ecosystem (60 repos: 47 packages + designs + skeleton + tooling) | **~13% done** of ~546 agent-hours; ~470 left |
+| Released on npm (v2) | **framework 0.2.0-next.1 + ui 0.2.0-next.1 live** (2026-11-18); installer, auth and designs next |
 | GitHub | **60 repos**, including 43 planned-package placeholders created 2026-11-17 (`strutvane-logs` renamed to `strutvane-log-viewer`) |
 | npm names | `@strutvane` scope owned; 45 names to reserve with `scripts/reserve-npm-names.mjs` (the project lead runs it) |
 | Time spent | ~6 days (13–18 Nov 2026), about 150–180 agent-hours *(estimate)* |

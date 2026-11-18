@@ -7,7 +7,7 @@
 > - **Run `node scripts/state-check.mjs` at the start of every session and before reporting status.** It fails if any repo has uncommitted or unpushed work, or if this file names a commit that doesn't exist.
 > - Details live elsewhere and are linked, not copied: decisions in `spikes/CONSISTENCY-2026-11-15.md`, the plan in `docs/21-delivery-plan.md`, rules in `docs/19-production-readiness.md`, each branch's `NEXT.md`.
 
-_Last updated: 2026-11-18 ~14:10 UTC (19:40 IST). Agents are stopped for the usage limit (5-hour window at 71%); every branch is committed and pushed. The coordinator is verifying framework `fix/release-0.2` (run 1: 3,121 passed). Auto-resume at 21:07 IST._
+_Last updated: 2026-11-18 ~17:20 UTC (22:50 IST). **Stopped by the project lead** ("stop everything"). Every branch is committed and pushed, no agents running, no worktrees left, no auto-resume scheduled._
 
 ## 1. Release status
 | Item | State |
@@ -36,22 +36,24 @@ _Last updated: 2026-11-18 ~14:10 UTC (19:40 IST). Agents are stopped for the usa
 | 43 planned repos (README + LICENSE only) | created 2026-11-17: strutvane-skeleton, strutvane-npx, strutvane-design-glass and 40 add-ons (`strutvane-<id>` for every planned catalogue id) | — | planned | — |
 | core, contracts, cli, devkit | archived (moved into the framework) | — | — | — |
 
-## 2a. Work in flight (updated 2026-11-18 ~14:10 UTC; agents stopped, all pushed)
-| Package | Branch | Head | State |
+## 2a. Work in flight (stopped 2026-11-18 ~17:20 UTC; all pushed)
+**Released today (live on npm, `next`):** `@strutvane/framework` 0.2.0-next.1, `@strutvane/ui` 0.2.0-next.1.
+
+| Package | Branch | Head | State / next step |
 |---|---|---|---|
-| `@strutvane/framework` | `main` | 8b896f0 | ✅ **0.2.0-next.1 live on npm** |
-| `create-strutvane` | `v2/installer` | 0dc67c0 | skeleton switch done; tests for the 7 bugs + 3 apps + tarball integration (focused runs green); full gate not run. Skeleton `user.policy.ts` is rejected by `registry:build` (follow-up) |
-| `@strutvane/social-login` | `v2/social-login` | 299a67a | code + 246 tests (agent-reported, older framework build); gate, publint and attw left |
-| `@strutvane/search` | `v2/search` | e94a5fc | 4 engines, sync, commands; 93 tests (agent-reported); more tests, README, changeset, gate left |
-| `@strutvane/import-export` | `v2/import-export` | 5e7b3a7 | own XLSX/CSV (no SheetJS/ExcelJS), import engine, export, service; CLI, installer, gate left |
-| `@strutvane/redis` | `v2/redis` | 6357d64 | all code written; 2 integration files fail to load; Biome errors; gate left |
-| `@strutvane/files` | `v2/files` | 1ca9aff | WIP: resumable uploads (agent stalled) |
-| `@strutvane/charts` | `v2/charts` | 9ea007f | WIP: server/provider/installer (agent stalled) |
-| `@strutvane/health` | `v2/health` | 5663cc7 | WIP: end-to-end tests (agent stalled) |
+| `create-strutvane` | `main` 3e279d8 (0.2.0-next.1, merged; CI failed on GitHub: Linux e2e + TruffleHog) · fix on `fix/ci-linux` | d6445c4 | fix nearly done (agent was on gate run 3); verify 3× + the Linux container e2e, merge, push → staged → approval. Replaces the accidentally published v1 0.1.0-next.0 on `next` |
+| `@strutvane/auth` | `v2/native-engine` | 6393d72 (wip) | framework dev dependency now 0.2.0-next.1, `createFirstAdmin` written (#13); its tests were being written; then version + gate 3× |
+| `@strutvane/framework` gaps | `v2/gaps` | 5a6cb81 | ~20 gap fixes in progress (exports, extension points, storage, `make:*`, small bugs); app-patcher tests next |
+| design-crisp / design-vivid | `wip/release-prep` (both; `main` untouched) | 89638b4 / c6dc6e7 | published ui/framework, allowScripts, peer floor `^0.2.0-next.1`; crisp prod audit finding + vivid jsdom prepare script still to resolve; gate 3×, then merge to `main` |
+| `@strutvane/social-login` | `v2/social-login` | 28e7025 | ✅ verified 3× by me (247), tooling synced; needs RELEASE_ENABLED + npm trusted publisher, then merge → release |
+| `@strutvane/search` | `v2/search` | f06a953 | 212 tests 3× *(agent-reported)*; needs my verification + allowScripts (npm ci fails) |
+| `@strutvane/health` | `v2/health` | 0477c71 | finishing (`changeset version` next), then gate |
+| `@strutvane/redis` / import-export / charts / files | `v2/<name>` | 6357d64 / 5e7b3a7 / 9ea007f / 1ca9aff | WIP; first step for each: dev dependency → framework 0.2.0-next.1 + allowScripts so plain `npm ci` passes |
+| `@strutvane/log-viewer` | `v2/log-viewer` | 8d85229 | done; waits for framework logging (`v2/logging` f3e28b8) to merge and release |
+| `strutvane` (npx) | `main` 10aa9b1 | — | macOS CI fix + trusted publisher, then release |
+| tooling | `main` 100985b | — | ✅ verified 3× (146): 6 new library targets |
 
-**Repeated finding from the package agents (framework gaps):** no model events or after-commit hook; `RateLimitStoreToken`, `UsedSignatureStoreToken`, policy registry and `allows()` not exported; providers can't read env; no package message-catalog registration; no shared helper to edit `bootstrap/providers.ts` (each package duplicates one); no `install:<name>` built-in. These belong in the framework's next work item (installers + extension points).
-
-**Housekeeping for the project lead:** a stray `C:\personal_projects\package.json.redis.bak` (left by an agent outside the project; its delete was blocked) can be removed by hand.
+**Lesson (2026-11-18):** every package whose dev dependency points at an unpublished version, or that has esbuild in its tree, fails plain `npm ci`. Fix: dev dependency → the published version, plus a pinned `allowScripts` list like the framework's.
 
 ## 3. Open decisions (waiting on the project lead)
 | # | Question | Coordinator's recommendation |
@@ -92,6 +94,7 @@ Tracked privately in `docs/research/2026-11-15-audit-findings.md` (git-excluded)
 ## 6. Verification log (newest first)
 | Date | What | Result |
 |---|---|---|
+| 2026-11-18 | tooling `main` 100985b (6 new targets) 3× | 146/146 each run; pushed |
 | 2026-11-18 | `npm view @strutvane/ui dist-tags` after the lead's approval | `next` = **0.2.0-next.1** |
 | 2026-11-18 | social-login `v2/social-login` (allowScripts fix added by the coordinator) against published framework 0.2.0-next.1 | npm ci OK; 247 passed 3× + 1 after the fix |
 | 2026-11-18 | ui `main` f747c8b (0.2.0-next.1) against published framework | npm ci OK; 499 passed 3×; prod audit 0; release workflow running |
