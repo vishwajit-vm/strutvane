@@ -17,18 +17,14 @@
 
 ---
 
-## 0. Live status dashboard (updated 2026-11-18, 15:42 IST — paused for the 16:00 reset; 10 packages resume at 16:07)
+## 0. Live status dashboard (updated 2026-11-18, 17:05 IST — ⏸ stopped by the project lead)
 
 This section is updated at every milestone and before every stop, together with the PDF copy. Every number comes from `STATE.md`; anything not re-run by the coordinator is marked *(agent-reported)*.
 
-> **Paused 15:42 IST for the 5-hour reset; auto-resume at 16:07 with 10 packages in parallel.** Since the morning:
-> - the framework release blockers are mostly fixed (compat, database connection, exports, timeout);
-> - the installer now renders from the skeleton;
-> - log-viewer, catalogue and docs are done (on their branches);
-> - tooling and the npx guard are merged;
-> - ui is verified.
->
-> Everything is pushed.
+> **⏸ Stopped 17:05 IST by the project lead.** Everything is committed and pushed.
+> - **Framework:** all 5 release blockers are fixed and the gate is green 3× (3,121 tests, agent-reported). Next: my verification, merge, then the npm release for approval.
+> - **Seven new packages started** (social-login, files, charts, health, redis, search, import-export), all WIP on branches.
+> - **Done:** the installer skeleton switch has its tests; log-viewer is done.
 
 **Definitions:**
 - **Built:** the code is written.
@@ -42,7 +38,7 @@ This section is updated at every milestone and before every stop, together with 
 ### 0.1 Overall progress
 | Measure | Value |
 |---|---|
-| Release 0.2 (full flow) | **~68% done**: ~57 of ~84 planned agent-hours; **~30 hours left** |
+| Release 0.2 (full flow) | **~72% done**: ~60 of ~84 planned agent-hours; **~25 hours left** |
 | Whole ecosystem (60 repos: 47 packages + designs + skeleton + tooling) | **~8% done** of ~546 agent-hours; ~510 left |
 | Released on npm (v2) | **0%**. npm is unlocked. Framework 0.2.0-next.0 stages as soon as the Windows/macOS CI fix is merged; the project lead approves it on npmjs.com |
 | GitHub | **60 repos**, including 43 planned-package placeholders created 2026-11-17 (`strutvane-logs` renamed to `strutvane-log-viewer`) |

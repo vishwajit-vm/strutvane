@@ -7,7 +7,7 @@
 > - **Run `node scripts/state-check.mjs` at the start of every session and before reporting status.** It fails if any repo has uncommitted or unpushed work, or if this file names a commit that doesn't exist.
 > - Details live elsewhere and are linked, not copied: decisions in `spikes/CONSISTENCY-2026-11-15.md`, the plan in `docs/21-delivery-plan.md`, rules in `docs/19-production-readiness.md`, each branch's `NEXT.md`.
 
-_Last updated: 2026-11-18 ~10:12 UTC (15:42 IST). Stopped at 84% of the 5-hour window, before the 16:00 IST reset. Every branch is committed and pushed, no agents are running and no worktrees are left. Auto-resume at 16:07 IST starts 10 packages in parallel (memory `strutvane-resume-point`)._
+_Last updated: 2026-11-18 ~11:35 UTC (17:05 IST). **Stopped by the project lead** ("stop things"). Every branch is committed and pushed, no agents are running, no worktrees are left, and no auto-resume is scheduled (resume when the lead says "continue")._
 
 ## 1. Release status
 | Item | State |
@@ -36,20 +36,22 @@ _Last updated: 2026-11-18 ~10:12 UTC (15:42 IST). Stopped at 84% of the 5-hour w
 | 43 planned repos (README + LICENSE only) | created 2026-11-17: strutvane-skeleton, strutvane-npx, strutvane-design-glass and 40 add-ons (`strutvane-<id>` for every planned catalogue id) | — | planned | — |
 | core, contracts, cli, devkit | archived (moved into the framework) | — | — | — |
 
-## 2a. Agents running right now (started 2026-11-18 ~10:30 UTC, after the 16:00 IST reset)
-| Package | Repo / branch | Work |
-|---|---|---|
-| `@strutvane/framework` | `fix/release-0.2` (from 2492d9f) | finish resources.json (users/teams stay internal, F-01), then the gate 3× |
-| `create-strutvane` | `v2/installer` (from 62bbf28) | tests, one test per bug, end-to-end test, gate 3× |
-| `@strutvane/social-login` | strutvane-social-login `v2/social-login` | new package: OAuth/OIDC providers on auth v2 |
-| `@strutvane/files` | strutvane-files `v2/files` | S3/R2/MinIO/Azure disks, resumable uploads, virus scan, quotas |
-| `@strutvane/charts` | strutvane-charts `v2/charts` | from spike 16: widgets plus privacy-safe aggregates |
-| `@strutvane/health` | strutvane-health `v2/health` | checks, history, alerts, `health:check` |
-| `@strutvane/redis` | strutvane-redis `v2/redis` | cache store, locks, sessions, rate limits, queue interface |
-| `@strutvane/search` | strutvane-search `v2/search` | Meilisearch/Typesense, Scout-style |
-| `@strutvane/import-export` | strutvane-import-export `v2/import-export` | CSV/XLSX import with dry run; safe export |
+## 2a. Agents running right now (updated 2026-11-18 ~11:35 UTC)
+None. Stopped by the project lead. Resume each from its branch `NEXT.md`:
+| Package | Repo / branch | Head (pushed) | State |
+|---|---|---|---|
+| `@strutvane/framework` | `fix/release-0.2` | f658430 | All 5 release blockers fixed; users/teams stay internal (F-01). Gate **3× green: 3,121 passed, 17 skipped, coverage 96.4/90.9/97.2/97.4** *(agent-reported)*. Left: R1/R5 checks, then my 3× → merge to `main` → push → stage 0.2.0-next.0 |
+| `create-strutvane` | `v2/installer` | 15d0eb2 | Skeleton switch; tests for the 7 bugs and 3 generated apps (b15070e); gate not run |
+| `@strutvane/files` | strutvane-files `v2/files` | c977fe6 | WIP: cloud disks; was writing resumable uploads |
+| `@strutvane/social-login` | `v2/social-login` | 61110a5 | WIP: providers written; unit tests next |
+| `@strutvane/charts` | `v2/charts` | b5ed7f9 | WIP: scaffold; server/provider/installer next |
+| `@strutvane/health` | `v2/health` | 081ece3 | WIP: checks written; end-to-end endpoint tests next |
+| `@strutvane/redis` | `v2/redis` | 1944434 | WIP: drivers written; real-container integration suite next |
+| `@strutvane/search` | `v2/search` | d6906d7 | WIP: engines; the builder next |
+| `@strutvane/import-export` | `v2/import-export` | 60b5a8b | WIP: import/export; test helpers next |
+| `@strutvane/log-viewer` | `v2/log-viewer` | 8d85229 | ✅ done (163 tests *(agent-reported)*) |
 
-Finished: log-viewer `v2/log-viewer` 8d85229. Stopped on purpose: agent-tools (not a priority). **Keep at least 10 packages in development.** Heavy test gates run late and staggered.
+Agent ids for SendMessage are in memory `strutvane-resume-point`. WIP commits made at the stop are labelled `wip:`. **Weekly usage:** 37% used by 2026-11-18 (resets 2026-11-25); pace it.
 
 ## 3. Open decisions (waiting on the project lead)
 | # | Question | Coordinator's recommendation |

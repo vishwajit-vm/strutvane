@@ -66,6 +66,18 @@ Template:
 - Next session should start with: …
 ```
 
+### 2026-11-18 ~11:35 UTC: account A — stopped by the project lead ("stop things")
+- **Did:**
+  - after the 16:00 IST reset ran 9 agents: framework blockers, the installer, and 7 new packages (social-login, files, charts, health, redis, search, import-export);
+  - framework `fix/release-0.2` reached 3 green gate runs (3,121 tests, agent-reported).
+- **All pushed:** heads are in STATE §2a. No agents, no worktrees, no auto-resume.
+- **Next session should start with:**
+  1. Framework `fix/release-0.2`: R1/R5 checks and my own 3× gate, then merge to `main` and push. The release stages 0.2.0-next.0 and the lead approves it on npmjs.com.
+  2. The installer gate.
+  3. Resume the 7 package agents from their NEXT.md files.
+  4. Max 2–3 heavy gates at once.
+  5. Watch the weekly limit (37% used).
+
 ### 2026-11-18 ~10:12 UTC: account A — stopped at 84% before the 16:00 IST reset
 - **Did:**
   - framework `fix/release-0.2` 2492d9f: 4 of 5 blockers fixed (compat, database connection, exports, timeout); resources.json is WIP; the gate hasn't run;
