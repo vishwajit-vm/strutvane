@@ -22,7 +22,7 @@ _Last updated: 2026-11-19 ~16:00 UTC (21:30 IST). Resumed ("continue"). Weekly u
 |---|---|---|---|---|
 | strutvane (hub) | blueprint, docs 18–21, ADRs to 0023, spikes, decisions 1–129 | — | — | pushed |
 | strutvane-framework | **0.2.0-next.1 — LIVE on npm** (`next` tag, 2026-11-18, approved by the lead; provenance) | `v2/logging` f3e28b8 (logging, not merged) | ✅ **released** | 3,121 passed 3× (coordinator); CI green on Linux/Windows/macOS × Node 24/26 |
-| strutvane-auth | v1 + 6 audit fixes | `v2/native-engine` 9e4bf38: lowercase codes + `field` (2d3a47a, 247e02f) + WIP | 🔄 pushed; its gate timed out under machine load | not verified |
+| strutvane-auth | **0.2.0-next.1** (fe4b5ef, merged 2026-11-19): native engine; `createFirstAdmin` on every engine (#13); auth tables as ordinary migrations, no runtime DDL on `users` (#2) | — | ✅ merged; **release workflow running** → stages for the lead's approval | 864 passed 3× + 64 PostgreSQL integration 3× (coordinator, 2026-11-19; fixed an unhandled pool error in the test helpers) |
 | strutvane-ui | **0.2.0-next.1 — LIVE on npm** (`next`, 2026-11-18, approved by the lead) | — | ✅ **released** | 499 passed 3× against the published framework (coordinator); CI green on all platforms |
 | create-strutvane | **0.2.0-next.1** (3e279d8, merged 2026-11-18): v2 installer built from the skeleton; 7 template bugs + Docker-mode TLS + graceful SIGTERM fixed | — | ✅ merged; **release workflow running** → stages for approval (replaces the v1 `0.1.0-next.0` that was accidentally approved on `next`) | **513 passed, 3 skipped, 3×** incl. real Docker apps (coordinator, 2026-11-18) |
 | strutvane-log-viewer (renamed from strutvane-logs 2026-11-17; old URL redirects) | v1 | `v2/channels` (ADR-0022) | ✅ audited and pushed; logging folds into the framework next | 573 tests |
@@ -94,6 +94,7 @@ Tracked privately in `docs/research/2026-11-15-audit-findings.md` (git-excluded)
 ## 6. Verification log (newest first)
 | Date | What | Result |
 |---|---|---|
+| 2026-11-19 | auth `v2/native-engine` fe4b5ef: plain npm ci, gate 3×, integration 3× on PostgreSQL 18, prod audit | 864 + 64 passed each run; audit 0; merged as 0.2.0-next.1 |
 | 2026-11-19 | design-crisp ed05b5f / design-vivid 3d6dfc6: plain npm ci, gate 3×, prod audit, check-deps | 106 / 233 passed each run; audit 0; merged to `main` |
 | 2026-11-18 | tooling `main` 100985b (6 new targets) 3× | 146/146 each run; pushed |
 | 2026-11-18 | `npm view @strutvane/ui dist-tags` after the lead's approval | `next` = **0.2.0-next.1** |
