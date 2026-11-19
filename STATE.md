@@ -24,13 +24,13 @@ _Last updated: 2026-11-19 ~16:00 UTC (21:30 IST). Resumed ("continue"). Weekly u
 | strutvane-framework | **0.2.0-next.1 — LIVE on npm** (`next` tag, 2026-11-18, approved by the lead; provenance) | `v2/logging` f3e28b8 (logging, not merged) | ✅ **released** | 3,121 passed 3× (coordinator); CI green on Linux/Windows/macOS × Node 24/26 |
 | strutvane-auth | **0.2.0-next.1** (fe4b5ef, merged 2026-11-19): native engine; `createFirstAdmin` on every engine (#13); auth tables as ordinary migrations, no runtime DDL on `users` (#2) | — | ✅ **LIVE on npm** (`next`, approved by the lead 2026-11-19) | 864 passed 3× + 64 PostgreSQL integration 3× (coordinator, 2026-11-19; fixed an unhandled pool error in the test helpers) |
 | strutvane-ui | **0.2.0-next.1 — LIVE on npm** (`next`, 2026-11-18, approved by the lead) | — | ✅ **released** | 499 passed 3× against the published framework (coordinator); CI green on all platforms |
-| create-strutvane | **0.2.0-next.1** (3e279d8, merged 2026-11-18): v2 installer built from the skeleton; 7 template bugs + Docker-mode TLS + graceful SIGTERM fixed | — | ✅ merged; **release workflow running** → stages for approval (replaces the v1 `0.1.0-next.0` that was accidentally approved on `next`) | **513 passed, 3 skipped, 3×** incl. real Docker apps (coordinator, 2026-11-18) |
+| create-strutvane | **0.2.0-next.2** (5fc1185, merged 2026-11-19): skeleton-based v2 installer; Linux EPIPE fix, Windows-containers detection, first admin via `@strutvane/auth` 0.2.0-next.1, auth migrations before migrate | — | ✅ merged; **release running** → stages for approval (replaces the v1 0.1.0-next.0 on `next`) | 524 passed 3×, prod audit 0 (coordinator, 2026-11-19) |
 | strutvane-log-viewer (renamed from strutvane-logs 2026-11-17; old URL redirects) | v1 | `v2/channels` (ADR-0022) | ✅ audited and pushed; logging folds into the framework next | 573 tests |
 | strutvane-tooling | **d91e087** (2026-11-18): `app-template` profile; npx (library) and skeleton targets | — | ✅ merged | **144/144, 3×** (coordinator, 2026-11-18) |
 | strutvane-docs | v2 site, live at https://vishwajit-vm.github.io/strutvane-docs/ | `docs/framework-0.2` 2c9b4a1 (framework 0.2 pages, WIP, not build-checked) | 🔄 pushed WIP | — |
 | strutvane-files | v1, first pushed 2026-11-16 | — | — | — |
-| strutvane-design-crisp | **0.2.0-next.1** (ed05b5f, 2026-11-19): built against the published ui; peer floor `^0.2.0-next.1` | — | ✅ verified and merged; **release needs a trusted publisher + `RELEASE_ENABLED`** | 106 passed 3×; prod audit 0 (coordinator, 2026-11-19) |
-| strutvane-design-vivid | **0.2.0-next.1** (3d6dfc6, 2026-11-19): lockfile rebuilt from the registry; peer floor `^0.2.0-next.1` | — | ✅ verified and merged; **release needs a trusted publisher + `RELEASE_ENABLED`** | 233 passed 3×; prod audit 0 (coordinator, 2026-11-19) |
+| strutvane-design-crisp | **0.2.0-next.1** (ed05b5f, 2026-11-19): built against the published ui; peer floor `^0.2.0-next.1` | — | ✅ verified and merged; trusted publisher saved, `RELEASE_ENABLED=true`; release re-run (first attempt was before the publisher existed) | 106 passed 3×; prod audit 0 (coordinator, 2026-11-19) |
+| strutvane-design-vivid | **0.2.0-next.1** (3d6dfc6, 2026-11-19): lockfile rebuilt from the registry; peer floor `^0.2.0-next.1` | — | ✅ verified and merged; trusted publisher saved, `RELEASE_ENABLED=true`; release re-run | 233 passed 3×; prod audit 0 (coordinator, 2026-11-19) |
 | strutvane-npx (`strutvane`, npx guard) | **0.2.0-next.0** (10aa9b1, tooling sync merged 2026-11-18) | — | ✅ done; CI/release workflows synced; `RELEASE_ENABLED` not set yet | **107 passed, 3 skipped, 3×** (coordinator, before and after the sync) |
 | strutvane-skeleton (app template) | placeholder README | `v2/skeleton` 7a8be7e (template/, skeleton.json, renderer, INSTALLER.md) | 🔄 pushed | 62 tests, 3× *(agent-reported)* |
 | 43 planned repos (README + LICENSE only) | created 2026-11-17: strutvane-skeleton, strutvane-npx, strutvane-design-glass and 40 add-ons (`strutvane-<id>` for every planned catalogue id) | — | planned | — |
@@ -94,6 +94,8 @@ Tracked privately in `docs/research/2026-11-15-audit-findings.md` (git-excluded)
 ## 6. Verification log (newest first)
 | Date | What | Result |
 |---|---|---|
+| 2026-11-19 | create-strutvane `fix/ci-linux` 548044a: plain npm ci, gate 3×, prod audit; versioned 0.2.0-next.2 and merged (5fc1185) | 524 passed, 3 skipped each run |
+| 2026-11-19 | design-crisp/vivid first release attempts | CI all green; staging E401 because the npm trusted publishers were saved a few minutes later; re-run requested |
 | 2026-11-19 | `npm view @strutvane/auth dist-tags` after the lead's approval | `next` = **0.2.0-next.1** |
 | 2026-11-19 | auth `v2/native-engine` fe4b5ef: plain npm ci, gate 3×, integration 3× on PostgreSQL 18, prod audit | 864 + 64 passed each run; audit 0; merged as 0.2.0-next.1 |
 | 2026-11-19 | design-crisp ed05b5f / design-vivid 3d6dfc6: plain npm ci, gate 3×, prod audit, check-deps | 106 / 233 passed each run; audit 0; merged to `main` |
