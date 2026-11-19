@@ -29,8 +29,8 @@ _Last updated: 2026-11-19 ~16:00 UTC (21:30 IST). Resumed ("continue"). Weekly u
 | strutvane-tooling | **d91e087** (2026-11-18): `app-template` profile; npx (library) and skeleton targets | — | ✅ merged | **144/144, 3×** (coordinator, 2026-11-18) |
 | strutvane-docs | v2 site, live at https://vishwajit-vm.github.io/strutvane-docs/ | `docs/framework-0.2` 2c9b4a1 (framework 0.2 pages, WIP, not build-checked) | 🔄 pushed WIP | — |
 | strutvane-files | v1, first pushed 2026-11-16 | — | — | — |
-| strutvane-design-crisp | **0.2.0-next.0** (5d5fcd6), repo created 2026-11-16 | — | ✅ done; conformance passes | **105 tests**, coverage 100% (2026-11-16) |
-| strutvane-design-vivid | **0.2.0-next.0** (5956bfe), repo created 2026-11-16 | — | ✅ done; conformance 15/15 | **233 tests**, coverage 100% (2026-11-16) |
+| strutvane-design-crisp | **0.2.0-next.1** (ed05b5f, 2026-11-19): built against the published ui; peer floor `^0.2.0-next.1` | — | ✅ verified and merged; **release needs a trusted publisher + `RELEASE_ENABLED`** | 106 passed 3×; prod audit 0 (coordinator, 2026-11-19) |
+| strutvane-design-vivid | **0.2.0-next.1** (3d6dfc6, 2026-11-19): lockfile rebuilt from the registry; peer floor `^0.2.0-next.1` | — | ✅ verified and merged; **release needs a trusted publisher + `RELEASE_ENABLED`** | 233 passed 3×; prod audit 0 (coordinator, 2026-11-19) |
 | strutvane-npx (`strutvane`, npx guard) | **0.2.0-next.0** (10aa9b1, tooling sync merged 2026-11-18) | — | ✅ done; CI/release workflows synced; `RELEASE_ENABLED` not set yet | **107 passed, 3 skipped, 3×** (coordinator, before and after the sync) |
 | strutvane-skeleton (app template) | placeholder README | `v2/skeleton` 7a8be7e (template/, skeleton.json, renderer, INSTALLER.md) | 🔄 pushed | 62 tests, 3× *(agent-reported)* |
 | 43 planned repos (README + LICENSE only) | created 2026-11-17: strutvane-skeleton, strutvane-npx, strutvane-design-glass and 40 add-ons (`strutvane-<id>` for every planned catalogue id) | — | planned | — |
@@ -94,6 +94,7 @@ Tracked privately in `docs/research/2026-11-15-audit-findings.md` (git-excluded)
 ## 6. Verification log (newest first)
 | Date | What | Result |
 |---|---|---|
+| 2026-11-19 | design-crisp ed05b5f / design-vivid 3d6dfc6: plain npm ci, gate 3×, prod audit, check-deps | 106 / 233 passed each run; audit 0; merged to `main` |
 | 2026-11-18 | tooling `main` 100985b (6 new targets) 3× | 146/146 each run; pushed |
 | 2026-11-18 | `npm view @strutvane/ui dist-tags` after the lead's approval | `next` = **0.2.0-next.1** |
 | 2026-11-18 | social-login `v2/social-login` (allowScripts fix added by the coordinator) against published framework 0.2.0-next.1 | npm ci OK; 247 passed 3× + 1 after the fix |
