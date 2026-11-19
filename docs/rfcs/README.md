@@ -28,6 +28,7 @@ You need one for any change to:
 | [0002](0002-file-storage-and-uploads.md) | File storage and uploads | Accepted |
 | [0003](0003-errors-and-messages.md) | Errors, validation messages and form error handling | Accepted |
 | [0004](0004-logs-package.md) | `@strutvane/logs`: zero-config logging with a built-in viewer | Accepted |
+| [0006](0006-queues-and-background-work.md) | Queues and background work: jobs, retries, unique jobs, chains, batches, outbox | Draft |
 
 ## Template
 
