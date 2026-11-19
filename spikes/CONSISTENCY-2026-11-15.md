@@ -213,3 +213,9 @@ The docs pass found places where the blueprint and the spikes disagree. When a m
 |---|---|---|---|
 | 128 | Core-train version | The core train releases in lockstep as **`0.2.0-next.N`**: framework, auth, ui, the design packages, create-strutvane and skeleton. v2 is breaking, but pre-1.0 breaking changes ride a minor bump (blueprint §8), so changesets use `minor`, never `major`. Framework `0.1.0-next.1` (already on main) may be staged as an interim pre-release, and its next version is `0.2.0-next.0`. Peers use `^0.2.0-next.0` once the framework is at that version. | all core repos |
 | 129 | Design packages | `@strutvane/design-crisp` (the default) and `@strutvane/design-vivid` are separate repos (`strutvane-design-crisp`, `strutvane-design-vivid`). Each implements the ui v2 Design contract, passes `designConformance()`, and has `@strutvane/ui` as a peer. | new repos |
+
+## Twelfth pass (npm default version, 2026-11-19)
+
+| # | Topic | Decision | Owner |
+|---|---|---|---|
+| 131 | Which version npm installs by default | **Before 1.0, every approved release goes to `latest`**, so `npm install <pkg>`, `npm create strutvane` and each package's npm page show the newest version; an older version stays installable with an explicit version. Decided by the project lead on 2026-11-19. `x.y.z-next.N` → `latest`; other pre-release ids (`canary`, `rc`) keep their own tag. The release script (`publish-if-new.mjs`, strutvane-tooling 14c0922) never moves `latest` to a lower version. This supersedes doc 19's "nothing reaches `latest` until R1–R9 pass" for pre-1.0 versions; R1–R9 remain the bar for **1.0**. (#130 is reserved by the unmerged catalogue branch.) | tooling, every package |

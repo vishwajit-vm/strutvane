@@ -8,7 +8,7 @@
 
 ## The rule
 
-A package version reaches npm `latest` only when **every gate below (R1–R9) passes and has evidence**. Gates are checked by machines wherever possible, and a failing gate blocks the release. Nothing is "done" because someone says so: it is done when the evidence exists.
+A package version reaches npm `latest` **as 1.0 or later** only when **every gate below (R1–R9) passes and has evidence**. *(Amended 2026-11-19, decision #131: before 1.0, every approved `0.x` release goes to `latest` so `npm install` gets the newest version; the gates below still decide 1.0.)* Gates are checked by machines wherever possible, and a failing gate blocks the release. Nothing is "done" because someone says so: it is done when the evidence exists.
 
 - **Spikes** are never published. Their code is ported into a package and then has to pass every gate there.
 - **v1 packages** that are already on npm under `next` are held to the same gates before any v2 release.
