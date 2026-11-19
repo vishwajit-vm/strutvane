@@ -17,11 +17,15 @@
 
 ---
 
-## 0. Live status dashboard (updated 2026-11-18, 22:50 IST — ⏸ stopped by the project lead)
+## 0. Live status dashboard (updated 2026-11-19, 23:35 IST — ⏸ stopped for the night)
 
 This section is updated at every milestone and before every stop, together with the PDF copy. Every number comes from `STATE.md`; anything not re-run by the coordinator is marked *(agent-reported)*.
 
-> **⏸ Stopped 22:50 IST.** **Released today: `@strutvane/framework` 0.2.0-next.1 and `@strutvane/ui` 0.2.0-next.1 (live on npm, `next`).** Merged: installer v2 (CI fix in progress). Verified: social-login, tooling. On branches: auth, designs, framework gaps, search, health, redis, import-export, charts, files. Everything is pushed.
+> **⏸ Stopped 2026-11-19, 23:35 IST.** **Live on npm as the `latest` default: framework, ui, auth, design-crisp and design-vivid (0.2.0-next.1).** Next to release:
+> - the installer 0.2.0-next.2 (merged; only macOS CI left to fix);
+> - social-login (merged; needs its npm trusted publisher).
+>
+> Everything is pushed.
 
 **Definitions:**
 - **Built:** the code is written.
@@ -35,9 +39,9 @@ This section is updated at every milestone and before every stop, together with 
 ### 0.1 Overall progress
 | Measure | Value |
 |---|---|
-| Release 0.2 (full flow) | **~80% done**: ~66 of ~84 planned agent-hours; **~18 hours left** |
+| Release 0.2 (full flow) | **~85% done**: ~71 of ~84 planned agent-hours; **~13 hours left** |
 | Whole ecosystem (60 repos: 47 packages + designs + skeleton + tooling) | **~13% done** of ~546 agent-hours; ~470 left |
-| Released on npm (v2) | **framework 0.2.0-next.1 + ui 0.2.0-next.1 live** (2026-11-18); installer, auth and designs next |
+| Released on npm (v2) | **framework, ui, auth, design-crisp, design-vivid 0.2.0-next.1 live as `latest`** (2026-11-18/19); installer next |
 | GitHub | **60 repos**, including 43 planned-package placeholders created 2026-11-17 (`strutvane-logs` renamed to `strutvane-log-viewer`) |
 | npm names | `@strutvane` scope owned; 45 names to reserve with `scripts/reserve-npm-names.mjs` (the project lead runs it) |
 | Time spent | ~6 days (13–18 Nov 2026), about 150–180 agent-hours *(estimate)* |

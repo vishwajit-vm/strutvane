@@ -7,7 +7,7 @@
 > - **Run `node scripts/state-check.mjs` at the start of every session and before reporting status.** It fails if any repo has uncommitted or unpushed work, or if this file names a commit that doesn't exist.
 > - Details live elsewhere and are linked, not copied: decisions in `spikes/CONSISTENCY-2026-11-15.md`, the plan in `docs/21-delivery-plan.md`, rules in `docs/19-production-readiness.md`, each branch's `NEXT.md`.
 
-_Last updated: 2026-11-19 ~16:00 UTC (21:30 IST). Resumed ("continue"). Weekly usage 61% (resets 2026-11-25): paced to 3 agents, release-critical only. Running: installer CI fix, auth release prep, designs release prep._
+_Last updated: 2026-11-19 ~23:35 IST. **Stopped for the night** (the project lead asked to stop by 12:00). No agents, background tasks or scheduled jobs; every branch is committed and pushed._
 
 ## 1. Release status
 | Item | State |

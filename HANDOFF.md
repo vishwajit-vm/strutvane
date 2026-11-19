@@ -66,6 +66,29 @@ Template:
 - Next session should start with: …
 ```
 
+### 2026-11-19 ~23:35 IST: account A — stopped for the night (the lead asked to stop by 12:00)
+- **Released today (live on npm, now the `latest` default):** `@strutvane/auth`, `@strutvane/design-crisp` and `@strutvane/design-vivid` at 0.2.0-next.1, joining framework and ui. The lead moved `latest` for all five by hand.
+- **Decision #131:** pre-1.0 releases go to `latest`. tooling 14c0922 stages `next` versions as `latest` and never moves it backwards; it's synced into framework, ui, auth, both designs, npx, create-strutvane and social-login.
+- **Merged but not released:**
+  - **create-strutvane 0.2.0-next.2** (main cc34ddb): Linux, Windows and the security checks are green. **macOS CI fails:**
+    1. generated apps hit fsevents under strict-allow-scripts;
+    2. 2 path tests (`/var` vs `/private/var`).
+    FIRST TASK next time.
+  - **social-login** (main 1306a62): needs a trusted publisher plus `RELEASE_ENABLED`.
+- **Verified by re-running:**
+  - auth: 864 + 64 tests, 3×;
+  - designs: 106 / 233 tests, 3×;
+  - installer: 524 tests, 3× on Windows;
+  - tooling: 148 tests, 3×.
+- **Next:**
+  1. installer macOS fixes → release;
+  2. framework gaps (`v2/gaps`);
+  3. search verification;
+  4. health, redis, import-export, files, charts;
+  5. log-viewer after framework logging;
+  6. the npx macOS fix.
+  Weekly usage was about 65%, so stay paced.
+
 ### 2026-11-18 ~17:20 UTC: account A — stopped by the project lead ("stop everything")
 - **Did:**
   - **released `@strutvane/framework` 0.2.0-next.1 and `@strutvane/ui` 0.2.0-next.1 to npm** (approved by the lead; CI green on all platforms);
