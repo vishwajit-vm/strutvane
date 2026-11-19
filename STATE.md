@@ -94,6 +94,7 @@ Tracked privately in `docs/research/2026-11-15-audit-findings.md` (git-excluded)
 ## 6. Verification log (newest first)
 | Date | What | Result |
 |---|---|---|
+| 2026-11-19 | social-login `v2/social-login` (verified 3×, 247) fast-forwarded to `main` 1306a62 + tooling sync; release not enabled yet (needs trusted publisher + `RELEASE_ENABLED`) | merged |
 | 2026-11-19 | Decision #131: pre-1.0 releases go to `latest`. The lead moved `latest` to 0.2.0-next.1 for framework, ui, auth, design-crisp, design-vivid (`npm view` confirmed); tooling 14c0922 makes future releases stage as `latest` (148 tests 3×) | done |
 | 2026-11-19 | `npm view` design-crisp / design-vivid after the lead's approval | both **0.2.0-next.1** live |
 | 2026-11-19 | create-strutvane `fix/ci-linux` 548044a: plain npm ci, gate 3×, prod audit; versioned 0.2.0-next.2 and merged (5fc1185) | 524 passed, 3 skipped each run |
