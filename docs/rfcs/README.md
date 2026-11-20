@@ -29,6 +29,7 @@ You need one for any change to:
 | [0003](0003-errors-and-messages.md) | Errors, validation messages and form error handling | Accepted |
 | [0004](0004-logs-package.md) | `@strutvane/logs`: zero-config logging with a built-in viewer | Accepted |
 | [0006](0006-queues-and-background-work.md) | Queues and background work: jobs, retries, unique jobs, chains, batches, outbox | Draft |
+| [0007](0007-database-connections.md) | Several database connections, and every key in the app `.env` (#132) | Draft |
 
 ## Template
 
