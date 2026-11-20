@@ -7,7 +7,7 @@
 > - **Run `node scripts/state-check.mjs` at the start of every session and before reporting status.** It fails if any repo has uncommitted or unpushed work, or if this file names a commit that doesn't exist.
 > - Details live elsewhere and are linked, not copied: decisions in `spikes/CONSISTENCY-2026-11-15.md`, the plan in `docs/21-delivery-plan.md`, rules in `docs/19-production-readiness.md`, each branch's `NEXT.md`.
 
-_Last updated: 2026-11-19 ~23:35 IST. **Stopped for the night** (the project lead asked to stop by 12:00). No agents, background tasks or scheduled jobs; every branch is committed and pushed._
+_Last updated: 2026-11-20 ~06:30 IST. `@strutvane/redis` and `strutvane` (npx guard) 0.2.0-next.0 are **LIVE on npm as `latest`** (approved by the lead). Agents running: installer macOS fix, demo-app acceptance, queues (0.3). Framework `v2/gaps` b0de9ca is being verified 3× by the coordinator._
 
 ## 1. Release status
 | Item | State |
@@ -31,7 +31,8 @@ _Last updated: 2026-11-19 ~23:35 IST. **Stopped for the night** (the project lea
 | strutvane-files | v1, first pushed 2026-11-16 | — | — | — |
 | strutvane-design-crisp | **0.2.0-next.1** (ed05b5f, 2026-11-19): built against the published ui; peer floor `^0.2.0-next.1` | — | ✅ verified and merged; ✅ **LIVE on npm** (`next`, approved 2026-11-19) | 106 passed 3×; prod audit 0 (coordinator, 2026-11-19) |
 | strutvane-design-vivid | **0.2.0-next.1** (3d6dfc6, 2026-11-19): lockfile rebuilt from the registry; peer floor `^0.2.0-next.1` | — | ✅ verified and merged; ✅ **LIVE on npm** (`next`, approved 2026-11-19) | 233 passed 3×; prod audit 0 (coordinator, 2026-11-19) |
-| strutvane-npx (`strutvane`, npx guard) | **0.2.0-next.0** (10aa9b1, tooling sync merged 2026-11-18) | — | ✅ done; CI/release workflows synced; `RELEASE_ENABLED` not set yet | **107 passed, 3 skipped, 3×** (coordinator, before and after the sync) |
+| strutvane-npx (`strutvane`, npx guard) | **0.2.0-next.0** (78e8a97, 2026-11-20): macOS fix, fsevents' install script refused | — | ✅ **LIVE on npm as `latest`** (release run 44644934373, approved by the lead 2026-11-20); `RELEASE_ENABLED=true` | **116 passed, 3 skipped, 3×** (coordinator, 2026-11-20); CI green on Linux/Windows/macOS |
+| strutvane-redis (`@strutvane/redis`) | **0.2.0-next.0** (5a42a8a, 2026-11-20): cache/session/queue drivers; tooling synced (#131) | — | ✅ **LIVE on npm as `latest`** (release run 44644896414, approved by the lead 2026-11-20); `RELEASE_ENABLED=true` | **56 unit + 127 integration (real Redis), 3×** (coordinator, 2026-11-20); audit 0; CI green on Linux/Windows/macOS |
 | strutvane-skeleton (app template) | placeholder README | `v2/skeleton` 7a8be7e (template/, skeleton.json, renderer, INSTALLER.md) | 🔄 pushed | 62 tests, 3× *(agent-reported)* |
 | 43 planned repos (README + LICENSE only) | created 2026-11-17: strutvane-skeleton, strutvane-npx, strutvane-design-glass and 40 add-ons (`strutvane-<id>` for every planned catalogue id) | — | planned | — |
 | core, contracts, cli, devkit | archived (moved into the framework) | — | — | — |
@@ -48,9 +49,8 @@ _Last updated: 2026-11-19 ~23:35 IST. **Stopped for the night** (the project lea
 | `@strutvane/social-login` | `v2/social-login` | 28e7025 | ✅ verified 3× by me (247), tooling synced; needs RELEASE_ENABLED + npm trusted publisher, then merge → release |
 | `@strutvane/search` | `v2/search` | f06a953 | 212 tests 3× *(agent-reported)*; needs my verification + allowScripts (npm ci fails) |
 | `@strutvane/health` | `v2/health` | 0477c71 | finishing (`changeset version` next), then gate |
-| `@strutvane/redis` / import-export / charts / files | `v2/<name>` | 6357d64 / 5e7b3a7 / 9ea007f / 1ca9aff | WIP; first step for each: dev dependency → framework 0.2.0-next.1 + allowScripts so plain `npm ci` passes |
+| import-export / charts / files | `v2/<name>` | 5e7b3a7 / 9ea007f / 1ca9aff | WIP; first step for each: dev dependency → framework 0.2.0-next.1 + allowScripts so plain `npm ci` passes |
 | `@strutvane/log-viewer` | `v2/log-viewer` | 8d85229 | done; waits for framework logging (`v2/logging` f3e28b8) to merge and release |
-| `strutvane` (npx) | `main` 10aa9b1 | — | macOS CI fix + trusted publisher, then release |
 | tooling | `main` 100985b | — | ✅ verified 3× (146): 6 new library targets |
 
 **Lesson (2026-11-18):** every package whose dev dependency points at an unpublished version, or that has esbuild in its tree, fails plain `npm ci`. Fix: dev dependency → the published version, plus a pinned `allowScripts` list like the framework's.
@@ -94,6 +94,9 @@ Tracked privately in `docs/research/2026-11-15-audit-findings.md` (git-excluded)
 ## 6. Verification log (newest first)
 | Date | What | Result |
 |---|---|---|
+| 2026-11-20 | `@strutvane/redis` 0.2.0-next.0 and `strutvane` 0.2.0-next.0 staged as `latest` by CI and approved by the lead; `npm i` of each installs 0.2.0-next.0 (coordinator checked) | **LIVE** |
+| 2026-11-20 | redis `v2/redis` b1d0388: plain `npm ci`, `npm run ci` 3× (56 passed) + `test:integration` 3× (127 passed, real Redis); fast-forwarded to `main`; tooling sync 5a42a8a | merged |
+| 2026-11-20 | npx `fix/macos` 78e8a97: plain `npm ci`, gate 3× (116 passed, 3 skipped); `npm ci --os=darwin` dry run OK; fast-forwarded to `main` | merged |
 | 2026-11-19 | social-login `v2/social-login` (verified 3×, 247) fast-forwarded to `main` 1306a62 + tooling sync; release not enabled yet (needs trusted publisher + `RELEASE_ENABLED`) | merged |
 | 2026-11-19 | Decision #131: pre-1.0 releases go to `latest`. The lead moved `latest` to 0.2.0-next.1 for framework, ui, auth, design-crisp, design-vivid (`npm view` confirmed); tooling 14c0922 makes future releases stage as `latest` (148 tests 3×) | done |
 | 2026-11-19 | `npm view` design-crisp / design-vivid after the lead's approval | both **0.2.0-next.1** live |
