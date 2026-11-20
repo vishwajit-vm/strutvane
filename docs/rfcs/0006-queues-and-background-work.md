@@ -1,6 +1,6 @@
 # RFC-0006: Queues and background work
 
-- **Status:** Draft
+- **Status:** Draft (implementation in progress on framework branch `v2/queues`; changes made while implementing are marked *Amended 2026-11-20*)
 - **Created:** 2026-11-20
 - **Affects:** `@strutvane/framework` (new `queue/` module, `/queue` subpath, `Queue` and `Bus` facades, `node strut queue:*` commands, `config/queue.ts`), `@strutvane/framework/contracts` (the queue-driver types), `@strutvane/redis` (its experimental queue driver moves onto this contract), the future `queue-dashboard` add-on (observability hooks), and the 0.3 mail, notification and scheduler work that sits on top
 - **Blueprint:** hub `docs/18-v2-blueprint.md` §10 "Background work (0.3)"; delivery plan `docs/21-delivery-plan.md` §4.2 (queues: jobs, chains, batches, unique jobs, retries, outbox)
@@ -61,7 +61,7 @@ export const ImportRow = defineJob({
   backoff: 'exponential',          // seconds: number | number[] | 'exponential' (2^n with full jitter, capped)
   retryUntil: 3600,                // optional: stop retrying this many seconds after dispatch
   timeout: 60,                     // seconds; must be < the connection's retryAfter (checked at boot)
-  maxExceptions: 3,                // optional: fail after N thrown errors even if tries remain (releases don't count)
+  maxExceptions: 3,                // optional: fail after N thrown errors even if tries remain (releases don't count); Amended 2026-11-20: deferred past 0.3.0
   unique: { key: (data) => data.rowId, for: 600, until: 'processing' }, // §5
   async handle(data, ctx) { … },
   async failed(data, error, ctx) { … },   // optional, after the final attempt
@@ -124,7 +124,7 @@ What a driver stores is one JSON string, the **envelope**:
 Rules, enforced at dispatch (the error names the field path and how to fix it):
 
 1. **Plain data only** (`queue_payload_not_plain`): objects with `Object.prototype` or `null` prototype, arrays, strings, finite numbers, booleans, `null`. No `undefined` in arrays, no class instances (including `Date`, `Map`, models: pass an id or an ISO string), no functions, symbols, `bigint` (pass a string), no cycles. Depth ≤ 32.
-2. **Size cap** (`queue_payload_too_large`): the whole envelope ≤ 256 KiB by default (`config/queue.ts` `maxPayloadBytes`, hard ceiling 1 MiB, the Redis driver's limit). Large data goes to storage; the job carries the key.
+2. **Size cap** (`queue_payload_too_large`): the whole envelope ≤ 64 KiB by default (`config/queue.ts` `maxPayloadBytes`, hard ceiling 1 MiB, the Redis driver's limit). Large data goes to storage; the job carries the key. *Amended 2026-11-20:* 64 KiB, not 256 KiB, so the default fits the portable `TEXT` payload column on MySQL/MariaDB.
 3. **No secrets** (`queue_payload_sensitive`): keys matching the logger's sensitive-key matcher (`password`, `token`, `secret`, `apiKey`, registered hidden fields, …) are refused. The hint: pass an id and load the secret inside `handle`. Jobs tables end up in backups, dashboards and logs; secrets must not.
 4. **Signed** (`sig`): HMAC-SHA256 over the canonical JSON of every other field, keyed by an HKDF subkey of `APP_KEY` (`info = "strutvane.queue.v1"`), the same derivation storage signing uses. `APP_KEY` rotation: the worker also accepts signatures from `APP_PREVIOUS_KEYS`, so in-flight jobs survive a rotation.
 5. **No code:** the envelope names a registered job; nothing in it is ever imported, `eval`ed or used as a path.
@@ -133,18 +133,20 @@ The `data` is validated again with `schema` in the worker before `handle` (a job
 
 ### 3. Dispatching
 
+*Amended 2026-11-20:* no thenable `PendingDispatch` (an object that only acts when awaited is easy to forget, and linters flag `then` properties). Options go in the second argument, or fluently on `Job.with(data)`, which ends with `.dispatch()`.
+
 | API | Does |
 |---|---|
-| `Job.dispatch(data)` | returns a `PendingDispatch`, thenable: awaiting it pushes and resolves to the job id |
-| `.delay(seconds \| Date)` | available after the delay |
+| `Job.dispatch(data, { delay, queue, connection, afterCommit })` | pushes and resolves to the job id (`undefined` when a unique job's lock is held) |
+| `Job.with(data).delay(seconds \| Date)` | available after the delay; `.dispatch()` ends a fluent call |
 | `.onQueue(name)` / `.onConnection(name)` | routing; queue names `/^[A-Za-z0-9_.-]{1,64}$/` |
 | `.afterCommit()` | inside a DB transaction, push only after it commits; dropped if it rolls back (the default when `config/queue.ts` `afterCommit: true`) |
-| `.viaOutbox()` | write to the transactional outbox in the current transaction (§8) |
+| `.viaOutbox()` | write to the transactional outbox in the current transaction (§8; not implemented yet) |
 | `Job.dispatchSync(data)` | run now, in this process, through the full lifecycle (validation, tenant, `failed()`), no driver |
 | `Job.dispatchIf(cond, data)` / `dispatchUnless` | sugar |
 | `Bus.dispatch(Job.with(data))`, `Queue.push(...)`, `Queue.later(...)`, `Queue.size(queue)` | the facades |
 
-`afterCommit` needs a commit hook on the ORM connection: `Connection.afterCommit(fn)` runs `fn` after the outermost transaction commits (savepoint rollbacks drop callbacks registered inside them). This is a small, separate addition to the database layer.
+`afterCommit` needs a commit hook on the ORM connection: `Connection.afterCommit(fn)` runs `fn` after the outermost transaction commits (savepoint rollbacks drop callbacks registered inside them). This is a small, separate addition to the database layer. Callbacks run once the transaction's connection is back in the pool (SQLite has a single connection, and the callback pushes through it); one that throws is ignored, because the transaction already committed, so the queue logs its own push failures.
 
 ### 4. Workers
 
@@ -165,7 +167,7 @@ The loop: pick the first queue in priority order that has a job; run it; acknowl
 
 **Graceful shutdown.** `SIGTERM` / `SIGINT` (and `queue:restart`, §4.1): stop reserving, abort nothing yet, let the current job finish for up to `--timeout` seconds, then acknowledge, close the connection and exit 0. A job still running when the grace runs out is not acknowledged: its reservation expires and another worker retries it. A second signal exits immediately.
 
-**Limits.** `--memory` (MB, resident set) and `--max-jobs` / `--max-time` stop the worker *between* jobs with exit code 12 (memory) or 0 (limits), for a supervisor (systemd, Docker, PM2) to restart.
+**Limits.** `--memory` (MB, resident set; default 512, *amended 2026-11-20*: Laravel's 128 is below what a booted Node app with a database driver already uses) and `--max-jobs` / `--max-time` stop the worker *between* jobs with exit code 12 (memory) or 0 (limits), for a supervisor (systemd, Docker, PM2) to restart.
 
 **Logs.** The worker logs through the framework logger only (ADR-0022), with `{ process: 'worker', pid }` context. Each worker process writes its own file next to the app's log (`storage/logs/strutvane-worker-<pid>.log`), so files never interleave; the log viewer and `log:tail` merge them. Payload `data` is never logged by default (only job name, id, queue, attempt, duration, error code).
 
@@ -177,7 +179,7 @@ Writes `strutvane:queue:restart = <timestamp>` to the default cache store (file 
 
 `unique: { key, for, until }` (Laravel's `ShouldBeUnique`): dispatch acquires a lock `queue:unique:<job>:<key>` for `for` seconds in the queue's **lock store**; if it is held, the dispatch is skipped and resolves to `undefined` (and `queue.job.skipped` is emitted). `until: 'processing'` (default) releases the lock just before `handle` runs; `'completed'` releases it after success or final failure. The lock owner is a random token in the envelope, so only that job releases it; `for` bounds a lock whose job vanished.
 
-The lock store is a small contract (`acquire(key, owner, ttlSeconds)`, `release(key, owner)`), implemented by the database driver (a `queue_locks` table, insert-or-take-over-if-expired in one statement), the memory driver and the Redis add-on (`SET NX PX`). The scheduler's `withoutOverlapping` and `onOneServer` (§12) reuse it.
+The lock store is a small contract (`acquire(key, owner, ttlSeconds)`, `release(key, owner)`), implemented by the database driver (a `queue_locks` table: insert if absent, else take over an expired lock with a compare-and-set update, then read the owner back; *amended 2026-11-20*: affected-row counts aren't trusted, because MySQL's driver reports *found* rows for `ON DUPLICATE KEY UPDATE`), the memory driver and the Redis add-on (`SET NX PX`). The scheduler's `withoutOverlapping` and `onOneServer` (§12) reuse it.
 
 ### 6. Chains
 
@@ -246,7 +248,7 @@ interface QueueDriver {
 }
 ```
 
-The only additions to the Redis proposal are the optional `id` (idempotent push; drivers that cannot honour it ignore it), `extend` and `close`. Add-ons register drivers with `QueueManager.extend('redis', (config, app) => driver)` in their provider; `config/queue.ts` then names `driver: 'redis'`. The framework ships a **driver contract test suite** in `@strutvane/framework/testing` (`queueDriverContract(makeDriver)`) that every driver runs, including the concurrency cases below.
+The only additions to the Redis proposal are the optional `id` (idempotent push; drivers that cannot honour it ignore it), `extend` and `close`. Add-ons register drivers with `registerQueueDriver(app.container, 'redis', (config, deps) => driver)` in their provider's `register()` (*amended 2026-11-20*: a factory map in the container, `QueueDriversToken`, instead of `QueueManager.extend`, because the manager is built at boot after every provider registered); `config/queue.ts` then names `driver: 'redis'`. The framework ships a **driver contract test suite** in `@strutvane/framework/testing` (`queueDriverContract({ idempotentPush, usesClock })`) that every driver runs, including the concurrency cases below. The cases are runner-agnostic (they throw through `node:assert`), and a driver on its server's clock (Redis `TIME`) sets `usesClock: false` to skip the time-travel cases.
 
 **Database driver.** Table `jobs (id, queue, payload, attempts, available_at, reserved_until, reservation, created_at)`, index `(queue, available_at)`. Times are epoch milliseconds from the app clock. `pop` selects a few candidate ids and claims one with a compare-and-set `UPDATE … SET reserved_until = ?, reservation = <random>, attempts = attempts + 1 WHERE id = ? AND available_at <= ? AND (reserved_until IS NULL OR reserved_until <= ?)`; the update that reports one affected row owns the job. This is correct on every engine (no `SKIP LOCKED` needed; PostgreSQL and MySQL 8 may use it later as an optimisation). `ack` is `DELETE … WHERE id = ? AND reservation = ?`, so a worker whose reservation expired cannot delete the job another worker now owns. Clocks of workers on different machines must agree to well within `retryAfter`.
 
@@ -268,7 +270,7 @@ export default defineConfig((env) => ({
 }))
 ```
 
-Without a config file the default is `sync` in `APP_ENV=testing`, else `database` when the app has a database connection, else `sync` with a boot warning. `.env.example` gains `QUEUE_CONNECTION=database`. A bad config (unknown driver, `timeout ≥ retryAfter`, a default naming no connection) stops boot with a friendly error.
+Without a config file `QUEUE_CONNECTION` decides; unset, the default is `sync` under `APP_ENV=testing`, else `database` (*amended 2026-11-20*: no "sync with a boot warning" fallback: the database connection opens lazily, so boot can't tell whether it will work). `.env.example` gains `QUEUE_CONNECTION=database`. A bad config (unknown driver, `timeout ≥ retryAfter`, a default naming no connection) stops boot with a friendly error.
 
 ### 12. Observability hooks (queue-dashboard)
 
