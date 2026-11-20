@@ -17,15 +17,16 @@
 
 ---
 
-## 0. Live status dashboard (updated 2026-11-19, 23:35 IST — ⏸ stopped for the night)
+## 0. Live status dashboard (updated 2026-11-20, ~07:30 IST — ⏸ stopped by the project lead)
 
 This section is updated at every milestone and before every stop, together with the PDF copy. Every number comes from `STATE.md`; anything not re-run by the coordinator is marked *(agent-reported)*.
 
-> **⏸ Stopped 2026-11-19, 23:35 IST.** **Live on npm as the `latest` default: framework, ui, auth, design-crisp and design-vivid (0.2.0-next.1).** Next to release:
-> - the installer 0.2.0-next.2 (merged; only macOS CI left to fix);
-> - social-login (merged; needs its npm trusted publisher).
->
-> Everything is pushed.
+> **⏸ Stopped 2026-11-20, ~07:30 IST** (the lead: "stop working now, we'll work tomorrow"). Weekly usage was **79%**; it resets on 25 Nov.
+> - **Live on npm as `latest`:** framework 0.2.0-next.1, ui, auth, design-crisp, design-vivid (0.2.0-next.1), redis, strutvane (npx), health and social-login (0.2.0-next.0).
+> - **Staged, waiting for the lead's approval:** framework **0.2.0-next.2**.
+> - **Security reviews of all 17 packages are done** (decision #134). No critical findings; the high findings are being fixed on local branches, and the details are in the private findings file only.
+> - **The demo app does not run end to end yet:** 10 blockers (`C:\personal_projects\strutvane-demo\ACCEPTANCE.md`), with three fix branches started.
+> - **Pushed:** every feature and demo branch. **Local only, on purpose:** the `fix/hardening-2026-11-20` branches and tooling `feat/release-hygiene`, because a public fix would point at a live weakness before its release.
 
 **Definitions:**
 - **Built:** the code is written.
@@ -39,66 +40,58 @@ This section is updated at every milestone and before every stop, together with 
 ### 0.1 Overall progress
 | Measure | Value |
 |---|---|
-| Release 0.2 (full flow) | **~85% done**: ~71 of ~84 planned agent-hours; **~13 hours left** |
-| Whole ecosystem (60 repos: 47 packages + designs + skeleton + tooling) | **~13% done** of ~546 agent-hours; ~470 left |
-| Released on npm (v2) | **framework, ui, auth, design-crisp, design-vivid 0.2.0-next.1 live as `latest`** (2026-11-18/19); installer next |
-| GitHub | **60 repos**, including 43 planned-package placeholders created 2026-11-17 (`strutvane-logs` renamed to `strutvane-log-viewer`) |
-| npm names | `@strutvane` scope owned; 45 names to reserve with `scripts/reserve-npm-names.mjs` (the project lead runs it) |
-| Time spent | ~6 days (13–18 Nov 2026), about 150–180 agent-hours *(estimate)* |
-| Tests passing, verified by the coordinator | framework `main` **2,981** (3×) · ui 488 · logs 573 · Crisp 105 · Vivid 233 · tooling 129; auth 819 + 63 and installer 473 *(agent-reported)* |
+| Release 0.2 (full flow) | **~70% done.** The demo acceptance found 10 cross-package blockers that each package's own tests missed, so about 30–35 agent-hours are left |
+| Released on npm (v2) | **9 packages live as `latest`**; framework 0.2.0-next.2 staged |
+| Security | 5 reviews over 17 packages (2026-11-20). High findings: auth ×2, release pipeline, Postgres runtime role, and 2 in unreleased add-ons. All are being fixed or are tracked |
+| Tests verified by the coordinator (2026-11-20) | framework `v2/gaps` **3,221** (3×) · redis 56 + 127 integration (3×) · npx 116 (3×) · health 149 · auth 864 + 64 (11-19) |
 
-### 0.2 ✅ Done list
-| Item | Built | Tested | Pushed | Merged | Released | Docs | Done |
-|---|---|---|---|---|---|---|---|
-| Tooling: npm CI and the R1–R9 production checks | ✅ | ✅ 129 | ✅ | ✅ | n/a | ✅ | **100%** |
-| Docs site v2 (live) | ✅ | ✅ 0 broken links | ✅ | ✅ | ✅ live | ✅ | **100%** (framework 0.2 pages being added) |
-| Old repos archived (core, contracts, cli, devkit) | ✅ | n/a | ✅ | ✅ | npm deprecation after 0.2 | ✅ | 90% |
-| **Framework 0.2.0-next.0** (app core + data layer + security fixes) | ✅ | ✅ 2,981 (3×) | ✅ | ✅ `main` | ⏳ CI fix, then approval | 🔄 | **~90%** |
-| design-crisp (default) | ✅ | ✅ 105 | ✅ | ✅ | ⏳ after ui | ⏳ | 70% |
-| design-vivid | ✅ | ✅ 233 | ✅ | ✅ | ⏳ after ui | ⏳ | 70% |
-| ui v2 | ✅ | ✅ 488 | ✅ branch | ⏳ lowercase codes | ⏳ | ⏳ | 65% |
-| auth v2 (own engine) | ✅ | ⚠️ agent-reported | ✅ branch | ⏳ lowercase codes | ⏳ | ⏳ | 65% |
-| create-strutvane v2 | ✅ | ⚠️ agent-reported 473 | ✅ branch | ⏳ | ⏳ | ✅ | 65% |
-| 43 planned repos + log-viewer rename | ✅ | n/a | ✅ | ✅ | n/a | ✅ | **100%** |
-| **`strutvane` (npx guard) 0.2.0-next.0** | ✅ | ✅ 107 (3×) | ✅ | ✅ `main` + CI synced | ⏳ trusted publisher + train | ⏳ | **~90%** |
-| **strutvane-tooling** (app-template profile) | ✅ | ✅ 144 (3×) | ✅ | ✅ | n/a | ✅ | **100%** |
-| Plans, decisions, STATE.md, HANDOFF.md, state-check, identity-check | ✅ | ✅ | ✅ | ✅ | n/a | ✅ | **100%** |
+### 0.2 ✅ Done list (2026-11-20)
+| Item | State |
+|---|---|
+| Framework 0.2 gaps: extension points, storage, `make:*`, model events | ✅ verified 3×, merged, **staged as 0.2.0-next.2** (waiting for approval) |
+| `@strutvane/redis` 0.2.0-next.0 | ✅ **live** |
+| `strutvane` (npx guard) 0.2.0-next.0, macOS fix | ✅ **live** |
+| `@strutvane/health` 0.2.0-next.0 | ✅ **live** |
+| `@strutvane/social-login` 0.2.0-next.0 | ✅ **live** (with a security fix pending: don't combine it with auth yet) |
+| `scripts/npm-latest-check.mjs`; the release script synced into charts, import-export and search | ✅ |
+| Decisions #132 (every `.env` key, several DBs), #133 (changelogs, versioning, releases), #134 (security for every package) | ✅ recorded |
 
-### 0.3 ⏸ In progress (stopped; all pushed)
-| Package | Task | Branch | Progress | Hours left |
-|---|---|---|---|---|
-| `@strutvane/framework` | **Release blockers**: compat `^0.2`, database connection in the v2 Application, `resources.json` internals, `ConfigOf`/`RoutesOf` exports | — (new) | 0% | ~3 |
-| `@strutvane/framework` | Windows/macOS CI fix | `fix/ci-cross-platform` bf2fa91 | ~90% (final gate left) | ~0.5 |
-| `@strutvane/framework` | Logging built in (ADR-0022) | `v2/logging` f3e28b8 | ~85% (code done; gate + checks left) | ~1.5 |
-| `@strutvane/auth` | Lowercase codes + `field` | `v2/native-engine` 9e4bf38 | ~80% (gate left) | ~1 |
-| `@strutvane/ui` | Lowercase codes + `field`, deterministic tests | `v2/behaviour` c375f7b | ~90% (gate re-run left) | ~0.5 |
-| strutvane-skeleton | App template + manifest + installer plan | `v2/skeleton` 7a8be7e | ~80% (decisions + tooling profile left) | ~1 |
-| strutvane-docs | Framework 0.2 pages | `docs/framework-0.2` 2c9b4a1 | ~50% | ~2 |
-
-### 0.4 ⏭ Next
-| Order | Item | Hours |
+### 0.3 ⏸ In progress (stopped; WIP committed)
+| Work | Branch (head) | State |
 |---|---|---|
-| 1 | Release framework 0.2.0-next.0 (CI stages it, the lead approves), then auth → ui → designs → installer at 0.2.0-next.0 | 3 |
-| 2 | log-viewer (UI only, on top of the framework's logging) | 4 |
-| 3 | Package installers (`node strut install:<x>`) | 8 |
-| 4 | Installer switched to the skeleton; catalogue CI | 5 |
-| 5 | Security reviews (R3) and soak tests (R4) for auth, ui and the installer | 6 |
-| 6 | Demo app end to end, docs labels removed, **release 0.2.0** | 8 |
+| **auth security fixes** (high ×2 first) | auth `fix/hardening-2026-11-20` 827973a (**local**) | ~25%; first priority next session |
+| health + redis security fixes | health `fix/hardening-2026-11-20` 6fade90 (**local**); redis branch created, nothing committed yet | ~40% / 0% |
+| Release pipeline hardening, changelogs, versioning, CodeQL | tooling `feat/release-hygiene` 4058547 (**local**) | ~50% |
+| Installer: macOS fixes | create-strutvane `fix/macos` 2565169 (pushed) | code done; Windows gate not yet 3× green in a row (machine load) |
+| Installer hardening | create-strutvane `fix/hardening-2026-11-20` 26fad80 (**local**) | ~40% |
+| Demo blockers: dev/build/start, manifest, logs, storage | framework `v2/app-runtime` 4ec741d | in progress |
+| Demo blockers: CRUD on the ORM, migrate generation, authorization controls | framework `v2/data-crud` 617a1d5 | in progress |
+| Demo blockers: auth registration, API prefix, policy style, seeder | auth/ui/skeleton `fix/demo` (b732d6d / 4ae59a1 / ef0ebff) | in progress |
+| #132 `.env` keys + named DBs + DB role and TLS safety | framework `v2/env-connections` 46f7def; skeleton/installer `feat/env-keys` | in progress |
+| Queues (0.3) | framework `v2/queues` ede99ea; RFC-0006 in the hub | paused by the lead (~30%) |
+
+### 0.4 ⏭ Next (in order)
+| Order | Item |
+|---|---|
+| 1 | Finish and release the auth security fixes (auth 0.2.0-next.2), then health and redis |
+| 2 | Release pipeline hardening (build and stage split, main-only, lockfile checks), then sync to every repo |
+| 3 | Installer: macOS + hardening gate 3×, then release |
+| 4 | Demo blockers (runtime, CRUD/migrate, auth/ui/skeleton), then re-run the acceptance suite |
+| 5 | #132 `.env` work; the lead's npm steps (move the stale `next` tags, deprecate v1, the release environment) |
+| 6 | 0.3: queues, then mail, notifications, scheduler, cache (after the 25 Nov usage reset) |
 
 ### 0.5 🗓 After that
-| Release | Packages | Hours | Target |
-|---|---|---|---|
-| 0.3 | queues, mail, notifications, scheduler, cache (framework) · redis · queue-dashboard · social-login · agent-tools | ~60 | mid–late Dec 2026 |
-| 1.0 | files · charts · dashboards · search · import-export · inspector · observability · health + external audit | ~82 | Feb 2027 |
-| 1.x | back-office → identity → money/realtime → content/AI → on demand (29 packages) | ~320 | Feb–Apr 2027 |
+| Release | Packages | Target |
+|---|---|---|
+| 0.2.0 + demo app end to end | core train + demo fixes | **end of November 2026** (at risk: the demo blockers and security fixes come first) |
+| 0.3 | queues, mail, notifications, scheduler, cache · queue-dashboard | **early December 2026** |
+| 1.0 | files · charts · search · import-export · log-viewer (all need their security fixes first) · external audit | Feb 2027 |
 
-### 0.6 Release timeline (~5 agent-hours/working day; faster with more agents in parallel)
-| Release | Hours left | Working days | Expected | With 30% buffer |
-|---|---|---|---|---|
-| 0.2 | ~43 | ~9 | **29 Nov 2026** | **2 Dec 2026** |
-| 0.3 | ~105 | ~21 | 10 Dec 2026 | 17 Dec 2026 |
-| 1.0 (build) | ~187 | ~37 | 26 Dec 2026 | 6 Jan 2027 (+ external audit → Feb 2027) |
-| Everything | ~507 | ~101 | 28 Feb 2027 | **31 Mar 2027** |
+### 0.6 Release timeline
+| Release | Expected | Note |
+|---|---|---|
+| 0.2.0 + demo | 30 Nov 2026 | needs ~30–35 agent-hours after the 25 Nov reset, plus whatever fits before it |
+| 0.3 | early–mid Dec 2026 | starts as soon as the 0.2 blockers are closed |
 
 ---
 

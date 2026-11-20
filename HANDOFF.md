@@ -66,6 +66,27 @@ Template:
 - Next session should start with: …
 ```
 
+### 2026-11-20 ~07:30 IST: account A — stopped by the project lead ("stop working now, we'll work tomorrow")
+- **Released today (live as `latest`):** `@strutvane/redis`, `strutvane` (npx), `@strutvane/health`, `@strutvane/social-login` (0.2.0-next.0). **Staged, waiting for approval:** framework 0.2.0-next.2.
+- **Decisions:** #132 (every `.env` key, several databases at once), #133 (changelogs, versioning, GitHub Releases), #134 (security review for every package). Hub script `scripts/npm-latest-check.mjs` checks every package's `latest`.
+- **Security:** 5 reviews over 17 packages; no critical. The fixes are on LOCAL-ONLY `fix/hardening-2026-11-20` branches and tooling `feat/release-hygiene` (see STATE §2a), which is why `state-check` flags them. The details are only in the private findings file.
+- **Demo:** the acceptance run (`C:\personal_projects\strutvane-demo\ACCEPTANCE.md`) found 10 blockers; fix branches are pushed (STATE §2a).
+- **Verified by re-running:**
+  - framework `v2/gaps` 3,221 tests, 3×;
+  - redis 56 + 127, 3×;
+  - npx 116, 3×;
+  - health 149.
+  Every other number is agent-reported.
+- **Incident:** GitHub's API timed out for a while, so identity-check failed. One hub commit (601fb77, decision #134) was pushed anyway, because a piped command hid the failure. The author was the personal email and the stored credential was `vishwajitvm`, so no wrong identity was used. Lesson: check the identity-check EXIT CODE; never pipe it.
+- **Next session should start with:** §1. Then:
+  1. the auth security fixes → auth 0.2.0-next.2;
+  2. health and redis fixes;
+  3. the tooling release split;
+  4. the installer gate 3× → release;
+  5. the demo blockers;
+  6. #132.
+  Queues stay paused until the lead says so. Pace by weekly usage: 79% at the stop, resets 25 Nov.
+
 ### 2026-11-19 ~23:35 IST: account A — stopped for the night (the lead asked to stop by 12:00)
 - **Released today (live on npm, now the `latest` default):** `@strutvane/auth`, `@strutvane/design-crisp` and `@strutvane/design-vivid` at 0.2.0-next.1, joining framework and ui. The lead moved `latest` for all five by hand.
 - **Decision #131:** pre-1.0 releases go to `latest`. tooling 14c0922 stages `next` versions as `latest` and never moves it backwards; it's synced into framework, ui, auth, both designs, npx, create-strutvane and social-login.

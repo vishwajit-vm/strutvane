@@ -7,7 +7,7 @@
 > - **Run `node scripts/state-check.mjs` at the start of every session and before reporting status.** It fails if any repo has uncommitted or unpushed work, or if this file names a commit that doesn't exist.
 > - Details live elsewhere and are linked, not copied: decisions in `spikes/CONSISTENCY-2026-11-15.md`, the plan in `docs/21-delivery-plan.md`, rules in `docs/19-production-readiness.md`, each branch's `NEXT.md`.
 
-_Last updated: 2026-11-20 ~06:30 IST. `@strutvane/redis` and `strutvane` (npx guard) 0.2.0-next.0 are **LIVE on npm as `latest`** (approved by the lead). Agents running: installer macOS fix, demo-app acceptance, queues (0.3). Framework `v2/gaps` b0de9ca is being verified 3× by the coordinator._
+_Last updated: 2026-11-20 ~07:30 IST. **Stopped by the project lead** ("stop working now, we'll work tomorrow"). No agents or background tasks are running, and no scratchpad worktrees are left. Every feature and demo branch is pushed. **On purpose, these are local only** (security fixes not yet released; don't push them before their release): auth `fix/hardening-2026-11-20` 827973a, health `fix/hardening-2026-11-20` 6fade90 (the health repo's working tree is checked out on that branch), redis `fix/hardening-2026-11-20` (created, no commits; the working tree is on it), social-login `fix/hardening-2026-11-20` (no commits), create-strutvane `fix/hardening-2026-11-20` 26fad80, tooling `feat/release-hygiene` 4058547 (the working tree is on it). So `state-check` reports these as unpushed; that is expected. Weekly usage was 79%; it resets 25 Nov 00:00 UTC._
 
 ## 1. Release status
 | Item | State |
@@ -52,6 +52,17 @@ _Last updated: 2026-11-20 ~06:30 IST. `@strutvane/redis` and `strutvane` (npx gu
 | import-export / charts / files | `v2/<name>` | 5e7b3a7 / 9ea007f / 1ca9aff | WIP; first step for each: dev dependency → framework 0.2.0-next.1 + allowScripts so plain `npm ci` passes |
 | `@strutvane/log-viewer` | `v2/log-viewer` | 8d85229 | done; waits for framework logging (`v2/logging` f3e28b8) to merge and release |
 | tooling | `main` 100985b | — | ✅ verified 3× (146): 6 new library targets |
+
+**2026-11-20 session (account A), what's open:**
+- framework **0.2.0-next.2 is STAGED**; the lead approves it on npmjs.com (it carries the `v2/gaps` work and a signed-link content-type fix).
+- Security reviews of all 17 packages are done (#134). The findings and their owners are only in the private findings file. **Do first:** the auth high findings (`fix/hardening-2026-11-20`), then the release-pipeline split (tooling `feat/release-hygiene`).
+- Demo blockers: framework `v2/app-runtime` 4ec741d and `v2/data-crud` 617a1d5; auth `fix/demo` b732d6d, ui `fix/demo` 4ae59a1, skeleton `fix/demo` ef0ebff.
+- #132: framework `v2/env-connections` 46f7def (also the DB role and TLS safety); skeleton `feat/env-keys` c7884a9; create-strutvane `feat/env-keys` cefa433.
+- Installer: `fix/macos` 2565169 (pushed; the code is done, but the gate isn't 3× green in a row because of machine load); hardening on its local branch.
+- Queues: `v2/queues` ede99ea, paused by the lead; RFC-0006 is in the hub (01f1f6a).
+- The lead's npm steps when asked:
+  - move or remove the stale `next` tags (`create-strutvane@next` and `strutvane@next` → v1 0.1.0-next.0) and deprecate those v1 versions;
+  - create the `npm-release` GitHub environment and re-bind the trusted publishers once the tooling split is ready.
 
 **Demo acceptance (2026-11-20, agent-reported; report `C:\personal_projects\strutvane-demo\ACCEPTANCE.md`):** the demo does **not** run end to end on the published 0.2.0-next.1 packages. Of 23 steps, 9 work, 7 need a workaround and 6 fail (1 skipped). There are 10 blockers (8 on SQLite, 2 more in Docker mode), 9 major items and 14 minor ones.
 Fixing on new branches, all built on framework `v2/gaps`:
