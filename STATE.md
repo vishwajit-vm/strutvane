@@ -53,6 +53,14 @@ _Last updated: 2026-11-20 ~06:30 IST. `@strutvane/redis` and `strutvane` (npx gu
 | `@strutvane/log-viewer` | `v2/log-viewer` | 8d85229 | done; waits for framework logging (`v2/logging` f3e28b8) to merge and release |
 | tooling | `main` 100985b | — | ✅ verified 3× (146): 6 new library targets |
 
+**Demo acceptance (2026-11-20, agent-reported; report `C:\personal_projects\strutvane-demo\ACCEPTANCE.md`):** the demo does **not** run end to end on the published 0.2.0-next.1 packages. Of 23 steps, 9 work, 7 need a workaround and 6 fail (1 skipped). There are 10 blockers (8 on SQLite, 2 more in Docker mode), 9 major items and 14 minor ones.
+Fixing on new branches, all built on framework `v2/gaps`:
+- framework `v2/app-runtime`: dev/build/start on one port, the manifest, logs, commands;
+- framework `v2/data-crud`: the CRUD controller on ORM models, `migrate` generating the API and UI, seeders, unique-value errors;
+- auth, ui and skeleton `fix/demo`: registering auth, one API prefix `/api/v1`, policy style, integer ids, a re-runnable seeder.
+DOCK-1 (in Docker on Windows, every framework command fails because folders show as owned by root) needs a decision from the lead, because the fix touches a security check.
+Lesson: each package's own tests passed all of these. A cross-package CI job is needed that installs an app from every package together and runs the acceptance suites.
+
 **Lesson (2026-11-18):** every package whose dev dependency points at an unpublished version, or that has esbuild in its tree, fails plain `npm ci`. Fix: dev dependency → the published version, plus a pinned `allowScripts` list like the framework's.
 
 ## 3. Open decisions (waiting on the project lead)
