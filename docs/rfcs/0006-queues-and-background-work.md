@@ -26,7 +26,7 @@ export const SendWelcomeEmail = defineJob({
 await SendWelcomeEmail.dispatch({ userId: user.id })              // queued
 await SendWelcomeEmail.dispatch({ userId }).delay(60).onQueue('emails')
 await Bus.chain([ResizeImage.with({ id }), PublishPost.with({ id })]).dispatch()
-await Bus.batch(rows.map((row) => ImportRow.with(row))).then(ImportDone.with({ importId })).dispatch()
+await Bus.batch(rows.map((row) => ImportRow.with(row))).onSuccess(ImportDone.with({ importId })).dispatch()
 ```
 
 ```text
@@ -141,7 +141,7 @@ The `data` is validated again with `schema` in the worker before `handle` (a job
 | `Job.with(data).delay(seconds \| Date)` | available after the delay; `.dispatch()` ends a fluent call |
 | `.onQueue(name)` / `.onConnection(name)` | routing; queue names `/^[A-Za-z0-9_.-]{1,64}$/` |
 | `.afterCommit()` | inside a DB transaction, push only after it commits; dropped if it rolls back (the default when `config/queue.ts` `afterCommit: true`) |
-| `.viaOutbox()` | write to the transactional outbox in the current transaction (§8; not implemented yet) |
+| `.viaOutbox()` / `{ viaOutbox: true }` | write to the transactional outbox in the current transaction (§8) |
 | `Job.dispatchSync(data)` | run now, in this process, through the full lifecycle (validation, tenant, `failed()`), no driver |
 | `Job.dispatchIf(cond, data)` / `dispatchUnless` | sugar |
 | `Bus.dispatch(Job.with(data))`, `Queue.push(...)`, `Queue.later(...)`, `Queue.size(queue)` | the facades |
@@ -183,24 +183,26 @@ The lock store is a small contract (`acquire(key, owner, ttlSeconds)`, `release(
 
 ### 6. Chains
 
-`Bus.chain([A.with(a), B.with(b), C.with(c)]).catch(ChainFailed.with(x)).dispatch()` pushes `A` with the remaining steps in its envelope (signed with it). When `A` succeeds, the worker pushes `B` **before** acknowledging `A`. The next step's id is derived (`uuidv5(A.id, 'chain:1')`), and drivers that support idempotent pushes (database: insert ignored on a duplicate id) make the "pushed, crashed before ack, pushed again" case a no-op; on drivers that cannot (Redis today), `B` may run twice, which at-least-once already allows. When a step fails for good, the chain stops and the `catch` job is pushed once.
+`Bus.chain([A.with(a), B.with(b), C.with(c)]).onFailure(ChainFailed.with(x)).dispatch()` pushes `A` with the remaining steps in its envelope (signed with it). When `A` succeeds, the worker pushes `B` **before** acknowledging `A`. The next step's id is derived (a SHA-256 of `A.id` and a purpose, formatted as a UUID), and drivers that support idempotent pushes (database: insert ignored on a duplicate id) make the "pushed, crashed before ack, pushed again" case a no-op; on drivers that cannot (Redis today), `B` may run twice, which at-least-once already allows. When a step fails for good, the chain stops and the `onFailure` job is pushed once.
 
 ### 7. Batches and failures
 
 #### 7.1 Batches
 
 ```ts
-const batch = await Bus.batch(rows.map((row) => ImportRow.with(row)))
+const batchId = await Bus.batch(rows.map((row) => ImportRow.with(row)))
   .name('import 2026-11')
   .allowFailures()
-  .then(ImportDone.with({ importId }))      // all succeeded (or failures allowed)
-  .catch(ImportFailed.with({ importId }))   // first failure (when failures are not allowed)
-  .finally(ImportCleanup.with({ importId }))
+  .onSuccess(ImportDone.with({ importId }))   // every job succeeded (Laravel's then)
+  .onFailure(ImportFailed.with({ importId })) // the first job that failed for good (catch)
+  .onFinish(ImportCleanup.with({ importId })) // every job finished, either way (finally)
   .dispatch()
-batch.id // → Bus.findBatch(id): { total, pending, failed, progress, cancelled, finishedAt }
+await Bus.findBatch(batchId) // { total, pending, failed, progress, cancelled, finished, … }
 ```
 
-Callbacks are **jobs, not closures** (closures cannot be serialised safely). Storage: `job_batches` (counters, options, timestamps) plus `job_batch_jobs (batch_id, job_id, state)`. Each job's completion is recorded with a compare-and-set on its member row (`pending → done | failed`), and the counters change only when that CAS succeeds. A job delivered twice therefore never counts twice, and `then` / `catch` / `finally` are claimed once with a CAS on `finished_at` / `cancelled_at`. `ctx.batch.cancelled` lets long batches stop early; `Bus.cancelBatch(id)` cancels.
+*Amended 2026-11-20:* Laravel's `then` / `catch` / `finally` are named `onSuccess` / `onFailure` / `onFinish` (and a chain's `catch` is `onFailure`): a builder with a `then` method is a thenable, so `await Bus.batch(…).then(…)` would call it with the promise machinery's resolver instead of dispatching.
+
+Callbacks are **jobs, not closures** (closures cannot be serialised safely), and *(amended)* they travel signed inside every member's envelope (`batch: { id, allowFailures, onSuccess, onFailure, onFinish }`), so the database rows hold only counters and state, and editing them can't make a worker dispatch anything. Storage: `job_batches` (counters, timestamps: `cancelled_at`, `finished_at`, `caught_at`) plus `job_batch_jobs (batch_id, job_id, state)`. Each job's completion is recorded with a compare-and-set on its member row (`pending → done | failed`), and the counters change only when that CAS succeeds. A job delivered twice therefore never counts twice; `onFailure` is claimed once with a CAS on `caught_at` and `onFinish` / `onSuccess` once with a CAS on `finished_at` (`onSuccess` only when nothing failed and the batch wasn't cancelled). Without `allowFailures`, the first failure cancels the batch. `await ctx.batch()` (its `cancelled` flag) lets long batches stop early; `Bus.cancelBatch(id)` cancels. Unique jobs can't be batch members (a skipped member would leave the batch unfinished). If pushing the members fails part-way, the batch is cancelled and the error is thrown.
 
 #### 7.2 Failed jobs
 
@@ -225,7 +227,7 @@ An envelope that cannot be parsed, has a bad or missing signature (`queue_payloa
 
 ### 8. The transactional outbox
 
-`dispatch(...).viaOutbox()` (and the framework's durable domain events) inserts the signed envelope into `outbox_messages (id, connection, queue, envelope, available_at, created_at, dispatched_at)` **in the caller's transaction**, so the job exists exactly when the business change committed. A relay moves undispatched rows to their queue driver, oldest first, in small claims (`UPDATE … SET claimed_until` CAS, like a reservation), and marks them dispatched. It runs inside every `queue:work` (one tick per idle loop) and as `node strut queue:relay` for dedicated setups. Pushes reuse the outbox id, so a relay crash between push and mark is deduplicated by the database driver and is at-least-once elsewhere. `queue:prune-outbox --hours=24` removes dispatched rows.
+`Job.with(data).viaOutbox().dispatch()` (and the framework's durable domain events) inserts the signed envelope into `queue_outbox (id, connection, queue, payload, available_at, created_at, claimed_until, claim, dispatched_at)` *(amended 2026-11-20: table name and columns as implemented)* **in the caller's transaction**, so the job exists exactly when the business change committed. A relay moves undispatched rows to their queue driver, oldest first, in small claims (`UPDATE … SET claimed_until` CAS, like a reservation), and marks them dispatched. It runs inside every `queue:work` (one tick per idle loop; *amended*: no separate `queue:relay` command yet). When the outbox can't be read (usually: the table was never migrated) the relay logs it once with a hint and stays off in that process. Pushes reuse the outbox id, so a relay crash between push and mark is deduplicated by the database driver and is at-least-once elsewhere. `queue:prune-outbox --hours=24` removes dispatched rows.
 
 ### 9. Tenancy
 
