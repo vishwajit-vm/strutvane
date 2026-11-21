@@ -110,7 +110,11 @@ if (probe('git', ['status', '--porcelain'], CLONE)) {
 run('git', ['push', '-q', 'origin', 'main'], CLONE)
 process.stdout.write('pushed: findings + memory → strutvane-private main\n')
 
-// 4. Every local branch with no copy on its public origin → private repo as <repo>/<branch>.
+// 4. Every local branch with work that exists nowhere public → private repo as <repo>/<branch>.
+// A branch whose head commit is already on ANY public branch (e.g. an empty branch made from main,
+// or a fix that has been released and merged) is skipped, and its old private copy is deleted.
+// The project lead asked for this repo to be maintained automatically (2026-11-21).
+const wanted = new Set()
 let pushed = 0
 for (const dir of readdirSync(PACKAGES).sort()) {
   const repo = join(PACKAGES, dir)
@@ -123,12 +127,25 @@ for (const dir of readdirSync(PACKAGES).sort()) {
     const head = run('git', ['rev-parse', branch], repo)
     if (onOrigin === head) continue // already public and identical: nothing to keep privately
     if (onOrigin !== '' && succeeds('git', ['merge-base', '--is-ancestor', branch, onOrigin], repo)) continue
+    // Already contained in some public branch (e.g. created from main with no commits yet)?
+    if (probe('git', ['branch', '-r', '--contains', head], repo).split('\n').some((r) => r.trim().startsWith('origin/'))) continue
     const target = `${dir}/${branch.replaceAll('/', '-')}`
+    wanted.add(target)
     run('git', ['push', '-q', '--force', PRIVATE_URL, `${branch}:refs/heads/${target}`], repo)
     process.stdout.write(`pushed: ${dir} ${branch} (${head.slice(0, 7)}) → strutvane-private ${target}\n`)
     pushed++
   }
 }
+// 4b. Prune private branches that are no longer needed (released, merged, deleted or empty).
+// Only `<repo>/<branch>` backup branches are touched; `main` and `demo/*` are kept.
+for (const line of probe('git', ['ls-remote', '--heads', PRIVATE_URL], CLONE).split('\n').filter(Boolean)) {
+  const ref = line.split(/\s+/)[1] ?? ''
+  const name = ref.replace('refs/heads/', '')
+  if (name === 'main' || name.startsWith('demo/') || wanted.has(name)) continue
+  run('git', ['push', '-q', PRIVATE_URL, `:${ref}`], CLONE)
+  process.stdout.write(`pruned: strutvane-private ${name} (no longer needed)\n`)
+}
+
 // 5. Per-package memory (the project lead, 2026-11-21: "every repo and every package … memory,
 // state, results, failures … what you did last … where you stopped"). For each packages/* repo:
 // packages/<name>/STATUS.md (generated facts: branches, heads, last commits, published version)
