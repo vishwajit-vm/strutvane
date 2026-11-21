@@ -66,6 +66,22 @@ Template:
 - Next session should start with: …
 ```
 
+### 2026-11-21 ~20:25 IST: account A — stopped at 89% weekly usage (the lead: build until 90%)
+- **Live:** framework 0.2.0-next.2 (approved by the lead).
+- **Did (all local, on purpose — unreleased security fixes):**
+  - auth `fix/hardening-2026-11-20` **da3c6f5**: the two high items are fixed. Features default to off; tenant `owner` is kept separate from platform roles. 883 + 64 tests *(agent-reported)*.
+  - tooling `feat/release-hygiene` **ecdd069**: build and stage are separate jobs, release only from `main`, and the 409 check fails closed. 212 tests, **3× verified**.
+  - health / redis: hardening in progress (see each branch's NEXT.md).
+- **Network:** all three agents stalled once on a network drop and were resumed. The auth WIP was saved first (b97d901).
+- **Next session should start with:** §1, then:
+  1. re-run auth da3c6f5 3× (my run was stopped at the limit) → `changeset version` → merge to auth main → stage auth 0.2.0-next.2 (the lead approves);
+  2. the skeleton and installer role maps give tenant roles `scope: 'tenant'`;
+  3. finish health and redis → patch releases;
+  4. the lead creates the `npm-release` environments and re-binds the trusted publishers → merge tooling → sync → watch one release (redis first);
+  5. the installer gate → release;
+  6. the demo blockers.
+  Queues stay paused. Weekly usage resets 25 Nov.
+
 ### 2026-11-20 ~07:30 IST: account A — stopped by the project lead ("stop working now, we'll work tomorrow")
 - **Released today (live as `latest`):** `@strutvane/redis`, `strutvane` (npx), `@strutvane/health`, `@strutvane/social-login` (0.2.0-next.0). **Staged, waiting for approval:** framework 0.2.0-next.2.
 - **Decisions:** #132 (every `.env` key, several databases at once), #133 (changelogs, versioning, GitHub Releases), #134 (security review for every package). Hub script `scripts/npm-latest-check.mjs` checks every package's `latest`.

@@ -17,13 +17,15 @@
 
 ---
 
-## 0. Live status dashboard (updated 2026-11-20, ~07:30 IST — ⏸ stopped by the project lead)
+## 0. Live status dashboard (updated 2026-11-21, ~20:25 IST — ⏸ stopped at 89% weekly usage)
 
 This section is updated at every milestone and before every stop, together with the PDF copy. Every number comes from `STATE.md`; anything not re-run by the coordinator is marked *(agent-reported)*.
 
-> **⏸ Stopped 2026-11-20, ~07:30 IST** (the lead: "stop working now, we'll work tomorrow"). Weekly usage was **79%**; it resets on 25 Nov.
+> **⏸ Stopped 2026-11-21, ~20:25 IST** at **89%** weekly usage (the lead: build until 90%). It resets on 25 Nov.
+> - **Framework 0.2.0-next.2 is now LIVE.**
+> - The two high auth fixes are done (local branch, release next).
+> - The release-pipeline split is verified 3× (212 tests); it waits for the lead's `npm-release` environment steps.
 > - **Live on npm as `latest`:** framework 0.2.0-next.1, ui, auth, design-crisp, design-vivid (0.2.0-next.1), redis, strutvane (npx), health and social-login (0.2.0-next.0).
-> - **Staged, waiting for the lead's approval:** framework **0.2.0-next.2**.
 > - **Security reviews of all 17 packages are done** (decision #134). No critical findings; the high findings are being fixed on local branches, and the details are in the private findings file only.
 > - **The demo app does not run end to end yet:** 10 blockers (`C:\personal_projects\strutvane-demo\ACCEPTANCE.md`), with three fix branches started.
 > - **Pushed:** every feature and demo branch. **Local only, on purpose:** the `fix/hardening-2026-11-20` branches and tooling `feat/release-hygiene`, because a public fix would point at a live weakness before its release.
@@ -59,9 +61,9 @@ This section is updated at every milestone and before every stop, together with 
 ### 0.3 ⏸ In progress (stopped; WIP committed)
 | Work | Branch (head) | State |
 |---|---|---|
-| **auth security fixes** (high ×2 first) | auth `fix/hardening-2026-11-20` 827973a (**local**) | ~25%; first priority next session |
+| **auth security fixes** (high ×2 first) | auth `fix/hardening-2026-11-20` da3c6f5 (**local**) | high ×2 **done** (883 + 64, agent-reported); coordinator re-run, then release next |
 | health + redis security fixes | health `fix/hardening-2026-11-20` 6fade90 (**local**); redis branch created, nothing committed yet | ~40% / 0% |
-| Release pipeline hardening, changelogs, versioning, CodeQL | tooling `feat/release-hygiene` 4058547 (**local**) | ~50% |
+| Release pipeline hardening, changelogs, versioning | tooling `feat/release-hygiene` ecdd069 (**local**) | build/stage split done, **212 tests 3× verified**; waits for the lead's environment steps |
 | Installer: macOS fixes | create-strutvane `fix/macos` 2565169 (pushed) | code done; Windows gate not yet 3× green in a row (machine load) |
 | Installer hardening | create-strutvane `fix/hardening-2026-11-20` 26fad80 (**local**) | ~40% |
 | Demo blockers: dev/build/start, manifest, logs, storage | framework `v2/app-runtime` 4ec741d | in progress |

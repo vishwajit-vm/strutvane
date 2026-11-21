@@ -7,7 +7,7 @@
 > - **Run `node scripts/state-check.mjs` at the start of every session and before reporting status.** It fails if any repo has uncommitted or unpushed work, or if this file names a commit that doesn't exist.
 > - Details live elsewhere and are linked, not copied: decisions in `spikes/CONSISTENCY-2026-11-15.md`, the plan in `docs/21-delivery-plan.md`, rules in `docs/19-production-readiness.md`, each branch's `NEXT.md`.
 
-_Last updated: 2026-11-20 ~07:30 IST. **Stopped by the project lead** ("stop working now, we'll work tomorrow"). No agents or background tasks are running, and no scratchpad worktrees are left. Every feature and demo branch is pushed. **On purpose, these are local only** (security fixes not yet released; don't push them before their release): auth `fix/hardening-2026-11-20` 827973a, health `fix/hardening-2026-11-20` 6fade90 (the health repo's working tree is checked out on that branch), redis `fix/hardening-2026-11-20` (created, no commits; the working tree is on it), social-login `fix/hardening-2026-11-20` (no commits), create-strutvane `fix/hardening-2026-11-20` 26fad80, tooling `feat/release-hygiene` 4058547 (the working tree is on it). So `state-check` reports these as unpushed; that is expected. Weekly usage was 79%; it resets 25 Nov 00:00 UTC._
+_Last updated: 2026-11-21 ~20:25 IST. **Stopped at 89% weekly usage** (the lead: build until 90%, then stop). No agents, background tasks or scheduled jobs. Framework **0.2.0-next.2 is LIVE** as `latest`. **On purpose, these are local only** (unreleased security fixes; don't push them before their release): auth `fix/hardening-2026-11-20` **da3c6f5** (the two high items done, 883 tests 3× + 64 integration *(agent-reported)*; my own 3× re-run was stopped by the usage limit), health and redis `fix/hardening-2026-11-20` (see §2a), social-login `fix/hardening-2026-11-20` (no commits), create-strutvane `fix/hardening-2026-11-20` 26fad80, tooling `feat/release-hygiene` **ecdd069** (build/stage split, main-only, fail-closed 409; **212 tests 3× verified by the coordinator**). Weekly usage resets 25 Nov 00:00 UTC._
 
 ## 1. Release status
 | Item | State |
@@ -52,6 +52,12 @@ _Last updated: 2026-11-20 ~07:30 IST. **Stopped by the project lead** ("stop wor
 | import-export / charts / files | `v2/<name>` | 5e7b3a7 / 9ea007f / 1ca9aff | WIP; first step for each: dev dependency → framework 0.2.0-next.1 + allowScripts so plain `npm ci` passes |
 | `@strutvane/log-viewer` | `v2/log-viewer` | 8d85229 | done; waits for framework logging (`v2/logging` f3e28b8) to merge and release |
 | tooling | `main` 100985b | — | ✅ verified 3× (146): 6 new library targets |
+
+**2026-11-21 session (account A):**
+- framework 0.2.0-next.2 is live.
+- auth: the two high hardening items are done on local `fix/hardening-2026-11-20` da3c6f5 (agent-reported 883 + 64). **Next:** the coordinator's 3× re-run → `changeset version` → merge to auth main → stage auth 0.2.0-next.2 → the lead approves.
+  - **Follow-up first:** the skeleton and installer `config/auth.ts` role maps must give tenant roles `scope: 'tenant'`, because roles without a scope are now platform roles.
+- tooling: the build/stage split is verified (ecdd069). **Before syncing it,** the lead creates a GitHub environment `npm-release` (deployment branch `main` only) in every published repo and sets Environment = `npm-release` on each npm trusted publisher (steps in tooling NEXT.md).
 
 **2026-11-20 session (account A), what's open:**
 - framework **0.2.0-next.2 is STAGED**; the lead approves it on npmjs.com (it carries the `v2/gaps` work and a signed-link content-type fix).
@@ -113,6 +119,7 @@ Tracked privately in `docs/research/2026-11-15-audit-findings.md` (git-excluded)
 ## 6. Verification log (newest first)
 | Date | What | Result |
 |---|---|---|
+| 2026-11-21 | tooling `feat/release-hygiene` ecdd069: plain `npm ci`, `npm run ci` 3× (212 passed each run) | verified; local until the lead creates the `npm-release` environments |
 | 2026-11-21 | `@strutvane/framework` 0.2.0-next.2 approved by the lead; the registry has `latest` = 0.2.0-next.2 (coordinator checked) | **LIVE** |
 | 2026-11-20 | `@strutvane/redis` 0.2.0-next.0 and `strutvane` 0.2.0-next.0 staged as `latest` by CI and approved by the lead; `npm i` of each installs 0.2.0-next.0 (coordinator checked) | **LIVE** |
 | 2026-11-20 | redis `v2/redis` b1d0388: plain `npm ci`, `npm run ci` 3× (56 passed) + `test:integration` 3× (127 passed, real Redis); fast-forwarded to `main`; tooling sync 5a42a8a | merged |
