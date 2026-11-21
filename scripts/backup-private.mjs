@@ -86,9 +86,20 @@ for (const [from, to] of [
   mkdirSync(dirname(to), { recursive: true })
   cpSync(from, to, { recursive: true })
 }
+// Copies of the hub's status, session log, plan and decisions, so the private repo alone is enough
+// to pick the work up again (context/CONTEXT.md is written by hand next to them and kept).
+mkdirSync(join(CLONE, 'context'), { recursive: true })
+for (const [from, name] of [
+  ['STATE.md', 'STATE.md'],
+  ['HANDOFF.md', 'HANDOFF.md'],
+  [join('docs', '21-delivery-plan.pdf'), '21-delivery-plan.pdf'],
+  [join('spikes', 'CONSISTENCY-2026-11-15.md'), 'decisions.md'],
+]) {
+  if (existsSync(join(HUB, from))) cpSync(join(HUB, from), join(CLONE, 'context', name))
+}
 run('git', ['add', '-A'], CLONE)
 if (probe('git', ['status', '--porcelain'], CLONE)) {
-  run('git', ['commit', '-s', '-q', '-m', `backup: findings and memory (${new Date().toISOString()})`], CLONE)
+  run('git', ['commit', '-s', '-q', '-m', `backup: context, findings and memory (${new Date().toISOString()})`], CLONE)
 }
 run('git', ['push', '-q', 'origin', 'main'], CLONE)
 process.stdout.write('pushed: findings + memory → strutvane-private main\n')
