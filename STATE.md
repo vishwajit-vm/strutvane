@@ -119,6 +119,7 @@ Tracked privately in `docs/research/2026-11-15-audit-findings.md` (git-excluded)
 ## 6. Verification log (newest first)
 | Date | What | Result |
 |---|---|---|
+| 2026-11-21 | Private backup repo `vishwajit-vm/strutvane-private` created (the lead's choice). `scripts/backup-private.mjs` pushes the 6 local-only security branches, the private findings, the Claude memory and the demo app + acceptance suite there; all public repos are already pushed | done |
 | 2026-11-21 | tooling `feat/release-hygiene` ecdd069: plain `npm ci`, `npm run ci` 3× (212 passed each run) | verified; local until the lead creates the `npm-release` environments |
 | 2026-11-21 | `@strutvane/framework` 0.2.0-next.2 approved by the lead; the registry has `latest` = 0.2.0-next.2 (coordinator checked) | **LIVE** |
 | 2026-11-20 | `@strutvane/redis` 0.2.0-next.0 and `strutvane` 0.2.0-next.0 staged as `latest` by CI and approved by the lead; `npm i` of each installs 0.2.0-next.0 (coordinator checked) | **LIVE** |
