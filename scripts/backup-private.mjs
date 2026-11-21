@@ -18,7 +18,7 @@
 // It refuses to run unless scripts/identity-check.mjs passes (personal account and email only).
 
 import { execFileSync } from 'node:child_process'
-import { cpSync, existsSync, mkdirSync, readdirSync, rmSync } from 'node:fs'
+import { cpSync, existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
 
@@ -41,6 +41,12 @@ function probe(cmd, args, cwd = HUB) {
   } catch {
     return ''
   }
+}
+
+/** Writes text to a file, creating its folder. */
+function cpSyncText(file, text) {
+  mkdirSync(dirname(file), { recursive: true })
+  writeFileSync(file, text)
 }
 
 /** True when the command exits 0 (for yes/no git questions such as merge-base --is-ancestor). */
@@ -123,7 +129,69 @@ for (const dir of readdirSync(PACKAGES).sort()) {
     pushed++
   }
 }
-// 5. The demo app (local-only git repo, no public remote) and its acceptance suite.
+// 5. Per-package memory (the project lead, 2026-11-21: "every repo and every package … memory,
+// state, results, failures … what you did last … where you stopped"). For each packages/* repo:
+// packages/<name>/STATUS.md (generated facts: branches, heads, last commits, published version)
+// plus copies of every branch's NEXT.md and of RELEASE-READINESS.md / CLAUDE.md. The hand-written
+// layer is each branch's NEXT.md (kept in the repo) and context/CONTEXT.md.
+const PKG_OUT = join(CLONE, 'packages')
+rmSync(PKG_OUT, { recursive: true, force: true })
+for (const dir of readdirSync(PACKAGES).sort()) {
+  const repo = join(PACKAGES, dir)
+  if (!existsSync(join(repo, '.git'))) continue
+  const out = join(PKG_OUT, dir)
+  mkdirSync(join(out, 'next'), { recursive: true })
+  const lines = [`# ${dir}: status (generated ${new Date().toISOString()})`, '']
+  let name = dir
+  try {
+    name = JSON.parse(run('git', ['show', 'HEAD:package.json'], repo)).name ?? dir
+  } catch {
+    // no package.json at HEAD: keep the folder name
+  }
+  // The registry directly (spawning npm.cmd on Windows needs a shell, which this script avoids).
+  let latest = ''
+  try {
+    const res = await fetch(`https://registry.npmjs.org/${name.replace('/', '%2f')}`, {
+      headers: { accept: 'application/vnd.npm.install-v1+json' },
+    })
+    if (res.ok) latest = ((await res.json())['dist-tags'] ?? {}).latest ?? ''
+  } catch {
+    latest = '(registry not reachable)'
+  }
+  lines.push(`- npm package: \`${name}\` — latest on npm: ${latest || '(none / not published)'}`)
+  lines.push(`- checked-out branch: \`${probe('git', ['branch', '--show-current'], repo)}\``)
+  const dirty = probe('git', ['status', '--porcelain'], repo)
+  lines.push(`- uncommitted changes: ${dirty ? dirty.split('\n').length : 0}`, '', '## Branches', '')
+  lines.push('| branch | head | last commit | on public origin? |', '|---|---|---|---|')
+  const branches = probe('git', ['for-each-ref', '--format=%(refname:short)', 'refs/heads'], repo)
+    .split('\n')
+    .filter(Boolean)
+  for (const branch of branches) {
+    const head = probe('git', ['log', '-1', '--format=%h|%cs %s', branch], repo)
+    const [sha = '', subject = ''] = head.split('|')
+    const remote = probe('git', ['rev-parse', '--verify', '--quiet', `refs/remotes/origin/${branch}`], repo)
+    const full = probe('git', ['rev-parse', branch], repo)
+    const where = remote === full ? 'yes' : remote ? 'behind/ahead' : 'no (private backup)'
+    lines.push(`| \`${branch}\` | ${sha} | ${subject.replaceAll('|', '/')} | ${where} |`)
+    const next = probe('git', ['show', `${branch}:NEXT.md`], repo)
+    if (next) cpSyncText(join(out, 'next', `${branch.replaceAll('/', '-')}.md`), next)
+  }
+  lines.push('', '## Recent commits (all branches)', '', '```')
+  lines.push(probe('git', ['log', '--all', '-12', '--format=%h %cs %d %s'], repo), '```', '')
+  cpSyncText(join(out, 'STATUS.md'), `${lines.join('\n')}\n`)
+  for (const file of ['RELEASE-READINESS.md', 'CLAUDE.md']) {
+    const text = probe('git', ['show', `HEAD:${file}`], repo)
+    if (text) cpSyncText(join(out, file), text)
+  }
+}
+run('git', ['add', '-A'], CLONE)
+if (probe('git', ['status', '--porcelain'], CLONE)) {
+  run('git', ['commit', '-s', '-q', '-m', 'backup: per-package memory'], CLONE)
+  run('git', ['push', '-q', 'origin', 'main'], CLONE)
+}
+process.stdout.write('pushed: per-package memory → strutvane-private packages/\n')
+
+// 6. The demo app (local-only git repo, no public remote) and its acceptance suite.
 // Never copied: `.admin-password.local`, logs, node_modules, build output.
 const DEMO = join(dirname(HUB), 'strutvane-demo')
 if (existsSync(DEMO)) {

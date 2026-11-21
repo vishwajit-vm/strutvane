@@ -44,11 +44,15 @@
    ```
 5. Add an entry at the top of §5 below (template there).
 6. Run `node scripts/identity-check.mjs`. Only if it prints `OK`: commit the hub (`docs(state): …`) and **push every repo and branch**. If it fails: commit nothing more and push nothing; say so in the §5 entry and to the project lead.
-6a. **Back up what can't be public:** run `node scripts/backup-private.mjs`. Every Strutvane repo is public, so these go to the PRIVATE repo `vishwajit-vm/strutvane-private`, so losing this computer loses nothing (decided by the lead on 2026-11-21):
+6a. **All memory layers (the lead, 2026-11-21: "memory, state, results, failures, all must be there … what you did last, where you stopped or got interrupted"):**
+    - every touched repo's **own memory**: its active branch's `NEXT.md` (done / half-done / results with numbers / failures / next / how to verify). Its `CLAUDE.md` is updated whenever a lasting fact about the repo changes. Commit these on the work branch, never directly on a release-enabled `main` just for notes.
+    - an interruption (network stall, killed agent, usage cap) is written down like a stop.
+    - then **back up what can't be public:** run `node scripts/backup-private.mjs`. Every Strutvane repo is public, so these go to the PRIVATE repo `vishwajit-vm/strutvane-private`, so losing this computer loses nothing (decided by the lead on 2026-11-21):
     - branches with unreleased security fixes (as `<repo>/<branch>`);
     - the private findings file;
     - each account's Claude memory folder;
-    - the demo app and its acceptance suite.
+    - the demo app and its acceptance suite;
+    - **per-package memory** `packages/<name>/` (generated STATUS.md, every branch's NEXT.md, RELEASE-READINESS.md, CLAUDE.md) and the hand-written `context/CONTEXT.md` (rewrite it at every stop: last action, result, failures, where it stopped, next).
     A new account restores from there: `git clone` it, copy `memory/account-a/*` into its own memory folder, and fetch a fix branch with `git -C packages/<repo> fetch https://github.com/vishwajit-vm/strutvane-private.git <repo>/<branch>:<branch>`.
 7. Release this session's git worktrees once their branch is pushed and clean (`git -C packages/<repo> worktree remove <path>` and then `git worktree prune`). Worktrees in a session's scratchpad belong to that session only: while one exists, no other session or account can check out that branch. The branch and its commits stay.
 8. Run `node scripts/state-check.mjs` and report the result in one line.
