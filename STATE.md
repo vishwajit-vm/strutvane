@@ -119,6 +119,8 @@ Tracked privately in `docs/research/2026-11-15-audit-findings.md` (git-excluded)
 ## 6. Verification log (newest first)
 | Date | What | Result |
 |---|---|---|
+| 2026-11-25 | Decision #136 (copyright holder Vishwajit Mall, TRADEMARKS.md). Hub `main` f5de05b. `chore/copyright-holder` is pushed in all 19 active repos; fast-forwarded to `main` in agent-tools, charts, docs, files, import-export, search, skeleton and tooling. The 11 published packages merge it with their next version (a changed tarball under an existing version would fail the integrity check). The 4 archived repos are unchanged | done |
+| 2026-11-25 | redis `fix/hardening-2026-11-20` ec8cd18: the 2 integration failures were out-of-date test setups (one-part prefix; no `APP_ENV`); no source change. 80 + 154 tests 3× *(agent-reported)*. The laptop went into Modern Standby 16:39–18:46 IST and caused timeouts; keep-awake is now requested | coordinator re-run pending |
 | 2026-11-21 | Private backup repo `vishwajit-vm/strutvane-private` created (the lead's choice). `scripts/backup-private.mjs` pushes the 6 local-only security branches, the private findings, the Claude memory and the demo app + acceptance suite there; all public repos are already pushed | done |
 | 2026-11-21 | tooling `feat/release-hygiene` ecdd069: plain `npm ci`, `npm run ci` 3× (212 passed each run) | verified; local until the lead creates the `npm-release` environments |
 | 2026-11-21 | `@strutvane/framework` 0.2.0-next.2 approved by the lead; the registry has `latest` = 0.2.0-next.2 (coordinator checked) | **LIVE** |
